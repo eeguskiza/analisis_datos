@@ -50,6 +50,20 @@ def normalize_ref(value: str) -> str:
     return text.lower()
 
 
+def normalizar_proceso(value: str) -> str:
+    """Normaliza el tipo de proceso para comparación consistente."""
+    if not value:
+        return "produccion"
+    text = value.strip().lower()
+    if text.startswith("produ"):
+        return "produccion"
+    if text.startswith("prepa"):
+        return "preparacion"
+    if text.startswith("inci"):
+        return "incidencias"
+    return "produccion"
+
+
 def cargar_logo(logo_path: Optional[Path]):
     if not logo_path:
         return None
@@ -143,8 +157,8 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
         for row in reader:
-            proceso = (row.get("Proceso") or "").strip().lower()
-            if proceso != "producción":
+            proceso = normalizar_proceso(row.get("Proceso", ""))
+            if proceso != "produccion":
                 continue
             horas = parse_float(row.get("Tiempo", "0"))
             piezas = parse_float(row.get("Cantidad", "0"))
@@ -235,17 +249,25 @@ def render_rendimiento(metrics: RendimientoMetrics, logo_image) -> plt.Figure:
         fontweight="bold",
         color="#000000",
     )
+    periodo = "Sin datos"
+    if metrics.start and metrics.end:
+        periodo = f"{metrics.start.strftime('%d/%m/%Y')} → {metrics.end.strftime('%d/%m/%Y')}"
+
     header_ax.text(
         0.4,
-        0.24,
+        0.30,
         f"Recurso: {metrics.resource.upper()}",
         fontsize=11,
         color="#424242",
     )
-
-    periodo = "Sin datos"
-    if metrics.start and metrics.end:
-        periodo = f"{metrics.start.date().isoformat()} → {metrics.end.date().isoformat()}"
+    header_ax.text(
+        0.4,
+        0.08,
+        f"Periodo: {periodo}",
+        fontsize=11,
+        fontweight="bold",
+        color="#263238",
+    )
 
     fig.text(
         0.03,
@@ -263,7 +285,6 @@ def render_rendimiento(metrics: RendimientoMetrics, logo_image) -> plt.Figure:
         0.0, 0.9, "Resumen ejecutivo de rendimiento", fontsize=11, fontweight="bold", color="#263238"
     )
     left_lines = [
-        f"Período: {periodo}",
         f"Horas de producción: {metrics.horas_produccion:0.2f} h",
         f"Piezas producidas: {metrics.piezas_totales:0.0f}",
         (

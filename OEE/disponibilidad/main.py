@@ -313,9 +313,13 @@ def build_page_one(
         transform=header_ax.transAxes,
         zorder=2,
     )
+    periodo = "Sin datos"
+    if metrics.start and metrics.end:
+        periodo = f"{metrics.start.strftime('%d/%m/%Y')} → {metrics.end.strftime('%d/%m/%Y')}"
+
     header_ax.text(
         title_x,
-        0.24,
+        0.30,
         f"Recurso: {metrics.resource_name.upper()}",
         fontsize=11,
         color="#424242",
@@ -323,10 +327,17 @@ def build_page_one(
         transform=header_ax.transAxes,
         zorder=2,
     )
-
-    periodo = "Sin datos"
-    if metrics.start and metrics.end:
-        periodo = f"{metrics.start.date().isoformat()} → {metrics.end.date().isoformat()}"
+    header_ax.text(
+        title_x,
+        0.08,
+        f"Periodo: {periodo}",
+        fontsize=11,
+        fontweight="bold",
+        color="#263238",
+        ha="left",
+        transform=header_ax.transAxes,
+        zorder=2,
+    )
 
     resumen_ax = fig.add_subplot(gs[1, 0])
     resumen_ax.axis("off")
@@ -343,7 +354,6 @@ def build_page_one(
         fontweight="bold",
     )
     left_lines = [
-        f"Período: {periodo}",
         f"Horas brutas: {metrics.total:0.2f} h",
         f"Producción efectiva: {metrics.produccion:0.2f} h",
     ]
