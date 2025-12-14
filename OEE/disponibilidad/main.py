@@ -172,6 +172,8 @@ def leer_metricas(csv_path: Path) -> DisponibilidadMetrics:
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
+        if reader.fieldnames:
+            reader.fieldnames = [name.strip() for name in reader.fieldnames]
         for row in reader:
             hours = parse_float(row.get("Tiempo", ""))
             proceso = normalizar_proceso(row.get("Proceso", ""))
@@ -540,10 +542,6 @@ def generar_informes_disponibilidad(
         section_dir.mkdir(parents=True, exist_ok=True)
         recurso_dir = section_dir / metrics.resource_name.lower()
         pdf_file = render_report(metrics, recurso_dir, logo_path=logo_path)
-        print(
-            f"[Disponibilidad] {metrics.resource_name}: "
-            f"{metrics.disponibilidad * 100:0.2f}% (PDF: {pdf_file})"
-        )
         resultados.append(pdf_file)
 
     return resultados

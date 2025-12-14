@@ -1348,7 +1348,6 @@ def generar_informes_oee_secciones(
     for nombre_seccion, ruta_seccion in secciones_lista:
         csv_files = sorted(ruta_seccion.glob("*.csv"))
         if not csv_files:
-            print(f"[OEE Secciones] Se omite {nombre_seccion}: no hay CSV.")
             continue
 
         maquinas = []
@@ -1380,7 +1379,6 @@ def generar_informes_oee_secciones(
             fecha_fin,
             semana_label,
         )
-        print(f"[OEE Secciones] {nombre_seccion}: {totales['oee_pct']:0.2f}% (PDF: {pdf_path})")
         resultados.append(pdf_path)
 
     return resultados

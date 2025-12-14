@@ -123,6 +123,8 @@ def leer_calidad(csv_path: Path) -> CalidadMetrics:
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
+        if reader.fieldnames:
+            reader.fieldnames = [name.strip() for name in reader.fieldnames]
         for row in reader:
             proceso = normalizar_proceso(row.get("Proceso", ""))
             if proceso != "produccion":
@@ -360,10 +362,6 @@ def generar_informes_calidad(
         output = recurso_dir / f"{metrics.resource}_calidad.pdf"
         fig.savefig(output)
         plt.close(fig)
-        print(
-            f"[Calidad] {metrics.resource}: {format_pct(metrics.calidad_oee, 2)} "
-            f"(PDF: {output})"
-        )
         resultados.append(output)
     return resultados
 
