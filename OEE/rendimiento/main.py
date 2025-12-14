@@ -125,7 +125,6 @@ class RendimientoMetrics:
 def cargar_tiempos_ciclo() -> Dict[str, Dict[str, float]]:
     ciclos: Dict[str, Dict[str, float]] = {}
     if not CYCLES_FILE.exists():
-        print(f"[Rendimiento] Aviso: no se encontró {CYCLES_FILE}, se omitirá el cálculo ideal.")
         return ciclos
 
     with CYCLES_FILE.open(encoding="utf-8-sig") as handler:
@@ -156,6 +155,8 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
+        if reader.fieldnames:
+            reader.fieldnames = [name.strip() for name in reader.fieldnames]
         for row in reader:
             proceso = normalizar_proceso(row.get("Proceso", ""))
             if proceso != "produccion":
@@ -406,7 +407,6 @@ def generar_informes_rendimiento(
         output = recurso_dir / f"{metrics.resource}_rendimiento.pdf"
         fig.savefig(output)
         plt.close(fig)
-        print(f"[Rendimiento] {metrics.resource}: {metrics.rendimiento_pct or 0:0.2f}% (PDF: {output})")
         resultados.append(output)
 
     if ciclos_faltantes_global:
@@ -414,20 +414,7 @@ def generar_informes_rendimiento(
         for maquina_raw, referencia_raw, ref_norm in ciclos_faltantes_global:
             key = (maquina_raw.lower(), ref_norm)
             faltantes_unicos.setdefault(key, (maquina_raw, referencia_raw))
-
-        print("[Rendimiento] Aviso: faltan tiempos de ciclo para las siguientes referencias:")
-        for _, (maquina, referencia) in sorted(faltantes_unicos.items()):
-            print(f"  - {maquina.upper()} / {referencia}")
-
-        nuevos = registrar_ciclos_faltantes(ciclos_faltantes_global, CYCLES_FILE)
-        if nuevos:
-            print(
-                f"[Rendimiento] Se añadieron {len(nuevos)} filas a {CYCLES_FILE} con tiempo_ciclo = 0."
-            )
-        else:
-            print(
-                "[Rendimiento] Estas referencias ya existen en ciclos.csv; asigna un tiempo de ciclo (>0) para que entren en el cálculo."
-            )
+        registrar_ciclos_faltantes(ciclos_faltantes_global, CYCLES_FILE)
 
     return resultados
 
