@@ -14,6 +14,7 @@ import matplotlib.image as mpimg
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Rectangle
 
+from OEE.utils.data_files import listar_csv_recursos
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 CYCLES_FILE = DATA_DIR / "ciclos.csv"
@@ -237,7 +238,7 @@ def generar_informes_oee(
 
     ciclos = cargar_ciclos()
     metrics_list = []
-    for csv_file in sorted(data_path.glob("*.csv")):
+    for csv_file in listar_csv_recursos(data_path):
         metrics = leer_oee(csv_file, ciclos)
         metrics_list.append(metrics)
 

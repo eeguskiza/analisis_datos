@@ -16,6 +16,8 @@ from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Rectangle, Patch
 from collections import defaultdict
 
+from OEE.utils.data_files import listar_csv_por_seccion
+
 
 CATEGORY_CONFIG: Dict[str, Dict[str, str]] = {
     "produccion": {"label": "Producción", "color": "#2E7D32"},
@@ -514,15 +516,20 @@ def generar_informes_disponibilidad(
     logo_path: Optional[Path] = None,
 ) -> Iterable[Path]:
     data_path = Path(data_dir) if data_dir else DEFAULT_DATA_DIR
-    report_path = Path(output_dir) if output_dir else DEFAULT_REPORT_DIR / "disponibilidad"
-    csv_files = sorted(data_path.glob("*.csv"))
-    if not csv_files:
-        raise FileNotFoundError(f"No se encontraron CSV en {data_path}")
+    base_output = Path(output_dir) if output_dir else DEFAULT_REPORT_DIR / "disponibilidad"
+    recursos_dir = data_path / "recursos"
+    busqueda = recursos_dir if recursos_dir.exists() else data_path
+    csv_entries = listar_csv_por_seccion(data_path)
+    if not csv_entries:
+        raise FileNotFoundError(f"No se encontraron CSV en {busqueda}")
 
     resultados = []
-    for csv_path in csv_files:
+    for seccion, csv_path in csv_entries:
         metrics = leer_metricas(csv_path)
-        pdf_file = render_report(metrics, report_path, logo_path=logo_path)
+        section_dir = base_output / seccion
+        section_dir.mkdir(parents=True, exist_ok=True)
+        recurso_dir = section_dir / metrics.resource_name.lower()
+        pdf_file = render_report(metrics, recurso_dir, logo_path=logo_path)
         print(
             f"[Disponibilidad] {metrics.resource_name}: "
             f"{metrics.disponibilidad * 100:0.2f}% (PDF: {pdf_file})"

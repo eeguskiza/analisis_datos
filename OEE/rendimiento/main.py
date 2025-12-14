@@ -4,7 +4,7 @@ import csv
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import matplotlib
 
@@ -14,6 +14,8 @@ import matplotlib.image as mpimg
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Rectangle
 
+from OEE.utils.data_files import listar_csv_por_seccion
+from OEE.utils.cycles_registry import registrar_ciclos_faltantes
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 CYCLES_FILE = DATA_DIR / "ciclos.csv"
@@ -103,6 +105,7 @@ class RendimientoMetrics:
     rendimiento_pct: Optional[float]
     top_referencias: List[ReferenciaRendimiento] = field(default_factory=list)
     registros_sin_ciclo: int = 0
+    ciclos_faltantes: List[Tuple[str, str, str]] = field(default_factory=list)
 
 
 def cargar_tiempos_ciclo() -> Dict[str, Dict[str, float]]:
@@ -133,6 +136,9 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
     total_piezas_ciclo = 0.0
     registros_sin_ciclo = 0
     referencias: Dict[str, ReferenciaRendimiento] = {}
+    faltantes: Dict[Tuple[str, str], str] = {}
+    recurso_nombre = csv_path.stem.split("-")[0]
+    recurso_clave = recurso_nombre.lower()
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
@@ -155,6 +161,9 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
             rate_pph = ciclos_maquina.get(ref_norm)
             if not rate_pph:
                 registros_sin_ciclo += 1
+                if ref_norm:
+                    key = (recurso_clave, ref_norm)
+                    faltantes.setdefault(key, row.get("Refer.") or ref_norm)
                 continue
 
             ideal_horas = piezas / rate_pph
@@ -185,7 +194,7 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
     ]
 
     return RendimientoMetrics(
-        resource=csv_path.stem.split("-")[0],
+        resource=recurso_nombre,
         start=start,
         end=end,
         horas_produccion=horas_produccion,
@@ -196,6 +205,10 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
         rendimiento_pct=rendimiento_pct,
         top_referencias=top_refs,
         registros_sin_ciclo=registros_sin_ciclo,
+        ciclos_faltantes=[
+            (maquina, referencia_display, ref_norm)
+            for (maquina, ref_norm), referencia_display in faltantes.items()
+        ],
     )
 
 
@@ -352,23 +365,49 @@ def generar_informes_rendimiento(
     logo_path: Optional[Path] = None,
 ) -> Iterable[Path]:
     data_path = Path(data_dir) if data_dir else DATA_DIR
-    report_path = Path(output_dir) if output_dir else REPORT_DIR
-    report_path.mkdir(parents=True, exist_ok=True)
+    base_output = Path(output_dir) if output_dir else REPORT_DIR
 
     ciclos = cargar_tiempos_ciclo()
 
     resultados = []
-    for csv_file in sorted(data_path.glob("*.csv")):
+    ciclos_faltantes_global: List[Tuple[str, str, str]] = []
+    for seccion, csv_file in listar_csv_por_seccion(data_path):
         recurso = csv_file.stem.split("-")[0].lower()
         ciclos_maquina = ciclos.get(recurso, {})
         metrics = leer_rendimiento(csv_file, ciclos_maquina)
+        ciclos_faltantes_global.extend(metrics.ciclos_faltantes)
         logo = cargar_logo(logo_path)
         fig = render_rendimiento(metrics, logo)
-        output = report_path / f"{metrics.resource}_rendimiento.pdf"
+        section_dir = base_output / seccion
+        section_dir.mkdir(parents=True, exist_ok=True)
+        recurso_dir = section_dir / metrics.resource.lower()
+        recurso_dir.mkdir(parents=True, exist_ok=True)
+        output = recurso_dir / f"{metrics.resource}_rendimiento.pdf"
         fig.savefig(output)
         plt.close(fig)
         print(f"[Rendimiento] {metrics.resource}: {metrics.rendimiento_pct or 0:0.2f}% (PDF: {output})")
         resultados.append(output)
+
+    if ciclos_faltantes_global:
+        faltantes_unicos = {}
+        for maquina_raw, referencia_raw, ref_norm in ciclos_faltantes_global:
+            key = (maquina_raw.lower(), ref_norm)
+            faltantes_unicos.setdefault(key, (maquina_raw, referencia_raw))
+
+        print("[Rendimiento] Aviso: faltan tiempos de ciclo para las siguientes referencias:")
+        for _, (maquina, referencia) in sorted(faltantes_unicos.items()):
+            print(f"  - {maquina.upper()} / {referencia}")
+
+        nuevos = registrar_ciclos_faltantes(ciclos_faltantes_global, CYCLES_FILE)
+        if nuevos:
+            print(
+                f"[Rendimiento] Se añadieron {len(nuevos)} filas a {CYCLES_FILE} con tiempo_ciclo = 0."
+            )
+        else:
+            print(
+                "[Rendimiento] Estas referencias ya existen en ciclos.csv; asigna un tiempo de ciclo (>0) para que entren en el cálculo."
+            )
+
     return resultados
 
 

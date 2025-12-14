@@ -14,6 +14,7 @@ import matplotlib.image as mpimg
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Rectangle
 
+from OEE.utils.data_files import listar_csv_por_seccion
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 REPORT_DIR = Path(__file__).resolve().parents[1] / "informes" / "calidad"
@@ -324,15 +325,18 @@ def generar_informes_calidad(
     logo_path: Optional[Path] = None,
 ) -> Iterable[Path]:
     data_path = Path(data_dir) if data_dir else DATA_DIR
-    report_path = Path(output_dir) if output_dir else REPORT_DIR
-    report_path.mkdir(parents=True, exist_ok=True)
+    base_output = Path(output_dir) if output_dir else REPORT_DIR
 
     resultados = []
-    for csv_file in sorted(data_path.glob("*.csv")):
+    for seccion, csv_file in listar_csv_por_seccion(data_path):
         metrics = leer_calidad(csv_file)
         logo = cargar_logo(logo_path)
         fig = render_calidad(metrics, logo)
-        output = report_path / f"{metrics.resource}_calidad.pdf"
+        section_dir = base_output / seccion
+        section_dir.mkdir(parents=True, exist_ok=True)
+        recurso_dir = section_dir / metrics.resource.lower()
+        recurso_dir.mkdir(parents=True, exist_ok=True)
+        output = recurso_dir / f"{metrics.resource}_calidad.pdf"
         fig.savefig(output)
         plt.close(fig)
         print(
