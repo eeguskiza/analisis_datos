@@ -39,6 +39,20 @@ def parse_datetime(value: str) -> Optional[datetime]:
         return None
 
 
+def normalizar_proceso(value: str) -> str:
+    """Normaliza el tipo de proceso para comparación consistente."""
+    if not value:
+        return "produccion"
+    text = value.strip().lower()
+    if text.startswith("produ"):
+        return "produccion"
+    if text.startswith("prepa"):
+        return "preparacion"
+    if text.startswith("inci"):
+        return "incidencias"
+    return "produccion"
+
+
 def cargar_logo(logo_path: Optional[Path]):
     if not logo_path:
         return None
@@ -110,8 +124,8 @@ def leer_calidad(csv_path: Path) -> CalidadMetrics:
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
         for row in reader:
-            proceso = (row.get("Proceso") or "").strip().lower()
-            if proceso != "producción":
+            proceso = normalizar_proceso(row.get("Proceso", ""))
+            if proceso != "produccion":
                 continue
 
             piezas = parse_float(row.get("Cantidad", "0"))
@@ -200,17 +214,25 @@ def render_calidad(metrics: CalidadMetrics, logo_image) -> plt.Figure:
         fontweight="bold",
         color="#000000",
     )
+    periodo = "Sin datos"
+    if metrics.start and metrics.end:
+        periodo = f"{metrics.start.strftime('%d/%m/%Y')} → {metrics.end.strftime('%d/%m/%Y')}"
+
     header_ax.text(
         0.4,
-        0.24,
+        0.30,
         f"Recurso: {metrics.resource.upper()}",
         fontsize=11,
         color="#424242",
     )
-
-    periodo = "Sin datos"
-    if metrics.start and metrics.end:
-        periodo = f"{metrics.start.date().isoformat()} → {metrics.end.date().isoformat()}"
+    header_ax.text(
+        0.4,
+        0.08,
+        f"Periodo: {periodo}",
+        fontsize=11,
+        fontweight="bold",
+        color="#263238",
+    )
 
     resumen_ax = fig.add_subplot(gs[1, 0])
     resumen_ax.axis("off")
@@ -227,7 +249,6 @@ def render_calidad(metrics: CalidadMetrics, logo_image) -> plt.Figure:
         0.0, 0.82, "Resumen ejecutivo de calidad", fontsize=11, fontweight="bold", color="#263238"
     )
     left_lines = [
-        f"Período: {periodo}",
         f"Piezas producidas: {metrics.piezas_totales:0.0f}",
         f"Piezas malas: {metrics.piezas_malas:0.0f}",
         f"Piezas recuperadas: {metrics.piezas_recuperadas:0.0f}",
