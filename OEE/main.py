@@ -30,7 +30,7 @@ def imprimir_tabla_consolidada(data_dir: Path) -> None:
 
     for seccion, csv_path in csv_entries:
         metrics = leer_maquina(csv_path, ciclos)
-        recurso = metrics.display_name.upper()
+        recurso = metrics.name.upper()
         disp = metrics.disponibilidad_pct or 0.0
         rend = metrics.rendimiento_pct or 0.0
         cal = metrics.calidad_pct or 0.0
