@@ -39,17 +39,11 @@ producción.
 
    Esto generará (por ejemplo en `informes/2025-11-17/`):
    - Carpeta `LINEAS/` con `LINEAS_oee_seccion.pdf` y subcarpetas `coroa/`,
-     `luk1/`, etc., cada una con sus PDF individuales.
+     `luk1/`, etc., cada una con sus PDF individuales (disponibilidad,
+     rendimiento y calidad).
    - Carpeta `TALLADORAS/` con su maestro y las máquinas de esa sección.
-   - `resumen_oee.pdf` en la raíz del día (si ejecutas el módulo `oee`).
 
-3. Opcionalmente puedes ejecutar un módulo concreto, por ejemplo solo OEE:
-
-   ```bash
-   python -m OEE --modulo oee
-   ```
-
-4. Para el informe maestro por secciones puedes limitar las secciones con `--seccion` (se puede repetir):
+3. Para el informe maestro por secciones puedes limitar las secciones con `--seccion` (se puede repetir):
 
    ```bash
    python -m OEE --modulo oee_secciones --seccion talladoras --seccion lineas
