@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Rectangle, Patch
+from matplotlib.backends.backend_pdf import PdfPages
 from collections import defaultdict
 
 from OEE.utils.data_files import listar_csv_por_seccion
@@ -275,6 +276,225 @@ def format_optional_hours(value: Optional[float]) -> str:
     return f"{value:0.2f} h"
 
 
+def build_page_for_day(
+    resource_name: str,
+    day: date,
+    day_stats: Dict[str, float],
+    day_incidents: Dict[str, float],
+    logo_image: Optional[any],
+) -> plt.Figure:
+    """Construye una página de informe para un día específico."""
+    produccion = day_stats.get("produccion", 0.0)
+    preparacion = day_stats.get("preparacion", 0.0)
+    incidencias = day_stats.get("incidencias", 0.0)
+    total = produccion + preparacion + incidencias
+    disponibilidad = (produccion / total * 100) if total > 0 else 0.0
+
+    fig = plt.figure(figsize=(8.27, 11.69))
+    gs = fig.add_gridspec(
+        nrows=5, ncols=1, height_ratios=[0.55, 0.95, 0.75, 0.25, 1.0]
+    )
+
+    header_ax = fig.add_subplot(gs[0, 0])
+    header_ax.axis("off")
+    header_ax.set_xlim(0, 1)
+    header_ax.set_ylim(0, 1)
+    if logo_image is not None:
+        imagebox = OffsetImage(logo_image, zoom=0.18)
+        ab = AnnotationBbox(
+            imagebox, (0.08, 0.5), frameon=False, xycoords="axes fraction"
+        )
+        header_ax.add_artist(ab)
+    else:
+        header_ax.text(
+            0.08,
+            0.5,
+            "Logo corporativo",
+            fontsize=12,
+            fontweight="bold",
+            va="center",
+        )
+
+    title_x = 0.4
+    header_ax.text(
+        title_x,
+        0.55,
+        "Informe Disponibilidad",
+        fontsize=22,
+        fontweight="bold",
+        color="#000000",
+        ha="left",
+        transform=header_ax.transAxes,
+        zorder=2,
+    )
+
+    header_ax.text(
+        title_x,
+        0.30,
+        f"Recurso: {resource_name.upper()}",
+        fontsize=11,
+        color="#424242",
+        ha="left",
+        transform=header_ax.transAxes,
+        zorder=2,
+    )
+    header_ax.text(
+        title_x,
+        0.08,
+        f"Día: {day.strftime('%d/%m/%Y')}",
+        fontsize=11,
+        fontweight="bold",
+        color="#263238",
+        ha="left",
+        transform=header_ax.transAxes,
+        zorder=2,
+    )
+
+    resumen_ax = fig.add_subplot(gs[1, 0])
+    resumen_ax.axis("off")
+    enmarcar_seccion(resumen_ax)
+    resumen_ax.text(
+        0.0, 0.92, "Resumen ejecutivo de disponibilidad", **SECTION_TITLE_STYLE
+    )
+    resumen_ax.text(
+        0.00,
+        1.06,
+        f"Disponibilidad del día: {disponibilidad:0.2f} %",
+        transform=resumen_ax.transAxes,
+        fontsize=18,
+        fontweight="bold",
+    )
+    left_lines = [
+        f"Horas brutas: {total:0.2f} h",
+        f"Producción efectiva: {produccion:0.2f} h",
+    ]
+    right_lines = [
+        f"Preparación: {preparacion:0.2f} h",
+        f"Incidencias: {incidencias:0.2f} h",
+    ]
+    start_y_left = 0.78
+    step_left = 0.12
+    for idx, text in enumerate(left_lines):
+        resumen_ax.text(
+            0.02,
+            start_y_left - idx * step_left,
+            text,
+            fontsize=BODY_FONT_SIZE,
+        )
+
+    start_y_right = 0.78
+    step_right = 0.11
+    for idx, text in enumerate(right_lines):
+        resumen_ax.text(
+            0.55,
+            start_y_right - idx * step_right,
+            text,
+            fontsize=BODY_FONT_SIZE,
+        )
+
+    bar_ax = fig.add_subplot(gs[2, 0])
+    enmarcar_seccion(bar_ax)
+    bar_ax.set_title(
+        "Distribución de tiempos del día",
+        loc="left",
+        pad=8,
+        fontdict=SECTION_TITLE_STYLE,
+    )
+
+    total_max = max(total, 0.01)
+    left = 0.0
+    legend_entries = []
+    for key in ("produccion", "preparacion", "incidencias"):
+        value = day_stats.get(key, 0.0)
+        config = CATEGORY_CONFIG[key]
+        bar_ax.barh(
+            y=[0],
+            width=[value],
+            left=left,
+            color=config["color"],
+            height=0.05,
+        )
+        porcentaje = value / total * 100 if total else 0.0
+        legend_entries.append(
+            (
+                config["color"],
+                f"{config['label']} ({value:0.2f} h · {porcentaje:0.1f}%)",
+            )
+        )
+        left += value
+
+    bar_ax.set_xlim(0, total_max)
+    tick_count = 5
+    xticks = [total_max * i / tick_count for i in range(tick_count + 1)]
+    bar_ax.set_xticks(xticks)
+    bar_ax.set_xticklabels([f"{tick:0.0f}" for tick in xticks], fontsize=9)
+    bar_ax.set_yticks([])
+    bar_ax.set_ylim(-0.2, 0.2)
+    for spine in bar_ax.spines.values():
+        spine.set_visible(False)
+    bar_ax.grid(axis="x", linestyle="--", alpha=0.2)
+    bar_ax.text(
+        0.0,
+        -0.25,
+        f"Objetivo de disponibilidad: 85%  →  Situación del día: {disponibilidad:0.2f}%",
+        transform=bar_ax.transAxes,
+        fontsize=9,
+        color="#424242",
+    )
+    handles = [Patch(facecolor=color, edgecolor=color) for color, _ in legend_entries]
+    legend_ax = fig.add_subplot(gs[3, 0])
+    enmarcar_seccion(legend_ax)
+    legend_ax.axis("off")
+    for idx, (handle, (_, label)) in enumerate(zip(handles, legend_entries)):
+        x = 0.02 + idx * 0.32
+        legend_ax.add_patch(
+            Rectangle((x, 0.35), 0.03, 0.3, facecolor=handle.get_facecolor())
+        )
+        legend_ax.text(x + 0.04, 0.5, label, va="center", fontsize=9)
+
+    tabla_ax = fig.add_subplot(gs[4, 0])
+    tabla_ax.axis("off")
+    enmarcar_seccion(tabla_ax)
+    tabla_ax.text(
+        0.0,
+        0.88,
+        "Incidencias del día (horas)",
+        **SECTION_TITLE_STYLE,
+    )
+
+    if day_incidents and incidencias > 0:
+        sorted_incidents = sorted(day_incidents.items(), key=lambda x: x[1], reverse=True)
+        col_labels = ["#", "Incidencia", "Horas", "% del día"]
+        cell_text = []
+        for idx, (nombre, horas) in enumerate(sorted_incidents[:10]):
+            porcentaje = horas / incidencias * 100 if incidencias else 0.0
+            cell_text.append(
+                [str(idx + 1), nombre, f"{horas:0.2f}", f"{porcentaje:0.1f}%"]
+            )
+        table = tabla_ax.table(
+            cellText=cell_text,
+            colLabels=col_labels,
+            cellLoc="left",
+            colWidths=[0.07, 0.55, 0.18, 0.2],
+            bbox=[0.0, 0.0, 1.0, 0.78],
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1, 1.15)
+        for (row, col), cell in table.get_celld().items():
+            cell.set_edgecolor("#D7DADB")
+            if row == 0:
+                cell.set_facecolor("#F4F4F4")
+                cell.set_text_props(fontweight="bold")
+            else:
+                cell.set_facecolor("white")
+    else:
+        tabla_ax.text(0.0, 0.5, "Sin incidencias registradas.", fontsize=11, color="#555555")
+
+    fig.tight_layout()
+    return fig
+
+
 def build_page_one(
     metrics: DisponibilidadMetrics, logo_image: Optional[any]
 ) -> plt.Figure:
@@ -516,9 +736,28 @@ def render_report(
     pdf_path = output_stem.with_suffix(".pdf")
     logo_image = cargar_logo(logo_path)
 
-    fig1 = build_page_one(metrics, logo_image)
-    fig1.savefig(pdf_path)
-    plt.close(fig1)
+    # Si no hay datos por día, generar una sola página con el resumen total
+    if not metrics.period_stats:
+        fig1 = build_page_one(metrics, logo_image)
+        fig1.savefig(pdf_path)
+        plt.close(fig1)
+        return pdf_path
+
+    # Generar una página por cada día
+    with PdfPages(pdf_path) as pdf:
+        for day in sorted(metrics.period_stats.keys()):
+            day_stats = metrics.period_stats[day]
+            day_incidents = metrics.period_incidents.get(day, {})
+            fig = build_page_for_day(
+                metrics.resource_name,
+                day,
+                day_stats,
+                day_incidents,
+                logo_image
+            )
+            pdf.savefig(fig)
+            plt.close(fig)
+
     return pdf_path
 
 

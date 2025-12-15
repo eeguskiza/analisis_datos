@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Rectangle
+from matplotlib.backends.backend_pdf import PdfPages
 
 from OEE.utils.data_files import listar_csv_por_seccion
 from OEE.utils.cycles_registry import registrar_ciclos_faltantes
@@ -120,6 +121,8 @@ class RendimientoMetrics:
     top_referencias: List[ReferenciaRendimiento] = field(default_factory=list)
     registros_sin_ciclo: int = 0
     ciclos_faltantes: List[Tuple[str, str, str]] = field(default_factory=list)
+    daily_stats: Dict[datetime, Dict[str, float]] = field(default_factory=dict)
+    daily_references: Dict[datetime, Dict[str, ReferenciaRendimiento]] = field(default_factory=dict)
 
 
 def cargar_tiempos_ciclo() -> Dict[str, Dict[str, float]]:
@@ -153,6 +156,14 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
     recurso_nombre = csv_path.stem.split("-")[0]
     recurso_clave = recurso_nombre.lower()
 
+    # Para estadísticas por día
+    from collections import defaultdict
+    daily_stats: Dict[datetime, Dict[str, float]] = defaultdict(
+        lambda: {"horas_produccion": 0.0, "piezas_totales": 0.0, "tiempo_ideal_horas": 0.0,
+                 "total_rate_weighted": 0.0, "total_piezas_ciclo": 0.0, "registros_sin_ciclo": 0}
+    )
+    daily_references: Dict[datetime, Dict[str, ReferenciaRendimiento]] = defaultdict(dict)
+
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
         if reader.fieldnames:
@@ -173,9 +184,18 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
             horas_produccion += horas
             piezas_totales += piezas
 
+            # Acumular por día
+            if fecha:
+                day_key = fecha.date()
+                day_data = daily_stats[day_key]
+                day_data["horas_produccion"] += horas
+                day_data["piezas_totales"] += piezas
+
             rate_pph = ciclos_maquina.get(ref_norm)
             if not rate_pph:
                 registros_sin_ciclo += 1
+                if fecha:
+                    daily_stats[day_key]["registros_sin_ciclo"] += 1
                 if ref_norm:
                     key = (recurso_clave, ref_norm)
                     faltantes.setdefault(key, row.get("Refer.") or ref_norm)
@@ -186,6 +206,12 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
             total_rate_weighted += rate_pph * piezas
             total_piezas_ciclo += piezas
 
+            # Acumular ideal por día
+            if fecha:
+                day_data["tiempo_ideal_horas"] += ideal_horas
+                day_data["total_rate_weighted"] += rate_pph * piezas
+                day_data["total_piezas_ciclo"] += piezas
+
             ref_stat = referencias.setdefault(
                 ref_norm,
                 ReferenciaRendimiento(referencia=row.get("Refer.") or ref_norm, piezas=0.0, horas=0.0, ideal=0.0),
@@ -193,6 +219,16 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
             ref_stat.piezas += piezas
             ref_stat.horas += horas
             ref_stat.ideal += ideal_horas
+
+            # Referencias por día
+            if fecha:
+                day_ref_stat = daily_references[day_key].setdefault(
+                    ref_norm,
+                    ReferenciaRendimiento(referencia=row.get("Refer.") or ref_norm, piezas=0.0, horas=0.0, ideal=0.0),
+                )
+                day_ref_stat.piezas += piezas
+                day_ref_stat.horas += horas
+                day_ref_stat.ideal += ideal_horas
 
     perdidas = max(horas_produccion - tiempo_ideal_horas, 0.0)
     rendimiento_pct = None
@@ -224,7 +260,183 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
             (maquina, referencia_display, ref_norm)
             for (maquina, ref_norm), referencia_display in faltantes.items()
         ],
+        daily_stats=dict(daily_stats),
+        daily_references=dict(daily_references),
     )
+
+
+def render_rendimiento_day(
+    resource_name: str,
+    day: datetime,
+    day_stats: Dict[str, float],
+    day_references: Dict[str, ReferenciaRendimiento],
+    logo_image
+) -> plt.Figure:
+    """Genera una página de rendimiento para un día específico."""
+    horas_produccion = day_stats.get("horas_produccion", 0.0)
+    piezas_totales = day_stats.get("piezas_totales", 0.0)
+    tiempo_ideal_horas = day_stats.get("tiempo_ideal_horas", 0.0)
+    registros_sin_ciclo = int(day_stats.get("registros_sin_ciclo", 0))
+    perdidas_velocidad = max(horas_produccion - tiempo_ideal_horas, 0.0)
+
+    total_rate_weighted = day_stats.get("total_rate_weighted", 0.0)
+    total_piezas_ciclo = day_stats.get("total_piezas_ciclo", 0.0)
+    ciclo_ideal_medio = (total_rate_weighted / total_piezas_ciclo) if total_piezas_ciclo > 0 else None
+
+    rendimiento_pct = None
+    if horas_produccion > 0 and tiempo_ideal_horas > 0:
+        rendimiento_pct = (tiempo_ideal_horas / horas_produccion) * 100
+
+    fig = plt.figure(figsize=(8.27, 11.69))
+    gs = fig.add_gridspec(4, 1, height_ratios=[0.55, 0.85, 0.25, 1.35])
+
+    header_ax = fig.add_subplot(gs[0, 0])
+    header_ax.axis("off")
+    header_ax.set_xlim(0, 1)
+    header_ax.set_ylim(0, 1)
+    if logo_image is not None:
+        imagebox = OffsetImage(logo_image, zoom=0.18)
+        ab = AnnotationBbox(
+            imagebox, (0.08, 0.5), frameon=False, xycoords="axes fraction"
+        )
+        header_ax.add_artist(ab)
+
+    header_ax.text(
+        0.4,
+        0.55,
+        "Informe Rendimiento",
+        fontsize=22,
+        fontweight="bold",
+        color="#000000",
+    )
+
+    header_ax.text(
+        0.4,
+        0.30,
+        f"Recurso: {resource_name.upper()}",
+        fontsize=11,
+        color="#424242",
+    )
+    header_ax.text(
+        0.4,
+        0.08,
+        f"Día: {day.strftime('%d/%m/%Y')}",
+        fontsize=11,
+        fontweight="bold",
+        color="#263238",
+    )
+
+    resumen_ax = fig.add_subplot(gs[1, 0])
+    resumen_ax.axis("off")
+    enmarcar(resumen_ax)
+    resumen_ax.text(
+        0.0,
+        1.06,
+        f"Rendimiento del día: {rendimiento_pct or 0:0.2f} %",
+        transform=resumen_ax.transAxes,
+        fontsize=18,
+        fontweight="bold",
+        color="#000000",
+    )
+    resumen_ax.text(
+        0.0, 0.9, "Resumen ejecutivo de rendimiento", fontsize=11, fontweight="bold", color="#263238"
+    )
+    left_lines = [
+        f"Horas de producción: {horas_produccion:0.2f} h",
+        f"Piezas producidas: {piezas_totales:0.0f}",
+        (
+            f"Ciclo ideal medio: "
+            f"{ciclo_ideal_medio:0.1f} piezas/h"
+            if ciclo_ideal_medio
+            else "Ciclo ideal medio: N/A"
+        ),
+    ]
+    right_lines = [
+        f"Tiempo ideal: {tiempo_ideal_horas:0.2f} h",
+        f"Pérdidas de velocidad: {perdidas_velocidad:0.2f} h",
+        f"Registros sin ciclo ideal: {registros_sin_ciclo}",
+    ]
+    start_left = 0.65
+    step = 0.13
+    for idx, text in enumerate(left_lines):
+        resumen_ax.text(0.02, start_left - idx * step, text, fontsize=10)
+    start_right = 0.65
+    for idx, text in enumerate(right_lines):
+        resumen_ax.text(0.55, start_right - idx * step, text, fontsize=10)
+
+    notas_ax = fig.add_subplot(gs[2, 0])
+    notas_ax.axis("off")
+    notas = [
+        "Tiempo ideal: horas necesarias si todas las órdenes respetan las piezas/hora objetivo.",
+        "Pérdidas de velocidad: horas adicionales respecto al ideal. Registros sin ciclo: órdenes sin dato ideal (no suman al ideal).",
+        "Ciclo ideal medio: media ponderada de piezas/hora procedente del fichero de ciclos.",
+    ]
+    y = 0.8
+    for nota in notas:
+        notas_ax.text(0.02, y, nota, fontsize=8.5, color="#424242")
+        y -= 0.28
+
+    referencias_ax = fig.add_subplot(gs[3, 0])
+    enmarcar(referencias_ax)
+    referencias_ax.axis("off")
+    referencias_ax.text(
+        0.0,
+        0.96,
+        "Referencias del día ordenadas por pérdidas",
+        fontsize=11,
+        fontweight="bold",
+        color="#263238",
+    )
+    tabla_ax = referencias_ax.inset_axes([0.0, 0.07, 1.0, 0.85])
+    tabla_ax.axis("off")
+
+    refs_list = list(day_references.values())
+    if refs_list:
+        col_labels = ["Referencia", "Piezas", "Ciclo ideal (pzas/h)", "Ciclo real (pzas/h)", "Rendimiento", "Pérdidas (h)"]
+        rows = []
+        for ref in sorted(refs_list, key=lambda r: r.perdidas, reverse=True):
+            if ref.piezas > 0 and ref.ideal > 0:
+                ciclo_ideal = f"{ref.piezas / ref.ideal:0.1f}"
+            else:
+                ciclo_ideal = "N/A"
+            if ref.piezas > 0 and ref.horas > 0:
+                ciclo_real = f"{ref.piezas / ref.horas:0.1f}"
+            else:
+                ciclo_real = "N/A"
+            rendimiento_ref = (
+                f"{ref.rendimiento_pct:0.1f}%" if ref.rendimiento_pct is not None else "N/A"
+            )
+            rows.append(
+                [
+                    ref.referencia,
+                    f"{ref.piezas:0.0f}",
+                    ciclo_ideal,
+                    ciclo_real,
+                    rendimiento_ref,
+                    f"{ref.perdidas:0.2f}",
+                ]
+            )
+        table = tabla_ax.table(
+            cellText=rows,
+            colLabels=col_labels,
+            loc="upper left",
+            colWidths=[0.18, 0.16, 0.2, 0.18, 0.14, 0.14],
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1, 1.2)
+        for (row, col), cell in table.get_celld().items():
+            cell.set_edgecolor("#D7DADB")
+            if row == 0:
+                cell.set_facecolor("#F4F4F4")
+                cell.set_text_props(fontweight="bold")
+            else:
+                cell.set_facecolor("white")
+    else:
+        tabla_ax.text(0.0, 0.4, "No hay referencias con tiempo de ciclo definido.", fontsize=9)
+
+    fig.tight_layout()
+    return fig
 
 
 def render_rendimiento(metrics: RendimientoMetrics, logo_image) -> plt.Figure:
@@ -399,14 +611,34 @@ def generar_informes_rendimiento(
         metrics = leer_rendimiento(csv_file, ciclos_maquina)
         ciclos_faltantes_global.extend(metrics.ciclos_faltantes)
         logo = cargar_logo(logo_path)
-        fig = render_rendimiento(metrics, logo)
         section_dir = base_output / seccion
         section_dir.mkdir(parents=True, exist_ok=True)
         recurso_dir = section_dir / metrics.resource.lower()
         recurso_dir.mkdir(parents=True, exist_ok=True)
         output = recurso_dir / f"{metrics.resource}_rendimiento.pdf"
-        fig.savefig(output)
-        plt.close(fig)
+
+        # Si no hay datos por día, generar una sola página
+        if not metrics.daily_stats:
+            fig = render_rendimiento(metrics, logo)
+            fig.savefig(output)
+            plt.close(fig)
+        else:
+            # Generar una página por cada día
+            with PdfPages(output) as pdf:
+                for day in sorted(metrics.daily_stats.keys()):
+                    day_stats = metrics.daily_stats[day]
+                    day_references = metrics.daily_references.get(day, {})
+                    day_dt = datetime.combine(day, datetime.min.time())
+                    fig = render_rendimiento_day(
+                        metrics.resource,
+                        day_dt,
+                        day_stats,
+                        day_references,
+                        logo
+                    )
+                    pdf.savefig(fig)
+                    plt.close(fig)
+
         resultados.append(output)
 
     if ciclos_faltantes_global:

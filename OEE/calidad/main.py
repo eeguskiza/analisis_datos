@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Rectangle
+from matplotlib.backends.backend_pdf import PdfPages
 
 from OEE.utils.data_files import listar_csv_por_seccion
 
@@ -111,6 +112,8 @@ class CalidadMetrics:
     tasa_recuperacion: Optional[float]
     fpy_pct: Optional[float]
     top_referencias: List[ReferenciaCalidad] = field(default_factory=list)
+    daily_stats: Dict[datetime, Dict[str, float]] = field(default_factory=dict)
+    daily_references: Dict[datetime, Dict[str, ReferenciaCalidad]] = field(default_factory=dict)
 
 
 def leer_calidad(csv_path: Path) -> CalidadMetrics:
@@ -120,6 +123,13 @@ def leer_calidad(csv_path: Path) -> CalidadMetrics:
     start = None
     end = None
     referencias: Dict[str, ReferenciaCalidad] = {}
+
+    # Para estadísticas por día
+    from collections import defaultdict
+    daily_stats: Dict[datetime, Dict[str, float]] = defaultdict(
+        lambda: {"piezas_totales": 0.0, "piezas_malas": 0.0, "piezas_recuperadas": 0.0}
+    )
+    daily_references: Dict[datetime, Dict[str, ReferenciaCalidad]] = defaultdict(dict)
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
@@ -143,11 +153,26 @@ def leer_calidad(csv_path: Path) -> CalidadMetrics:
             piezas_malas += malas
             piezas_recuperadas += recuperadas
 
+            # Acumular por día
+            if fecha:
+                day_key = fecha.date()
+                day_data = daily_stats[day_key]
+                day_data["piezas_totales"] += piezas
+                day_data["piezas_malas"] += malas
+                day_data["piezas_recuperadas"] += recuperadas
+
             ref_key = (row.get("Refer.") or "").strip() or "Sin referencia"
             ref = referencias.setdefault(ref_key, ReferenciaCalidad(ref_key))
             ref.piezas += piezas
             ref.malas += malas
             ref.recuperadas += recuperadas
+
+            # Referencias por día
+            if fecha:
+                day_ref = daily_references[day_key].setdefault(ref_key, ReferenciaCalidad(ref_key))
+                day_ref.piezas += piezas
+                day_ref.malas += malas
+                day_ref.recuperadas += recuperadas
 
     scrap_final = max(piezas_malas - piezas_recuperadas, 0.0)
     buenas_finales = piezas_totales - scrap_final
@@ -184,6 +209,8 @@ def leer_calidad(csv_path: Path) -> CalidadMetrics:
         tasa_recuperacion=tasa_recuperacion,
         fpy_pct=fpy_pct,
         top_referencias=top_refs,
+        daily_stats=dict(daily_stats),
+        daily_references=dict(daily_references),
     )
 
 
@@ -191,6 +218,178 @@ def format_pct(value: Optional[float], decimals: int = 2) -> str:
     if value is None:
         return "N/A"
     return f"{value:.{decimals}f} %"
+
+
+def render_calidad_day(
+    resource_name: str,
+    day: datetime,
+    day_stats: Dict[str, float],
+    day_references: Dict[str, ReferenciaCalidad],
+    logo_image
+) -> plt.Figure:
+    """Genera una página de calidad para un día específico."""
+    piezas_totales = day_stats.get("piezas_totales", 0.0)
+    piezas_malas = day_stats.get("piezas_malas", 0.0)
+    piezas_recuperadas = day_stats.get("piezas_recuperadas", 0.0)
+    scrap_final = max(piezas_malas - piezas_recuperadas, 0.0)
+    buenas_finales = max(piezas_totales - scrap_final, 0.0)
+
+    def pct(value: float, base: float) -> Optional[float]:
+        if base <= 0:
+            return None
+        return value / base * 100
+
+    calidad_oee = pct(buenas_finales, piezas_totales)
+    scrap_bruto = pct(piezas_malas, piezas_totales)
+    scrap_final_pct = pct(scrap_final, piezas_totales)
+    tasa_recuperacion = pct(piezas_recuperadas, piezas_malas)
+    fpy_pct = pct(piezas_totales - piezas_malas, piezas_totales)
+
+    fig = plt.figure(figsize=(8.27, 11.69))
+    gs = fig.add_gridspec(4, 1, height_ratios=[0.55, 0.9, 0.5, 1.2])
+
+    header_ax = fig.add_subplot(gs[0, 0])
+    header_ax.axis("off")
+    header_ax.set_xlim(0, 1)
+    header_ax.set_ylim(0, 1)
+    if logo_image is not None:
+        imagebox = OffsetImage(logo_image, zoom=0.18)
+        ab = AnnotationBbox(
+            imagebox, (0.08, 0.5), frameon=False, xycoords="axes fraction"
+        )
+        header_ax.add_artist(ab)
+
+    header_ax.text(
+        0.4,
+        0.55,
+        "Informe Calidad",
+        fontsize=22,
+        fontweight="bold",
+        color="#000000",
+    )
+
+    header_ax.text(
+        0.4,
+        0.30,
+        f"Recurso: {resource_name.upper()}",
+        fontsize=11,
+        color="#424242",
+    )
+    header_ax.text(
+        0.4,
+        0.08,
+        f"Día: {day.strftime('%d/%m/%Y')}",
+        fontsize=11,
+        fontweight="bold",
+        color="#263238",
+    )
+
+    resumen_ax = fig.add_subplot(gs[1, 0])
+    resumen_ax.axis("off")
+    enmarcar(resumen_ax)
+    resumen_ax.text(
+        0.0,
+        1.05,
+        f"Calidad del día: {format_pct(calidad_oee, 2)}",
+        fontsize=18,
+        fontweight="bold",
+        color="#000000",
+    )
+    resumen_ax.text(
+        0.0, 0.82, "Resumen ejecutivo de calidad", fontsize=11, fontweight="bold", color="#263238"
+    )
+    left_lines = [
+        f"Piezas producidas: {piezas_totales:0.0f}",
+        f"Piezas malas: {piezas_malas:0.0f}",
+        f"Piezas recuperadas: {piezas_recuperadas:0.0f}",
+        f"Scrap final (pzas): {scrap_final:0.0f}",
+    ]
+    right_lines = [
+        f"Scrap bruto: {format_pct(scrap_bruto, 2)}",
+        f"Scrap final: {format_pct(scrap_final_pct, 2)}",
+        f"Tasa de recuperación: {format_pct(tasa_recuperacion, 2)}",
+        f"FPY: {format_pct(fpy_pct, 2)}",
+    ]
+    start_left = 0.62
+    step = 0.14
+    for idx, text in enumerate(left_lines):
+        resumen_ax.text(0.02, start_left - idx * step, text, fontsize=10)
+    start_right = 0.62
+    for idx, text in enumerate(right_lines):
+        resumen_ax.text(0.55, start_right - idx * step, text, fontsize=10)
+
+    graf_ax = fig.add_subplot(gs[2, 0])
+    enmarcar(graf_ax)
+    graf_ax.set_title("Distribución de piezas", loc="left", fontsize=11, color="#263238")
+
+    totales = max(piezas_totales, 0.01)
+    valores = [
+        ("Buenas finales", buenas_finales, "#2E7D32"),
+        ("Recuperadas", piezas_recuperadas, "#F9A825"),
+        ("Scrap final", scrap_final, "#C62828"),
+    ]
+    left = 0.0
+    for label, value, color in valores:
+        graf_ax.barh(["Piezas"], [value], left=left, color=color, label=f"{label} ({value:0.0f})")
+        left += value
+    graf_ax.set_xlim(0, totales)
+    graf_ax.set_xlabel("Piezas")
+    graf_ax.set_yticks([])
+    graf_ax.grid(axis="x", linestyle="--", alpha=0.2)
+    graf_ax.legend(loc="upper center", ncol=3, bbox_to_anchor=(0.5, -0.3), frameon=False, fontsize=9)
+
+    tabla_ax = fig.add_subplot(gs[3, 0])
+    enmarcar(tabla_ax)
+    tabla_ax.axis("off")
+    tabla_ax.text(
+        0.0,
+        0.95,
+        "Referencias del día por scrap final",
+        fontsize=11,
+        fontweight="bold",
+        color="#263238",
+    )
+    inset = tabla_ax.inset_axes([0.0, 0.1, 1.0, 0.8])
+    inset.axis("off")
+
+    refs_list = sorted(day_references.values(), key=lambda ref: ref.scrap_final, reverse=True)[:10]
+    if refs_list:
+        col_labels = ["#", "Referencia", "Piezas", "Malas", "Recuperadas", "Scrap final", "Scrap final (%)"]
+        rows = []
+        for idx, ref in enumerate(refs_list, start=1):
+            scrap_pct = f"{ref.scrap_pct:0.2f}%" if ref.scrap_pct is not None else "N/A"
+            rows.append(
+                [
+                    str(idx),
+                    ref.referencia,
+                    f"{ref.piezas:0.0f}",
+                    f"{ref.malas:0.0f}",
+                    f"{ref.recuperadas:0.0f}",
+                    f"{ref.scrap_final:0.0f}",
+                    scrap_pct,
+                ]
+            )
+        table = inset.table(
+            cellText=rows,
+            colLabels=col_labels,
+            loc="upper left",
+            colWidths=[0.05, 0.25, 0.12, 0.12, 0.12, 0.12, 0.15],
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1, 1.2)
+        for (row, col), cell in table.get_celld().items():
+            cell.set_edgecolor("#D7DADB")
+            if row == 0:
+                cell.set_facecolor("#F4F4F4")
+                cell.set_text_props(fontweight="bold")
+            else:
+                cell.set_facecolor("white")
+    else:
+        inset.text(0.0, 0.4, "No hay referencias con scrap registrado.", fontsize=9)
+
+    fig.tight_layout()
+    return fig
 
 
 def render_calidad(metrics: CalidadMetrics, logo_image) -> plt.Figure:
@@ -354,14 +553,34 @@ def generar_informes_calidad(
     for seccion, csv_file in listar_csv_por_seccion(data_path):
         metrics = leer_calidad(csv_file)
         logo = cargar_logo(logo_path)
-        fig = render_calidad(metrics, logo)
         section_dir = base_output / seccion
         section_dir.mkdir(parents=True, exist_ok=True)
         recurso_dir = section_dir / metrics.resource.lower()
         recurso_dir.mkdir(parents=True, exist_ok=True)
         output = recurso_dir / f"{metrics.resource}_calidad.pdf"
-        fig.savefig(output)
-        plt.close(fig)
+
+        # Si no hay datos por día, generar una sola página
+        if not metrics.daily_stats:
+            fig = render_calidad(metrics, logo)
+            fig.savefig(output)
+            plt.close(fig)
+        else:
+            # Generar una página por cada día
+            with PdfPages(output) as pdf:
+                for day in sorted(metrics.daily_stats.keys()):
+                    day_stats = metrics.daily_stats[day]
+                    day_references = metrics.daily_references.get(day, {})
+                    day_dt = datetime.combine(day, datetime.min.time())
+                    fig = render_calidad_day(
+                        metrics.resource,
+                        day_dt,
+                        day_stats,
+                        day_references,
+                        logo
+                    )
+                    pdf.savefig(fig)
+                    plt.close(fig)
+
         resultados.append(output)
     return resultados
 
