@@ -161,8 +161,9 @@ def convertir_raw_a_metricas(raw: Dict[str, float]) -> Dict[str, float]:
     scrap_final = max(piezas_malas - piezas_recuperadas, 0.0)
     buenas_finales = max(piezas_totales - scrap_final, 0.0)
 
-    # Disponibilidad = T. Disponible / T. Bruto
-    disponibilidad_pct = clamp_pct((horas_disponible / horas_brutas * 100) if horas_brutas > 0 else 0.0)
+    # Disponibilidad = (T. Disponible - T. Paros) / T. Bruto
+    # Los paros reducen disponibilidad además de las incidencias de indisponibilidad
+    disponibilidad_pct = clamp_pct(((horas_disponible - horas_paros) / horas_brutas * 100) if horas_brutas > 0 else 0.0)
     # Rendimiento = T. Ideal / T. Operativo
     rendimiento_pct = clamp_pct(
         (tiempo_ideal / horas_operativo * 100) if horas_operativo > 0 and tiempo_ideal > 0 else 0.0
@@ -565,8 +566,8 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
     scrap_final = max(piezas_malas - piezas_recuperadas, 0.0)
     buenas_finales = max(piezas_totales - scrap_final, 0.0)
 
-    # Disponibilidad = T. Disponible / T. Bruto
-    disponibilidad_pct = clamp_pct((horas_disponible / horas_brutas * 100) if horas_brutas > 0 else 0.0)
+    # Disponibilidad = (T. Disponible - T. Paros) / T. Bruto
+    disponibilidad_pct = clamp_pct(((horas_disponible - total_horas_paros) / horas_brutas * 100) if horas_brutas > 0 else 0.0)
     # Rendimiento = T. Ideal / T. Operativo
     rendimiento_pct = clamp_pct((tiempo_ideal / horas_operativo * 100) if horas_operativo > 0 and tiempo_ideal > 0 else 0.0)
     # Calidad = Piezas Buenas / Piezas Totales
@@ -640,8 +641,8 @@ def calcular_totales(maquinas: List[MachineSectionMetrics]) -> Tuple[Dict[str, f
     scrap_final = max(piezas_malas - piezas_recuperadas, 0.0)
     buenas_finales = max(piezas_totales - scrap_final, 0.0)
 
-    # Disponibilidad = T. Disponible / T. Bruto
-    disponibilidad_pct = clamp_pct((horas_disponible / horas_brutas * 100) if horas_brutas > 0 else 0.0)
+    # Disponibilidad = (T. Disponible - T. Paros) / T. Bruto
+    disponibilidad_pct = clamp_pct(((horas_disponible - horas_paros) / horas_brutas * 100) if horas_brutas > 0 else 0.0)
     # Rendimiento = T. Ideal / T. Operativo
     rendimiento_pct = clamp_pct((tiempo_ideal / horas_operativo * 100) if horas_operativo > 0 and tiempo_ideal > 0 else 0.0)
     calidad_pct = clamp_pct((buenas_finales / piezas_totales * 100) if piezas_totales > 0 else 0.0)
@@ -682,7 +683,7 @@ def calcular_totales(maquinas: List[MachineSectionMetrics]) -> Tuple[Dict[str, f
         scrap_t = max(piezas_malas_t - piezas_rec_t, 0.0)
         buenas_t = max(piezas_totales_t - scrap_t, 0.0)
 
-        disp_t = clamp_pct((horas_disponible_t / horas_brutas_t * 100) if horas_brutas_t > 0 else 0.0)
+        disp_t = clamp_pct(((horas_disponible_t - horas_paros_t) / horas_brutas_t * 100) if horas_brutas_t > 0 else 0.0)
         rdo_t = clamp_pct((tiempo_ideal_t / horas_operativo_t * 100) if horas_operativo_t > 0 and tiempo_ideal_t > 0 else 0.0)
         cal_t = clamp_pct((buenas_t / piezas_totales_t * 100) if piezas_totales_t > 0 else 0.0)
         oee_t = (disp_t * rdo_t * cal_t) / 10000.0
@@ -748,7 +749,7 @@ def calcular_resumen_diario(maquinas: List[MachineSectionMetrics]) -> List[Tuple
         buenas_finales = max(data["piezas_totales"] - scrap_final, 0.0)
 
         disponibilidad_pct = clamp_pct(
-            (horas_disponible / horas_brutas * 100) if horas_brutas > 0 else 0.0
+            ((horas_disponible - data["horas_paros"]) / horas_brutas * 100) if horas_brutas > 0 else 0.0
         )
         rendimiento_pct = clamp_pct(
             (data["tiempo_ideal"] / horas_operativo * 100)
