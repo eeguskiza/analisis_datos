@@ -335,6 +335,7 @@ class RegistroCSV:
     start_dt: Optional[datetime]
     end_dt: Optional[datetime]
     horas: float
+    horas_netas: float
     proceso: str
     incidencia: str
     cantidad: float
@@ -416,6 +417,7 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
                 start_dt=start_dt,
                 end_dt=end_dt,
                 horas=horas,
+                horas_netas=parse_float(row.get("Tiempo")),
                 proceso=proceso,
                 incidencia=incidencia,
                 cantidad=cantidad,
@@ -535,6 +537,7 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
                     day_shift_stats["tiempo_ideal"] += seg_tiempo_ideal
                 # Estadística por referencia
                 if piezas_seg > 0 or horas_seg_bruto > 0:
+                    horas_seg_neto = reg.horas_netas * peso
                     ref_entry = ref_stats.setdefault(
                         reg.referencia,
                         {
@@ -544,9 +547,13 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
                     )
                     if ciclo_seg and ciclo_seg > 0:
                         ref_entry["ciclo_ideal"] = ciclo_seg
-                    day_entry = ref_entry["dias"].setdefault(day_seg, {"piezas": 0.0, "horas": 0.0})
+                    day_entry = ref_entry["dias"].setdefault(
+                        day_seg,
+                        {"piezas": 0.0, "horas_brutas": 0.0, "horas_netas": 0.0},
+                    )
                     day_entry["piezas"] += piezas_seg
-                    day_entry["horas"] += horas_seg_bruto
+                    day_entry["horas_brutas"] += horas_seg_bruto
+                    day_entry["horas_netas"] += horas_seg_neto
             else:  # preparacion
                 shift_stats["horas_preparacion"] += horas_seg_bruto
                 day_stats["horas_preparacion"] += horas_seg_bruto
@@ -616,7 +623,11 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
             ref: {
                 "ciclo_ideal": data.get("ciclo_ideal"),
                 "dias": {
-                    day: {"piezas": val.get("piezas", 0.0), "horas": val.get("horas", 0.0)}
+                    day: {
+                        "piezas": val.get("piezas", 0.0),
+                        "horas_brutas": val.get("horas_brutas", 0.0),
+                        "horas_netas": val.get("horas_netas", 0.0),
+                    }
                     for day, val in sorted(data.get("dias", {}).items())
                 },
             }
@@ -1188,12 +1199,12 @@ def build_reference_summary_pages(
                 dias = stats.get("dias", {}) or {}
                 ciclo_ideal = stats.get("ciclo_ideal")
                 total_piezas = 0.0
-                total_horas = 0.0
+                total_horas_netas = 0.0
                 for day in sorted(dias.keys()):
                     piezas = dias[day].get("piezas", 0.0)
-                    horas = dias[day].get("horas", 0.0)
+                    horas = dias[day].get("horas_netas", dias[day].get("horas_brutas", 0.0))
                     total_piezas += piezas
-                    total_horas += horas
+                    total_horas_netas += horas
                     ciclo_real = (piezas / horas) if horas > 0 else None  # piezas por hora real
                     ref_rows.append(
                         (
@@ -1208,7 +1219,7 @@ def build_reference_summary_pages(
                             False,
                         )
                     )
-                ciclo_real_avg = (total_piezas / total_horas) if total_horas > 0 else None
+                ciclo_real_avg = (total_piezas / total_horas_netas) if total_horas_netas > 0 else None
                 ref_rows.append(
                     (
                         [
