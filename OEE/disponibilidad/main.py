@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime, date, time, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 import unicodedata
@@ -53,13 +53,15 @@ class DisponibilidadMetrics:
 
     @property
     def total(self) -> float:
-        return self.produccion + self.preparacion + self.incidencias
+        """T. Bruto = Producción + Preparación (igual que el general)."""
+        return self.produccion + self.preparacion
 
     @property
     def disponibilidad(self) -> float:
+        """(T. Bruto - Incidencias) / T. Bruto  →  igual que el general."""
         if self.total == 0:
             return 0.0
-        return self.produccion / self.total
+        return max(self.total - self.incidencias, 0.0) / self.total
 
     def top_incidencias(self, n: int = 3) -> List[Tuple[str, float]]:
         return self.incidencias_detalle[:n]
@@ -111,6 +113,20 @@ def parse_datetime(value: str) -> Optional[datetime]:
         return datetime.fromisoformat(value.strip())
     except ValueError:
         return None
+
+
+def parse_time_value(value: Optional[str]) -> Optional[time]:
+    if not value:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    for fmt in ("%H:%M", "%H:%M:%S"):
+        try:
+            return datetime.strptime(value, fmt).time()
+        except ValueError:
+            continue
+    return None
 
 
 def parse_float(value: str) -> float:
@@ -176,9 +192,19 @@ def leer_metricas(csv_path: Path) -> DisponibilidadMetrics:
         if reader.fieldnames:
             reader.fieldnames = [name.strip() for name in reader.fieldnames]
         for row in reader:
-            hours = parse_float(row.get("Tiempo", ""))
             proceso = normalizar_proceso(row.get("Proceso", ""))
             fecha = parse_datetime(row.get("Fecha", ""))
+            start_t = parse_time_value(row.get("H Ini", ""))
+            end_t = parse_time_value(row.get("F Fin", ""))
+            start_dt = datetime.combine(fecha.date(), start_t) if fecha and start_t else None
+            end_dt = None
+            if start_dt and end_t:
+                end_dt = datetime.combine(start_dt.date(), end_t)
+                if end_dt < start_dt:
+                    end_dt += timedelta(days=1)
+                elif end_dt == start_dt:
+                    end_dt = None
+            hours = (end_dt - start_dt).total_seconds() / 3600.0 if start_dt and end_dt else 0.0
 
             if fecha:
                 start = fecha if not start or fecha < start else start
@@ -287,8 +313,9 @@ def build_page_for_day(
     produccion = day_stats.get("produccion", 0.0)
     preparacion = day_stats.get("preparacion", 0.0)
     incidencias = day_stats.get("incidencias", 0.0)
-    total = produccion + preparacion + incidencias
-    disponibilidad = (produccion / total * 100) if total > 0 else 0.0
+    total = produccion + preparacion  # T. Bruto (igual que el general)
+    t_operativo = max(total - preparacion - incidencias, 0.0)
+    disponibilidad = (max(total - incidencias, 0.0) / total * 100) if total > 0 else 0.0
 
     fig = plt.figure(figsize=(8.27, 11.69))
     gs = fig.add_gridspec(
@@ -365,8 +392,8 @@ def build_page_for_day(
         fontweight="bold",
     )
     left_lines = [
-        f"Horas brutas: {total:0.2f} h",
-        f"Producción efectiva: {produccion:0.2f} h",
+        f"T. Bruto: {total:0.2f} h",
+        f"T. Operativo: {t_operativo:0.2f} h",
     ]
     right_lines = [
         f"Preparación: {preparacion:0.2f} h",
@@ -395,32 +422,25 @@ def build_page_for_day(
     bar_ax = fig.add_subplot(gs[2, 0])
     enmarcar_seccion(bar_ax)
     bar_ax.set_title(
-        "Distribución de tiempos del día",
+        "Distribución de tiempos del día (sobre T. Bruto)",
         loc="left",
         pad=8,
         fontdict=SECTION_TITLE_STYLE,
     )
 
+    # Los segmentos suman T. Bruto: T.Operativo + Preparación + Incidencias
     total_max = max(total, 0.01)
+    segmentos = [
+        ("T. Operativo", t_operativo, CATEGORY_CONFIG["produccion"]["color"]),
+        ("Preparación", preparacion, CATEGORY_CONFIG["preparacion"]["color"]),
+        ("Incidencias", incidencias, CATEGORY_CONFIG["incidencias"]["color"]),
+    ]
     left = 0.0
     legend_entries = []
-    for key in ("produccion", "preparacion", "incidencias"):
-        value = day_stats.get(key, 0.0)
-        config = CATEGORY_CONFIG[key]
-        bar_ax.barh(
-            y=[0],
-            width=[value],
-            left=left,
-            color=config["color"],
-            height=0.05,
-        )
+    for label, value, color in segmentos:
+        bar_ax.barh(y=[0], width=[value], left=left, color=color, height=0.05)
         porcentaje = value / total * 100 if total else 0.0
-        legend_entries.append(
-            (
-                config["color"],
-                f"{config['label']} ({value:0.2f} h · {porcentaje:0.1f}%)",
-            )
-        )
+        legend_entries.append((color, f"{label} ({value:0.2f} h · {porcentaje:0.1f}%)"))
         left += value
 
     bar_ax.set_xlim(0, total_max)
@@ -575,9 +595,10 @@ def build_page_one(
         fontsize=18,
         fontweight="bold",
     )
+    t_operativo = max(metrics.total - metrics.preparacion - metrics.incidencias, 0.0)
     left_lines = [
-        f"Horas brutas: {metrics.total:0.2f} h",
-        f"Producción efectiva: {metrics.produccion:0.2f} h",
+        f"T. Bruto: {metrics.total:0.2f} h",
+        f"T. Operativo: {t_operativo:0.2f} h",
     ]
     right_lines = [
         f"Preparación: {metrics.preparacion:0.2f} h",
@@ -628,32 +649,25 @@ def build_page_one(
     bar_ax = fig.add_subplot(gs[2, 0])
     enmarcar_seccion(bar_ax)
     bar_ax.set_title(
-        "Distribución global de tiempos en el periodo",
+        "Distribución global de tiempos en el periodo (sobre T. Bruto)",
         loc="left",
         pad=8,
         fontdict=SECTION_TITLE_STYLE,
     )
 
+    # Los segmentos suman T. Bruto: T.Operativo + Preparación + Incidencias
     total = max(metrics.total, 0.01)
+    segmentos_periodo = [
+        ("T. Operativo", t_operativo, CATEGORY_CONFIG["produccion"]["color"]),
+        ("Preparación", metrics.preparacion, CATEGORY_CONFIG["preparacion"]["color"]),
+        ("Incidencias", metrics.incidencias, CATEGORY_CONFIG["incidencias"]["color"]),
+    ]
     left = 0.0
     legend_entries = []
-    for key in ("produccion", "preparacion", "incidencias"):
-        value = getattr(metrics, key)
-        config = CATEGORY_CONFIG[key]
-        bar_ax.barh(
-            y=[0],
-            width=[value],
-            left=left,
-            color=config["color"],
-            height=0.05,
-        )
+    for label, value, color in segmentos_periodo:
+        bar_ax.barh(y=[0], width=[value], left=left, color=color, height=0.05)
         porcentaje = value / metrics.total * 100 if metrics.total else 0.0
-        legend_entries.append(
-            (
-                config["color"],
-                f"{config['label']} ({value:0.2f} h · {porcentaje:0.1f}%)",
-            )
-        )
+        legend_entries.append((color, f"{label} ({value:0.2f} h · {porcentaje:0.1f}%)"))
         left += value
 
     bar_ax.set_xlim(0, total)

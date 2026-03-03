@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -40,6 +40,20 @@ def parse_datetime(value: str) -> Optional[datetime]:
         return datetime.fromisoformat(value.strip())
     except ValueError:
         return None
+
+
+def parse_time_value(value: Optional[str]) -> Optional[time]:
+    if not value:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    for fmt in ("%H:%M", "%H:%M:%S"):
+        try:
+            return datetime.strptime(value, fmt).time()
+        except ValueError:
+            continue
+    return None
 
 
 def normalize_ref(value: str) -> str:
@@ -172,10 +186,20 @@ def leer_rendimiento(csv_path: Path, ciclos_maquina: Dict[str, float]) -> Rendim
             proceso = normalizar_proceso(row.get("Proceso", ""))
             if proceso != "produccion":
                 continue
-            horas = parse_float(row.get("Tiempo", "0"))
             piezas = parse_float(row.get("Cantidad", "0"))
             ref_norm = normalize_ref(row.get("Refer.") or "")
             fecha = parse_datetime(row.get("Fecha", ""))
+            start_t = parse_time_value(row.get("H Ini", ""))
+            end_t = parse_time_value(row.get("F Fin", ""))
+            start_dt = datetime.combine(fecha.date(), start_t) if fecha and start_t else None
+            end_dt = None
+            if start_dt and end_t:
+                end_dt = datetime.combine(start_dt.date(), end_t)
+                if end_dt < start_dt:
+                    end_dt += timedelta(days=1)
+                elif end_dt == start_dt:
+                    end_dt = None
+            horas = (end_dt - start_dt).total_seconds() / 3600.0 if start_dt and end_dt else 0.0
 
             if fecha:
                 start = fecha if not start or fecha < start else start

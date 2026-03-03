@@ -323,8 +323,9 @@ def render_calidad_day(
     graf_ax.set_title("Distribución de piezas", loc="left", fontsize=11, color="#263238")
 
     totales = max(piezas_totales, 0.01)
+    buenas_primera = max(piezas_totales - piezas_malas, 0.0)
     valores = [
-        ("Buenas finales", buenas_finales, "#2E7D32"),
+        ("Buenas (1ª pasada)", buenas_primera, "#2E7D32"),
         ("Recuperadas", piezas_recuperadas, "#F9A825"),
         ("Scrap final", scrap_final, "#C62828"),
     ]
@@ -474,8 +475,9 @@ def render_calidad(metrics: CalidadMetrics, logo_image) -> plt.Figure:
     graf_ax.set_title("Distribución de piezas", loc="left", fontsize=11, color="#263238")
 
     totales = max(metrics.piezas_totales, 0.01)
+    buenas_primera = max(metrics.piezas_totales - metrics.piezas_malas, 0.0)
     valores = [
-        ("Buenas finales", metrics.buenas_finales, "#2E7D32"),
+        ("Buenas (1ª pasada)", buenas_primera, "#2E7D32"),
         ("Recuperadas", metrics.piezas_recuperadas, "#F9A825"),
         ("Scrap final", metrics.scrap_final, "#C62828"),
     ]

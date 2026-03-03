@@ -24,6 +24,7 @@ DEFAULT_REPORT_DIR = Path(__file__).resolve().parents[2] / "informes" / "oee_sec
 SHIFT_LABELS = ("T1", "T2", "T3")
 REF_ROWS_PER_PAGE = 28
 ORDER_PRIORITY = {"luk1": 0, "luk2": 1, "luk3": 2, "luk6": 3, "coroa": 4, "vw1": 5}
+MIN_PIEZAS_OEE = 50  # Mínimo de piezas para calcular OEE en un turno/día
 
 # Regex para identificar incidencias que afectan a la DISPONIBILIDAD
 # Estas se restan del T. Bruto para obtener T. Disponible
@@ -171,6 +172,13 @@ def convertir_raw_a_metricas(raw: Dict[str, float]) -> Dict[str, float]:
     # Calidad = Piezas Buenas / Piezas Totales
     calidad_pct = clamp_pct((buenas_finales / piezas_totales * 100) if piezas_totales > 0 else 0.0)
     oee_pct = (disponibilidad_pct * rendimiento_pct * calidad_pct) / 10000.0
+
+    # Si hay muy pocas piezas el turno/día no es representativo: anular OEE
+    if piezas_totales < MIN_PIEZAS_OEE:
+        disponibilidad_pct = 0.0
+        rendimiento_pct = 0.0
+        calidad_pct = 0.0
+        oee_pct = 0.0
 
     return {
         "horas_brutas": horas_brutas,
