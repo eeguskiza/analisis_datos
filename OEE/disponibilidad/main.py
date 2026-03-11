@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, date, time, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
+import re
 import unicodedata
 
 import matplotlib
@@ -18,6 +19,35 @@ from matplotlib.backends.backend_pdf import PdfPages
 from collections import defaultdict
 
 from OEE.utils.data_files import listar_csv_por_seccion
+
+
+# Patrones de incidencias que afectan a la DISPONIBILIDAD (igual que en oee_secciones)
+INCIDENCIA_DISPONIBILIDAD_PATTERNS = [
+    re.compile(r"averia", re.IGNORECASE),
+    re.compile(r"mant.*prevent", re.IGNORECASE),
+    re.compile(r"limpieza", re.IGNORECASE),
+]
+
+
+def clasificar_incidencia(texto: str) -> str:
+    """Clasifica una incidencia en 'disponibilidad' o 'paros' (igual que oee_secciones)."""
+    if not texto:
+        return "paros"
+    for pattern in INCIDENCIA_DISPONIBILIDAD_PATTERNS:
+        if pattern.search(texto):
+            return "disponibilidad"
+    return "paros"
+
+
+def calcular_solapamiento(
+    start1: datetime, end1: datetime, start2: datetime, end2: datetime
+) -> float:
+    """Horas de solapamiento entre dos intervalos de tiempo."""
+    overlap_start = max(start1, start2)
+    overlap_end = min(end1, end2)
+    if overlap_start < overlap_end:
+        return (overlap_end - overlap_start).total_seconds() / 3600.0
+    return 0.0
 
 
 CATEGORY_CONFIG: Dict[str, Dict[str, str]] = {
@@ -41,6 +71,8 @@ class DisponibilidadMetrics:
     produccion: float
     preparacion: float
     incidencias: float
+    indisponibilidad: float = 0.0  # Solapamiento: avería, mant. prev., limpieza
+    paros: float = 0.0             # Solapamiento: otras incidencias
     incidencias_detalle: List[Tuple[str, float]] = field(default_factory=list)
     total_incidents: int = 0
     averia_count: int = 0
@@ -58,10 +90,13 @@ class DisponibilidadMetrics:
 
     @property
     def disponibilidad(self) -> float:
-        """(T. Bruto - Incidencias) / T. Bruto  →  igual que el general."""
+        """(T. Bruto - Incidencias efectivas) / T. Bruto  →  igual que el general.
+        Usa solapamiento (overlap) igual que oee_secciones para contar solo las
+        incidencias que recaen dentro de bloques de producción/preparación."""
         if self.total == 0:
             return 0.0
-        return max(self.total - self.incidencias, 0.0) / self.total
+        incidencias_efectivas = self.indisponibilidad + self.paros
+        return max(self.total - incidencias_efectivas, 0.0) / self.total
 
     def top_incidencias(self, n: int = 3) -> List[Tuple[str, float]]:
         return self.incidencias_detalle[:n]
@@ -185,7 +220,8 @@ def leer_metricas(csv_path: Path) -> DisponibilidadMetrics:
     averia_hours = 0.0
     start: Optional[datetime] = None
     end: Optional[datetime] = None
-    records: List[Tuple[Optional[datetime], str, float, str]] = []
+    # Tupla: (fecha, proceso, hours, detalle, start_dt, end_dt)
+    records: List[Tuple[Optional[datetime], str, float, str, Optional[datetime], Optional[datetime]]] = []
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handler:
         reader = csv.DictReader(handler)
@@ -223,19 +259,67 @@ def leer_metricas(csv_path: Path) -> DisponibilidadMetrics:
                 if detalle.upper() == "AVERIA":
                     averia_count += 1
                     averia_hours += hours
-            records.append((fecha, proceso, hours, detalle))
+            records.append((fecha, proceso, hours, detalle, start_dt, end_dt))
 
     incidencias_detalle = sorted(
         incidencias_por_tipo.items(), key=lambda item: item[1], reverse=True
     )
 
     unit, unit_plural, unit_title = determine_time_unit(start, end)
+
+    # Separar registros para el cálculo por solapamiento (igual que oee_secciones)
+    prod_prep_recs = [
+        (f, h, d, s, e) for f, proc, h, d, s, e in records
+        if proc in ("produccion", "preparacion")
+    ]
+    inc_disp_recs = [
+        (f, h, d, s, e) for f, proc, h, d, s, e in records
+        if proc == "incidencias" and clasificar_incidencia(d) == "disponibilidad"
+    ]
+    inc_paros_recs = [
+        (f, h, d, s, e) for f, proc, h, d, s, e in records
+        if proc == "incidencias" and clasificar_incidencia(d) == "paros"
+    ]
+
     period_stats_map: Dict[date, Dict[str, float]] = defaultdict(
-        lambda: {"produccion": 0.0, "preparacion": 0.0, "incidencias": 0.0}
+        lambda: {
+            "produccion": 0.0,
+            "preparacion": 0.0,
+            "incidencias": 0.0,
+            "horas_indisponibilidad": 0.0,
+            "horas_paros": 0.0,
+        }
     )
     period_incidents_map: Dict[date, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
 
-    for fecha, proceso, hours, detalle in records:
+    # PASO 1: Calcular solapamiento por registro de producción/preparación
+    # (misma metodología que leer_maquina en oee_secciones)
+    total_indisponibilidad = 0.0
+    total_paros_overlap = 0.0
+
+    for fecha_r, hours_r, det_r, s_dt_r, e_dt_r in prod_prep_recs:
+        if not s_dt_r or not e_dt_r:
+            continue
+        indisp = sum(
+            calcular_solapamiento(s_dt_r, e_dt_r, s_i, e_i)
+            for _, _, _, s_i, e_i in inc_disp_recs
+            if s_i and e_i
+        )
+        paros = sum(
+            calcular_solapamiento(s_dt_r, e_dt_r, s_i, e_i)
+            for _, _, _, s_i, e_i in inc_paros_recs
+            if s_i and e_i
+        )
+        total_indisponibilidad += indisp
+        total_paros_overlap += paros
+
+        period_key = normalize_period_start(fecha_r, unit) if fecha_r else None
+        if period_key:
+            period_stats_map[period_key]["horas_indisponibilidad"] += indisp
+            period_stats_map[period_key]["horas_paros"] += paros
+
+    # PASO 2: Acumular totales brutos por periodo (para la tabla de incidencias)
+    for fecha, proceso, hours, detalle, s_dt, e_dt in records:
         if not fecha:
             continue
         period_key = normalize_period_start(fecha, unit)
@@ -260,6 +344,8 @@ def leer_metricas(csv_path: Path) -> DisponibilidadMetrics:
         produccion=produccion,
         preparacion=preparacion,
         incidencias=incidencias,
+        indisponibilidad=total_indisponibilidad,
+        paros=total_paros_overlap,
         incidencias_detalle=incidencias_detalle,
         total_incidents=total_incidents,
         averia_count=averia_count,
@@ -312,7 +398,12 @@ def build_page_for_day(
     """Construye una página de informe para un día específico."""
     produccion = day_stats.get("produccion", 0.0)
     preparacion = day_stats.get("preparacion", 0.0)
-    incidencias = day_stats.get("incidencias", 0.0)
+    # incidencias_raw: suma bruta, solo para la tabla de detalle
+    incidencias_raw = day_stats.get("incidencias", 0.0)
+    # incidencias efectivas por solapamiento (igual que oee_secciones)
+    h_indisp = day_stats.get("horas_indisponibilidad", 0.0)
+    h_paros = day_stats.get("horas_paros", 0.0)
+    incidencias = h_indisp + h_paros
     total = produccion + preparacion  # T. Bruto (igual que el general)
     t_operativo = max(total - preparacion - incidencias, 0.0)
     disponibilidad = (max(total - incidencias, 0.0) / total * 100) if total > 0 else 0.0
@@ -482,12 +573,12 @@ def build_page_for_day(
         **SECTION_TITLE_STYLE,
     )
 
-    if day_incidents and incidencias > 0:
+    if day_incidents and incidencias_raw > 0:
         sorted_incidents = sorted(day_incidents.items(), key=lambda x: x[1], reverse=True)
         col_labels = ["#", "Incidencia", "Horas", "% del día"]
         cell_text = []
         for idx, (nombre, horas) in enumerate(sorted_incidents[:10]):
-            porcentaje = horas / incidencias * 100 if incidencias else 0.0
+            porcentaje = horas / incidencias_raw * 100 if incidencias_raw else 0.0
             cell_text.append(
                 [str(idx + 1), nombre, f"{horas:0.2f}", f"{porcentaje:0.1f}%"]
             )
@@ -595,7 +686,8 @@ def build_page_one(
         fontsize=18,
         fontweight="bold",
     )
-    t_operativo = max(metrics.total - metrics.preparacion - metrics.incidencias, 0.0)
+    incidencias_efectivas_total = metrics.indisponibilidad + metrics.paros
+    t_operativo = max(metrics.total - metrics.preparacion - incidencias_efectivas_total, 0.0)
     left_lines = [
         f"T. Bruto: {metrics.total:0.2f} h",
         f"T. Operativo: {t_operativo:0.2f} h",
@@ -655,12 +747,12 @@ def build_page_one(
         fontdict=SECTION_TITLE_STYLE,
     )
 
-    # Los segmentos suman T. Bruto: T.Operativo + Preparación + Incidencias
+    # Los segmentos suman T. Bruto: T.Operativo + Preparación + Incidencias efectivas
     total = max(metrics.total, 0.01)
     segmentos_periodo = [
         ("T. Operativo", t_operativo, CATEGORY_CONFIG["produccion"]["color"]),
         ("Preparación", metrics.preparacion, CATEGORY_CONFIG["preparacion"]["color"]),
-        ("Incidencias", metrics.incidencias, CATEGORY_CONFIG["incidencias"]["color"]),
+        ("Incidencias", incidencias_efectivas_total, CATEGORY_CONFIG["incidencias"]["color"]),
     ]
     left = 0.0
     legend_entries = []
