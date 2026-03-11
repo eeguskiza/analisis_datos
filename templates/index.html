@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Extracción MES — OEE</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background: #f4f6f8; font-family: system-ui, sans-serif; }
+    .card { border: none; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.1); }
+    .card-header { background: #1a3a5c; color: #fff; border-radius: 10px 10px 0 0 !important; font-weight: 600; }
+    #log-box {
+      background: #111; color: #c8ffc8; font-family: monospace; font-size: .82rem;
+      border-radius: 6px; padding: 12px; min-height: 100px; max-height: 300px;
+      overflow-y: auto; white-space: pre-wrap;
+    }
+    .pdf-link { display: block; padding: 4px 0; font-size: .9rem; }
+    .spinner-border { width: 1.2rem; height: 1.2rem; border-width: .2em; }
+    details > summary { cursor: pointer; font-weight: 500; }
+    .resource-row td { vertical-align: middle; padding: 4px 6px; }
+    .section-badge { font-size: .7rem; }
+  </style>
+</head>
+<body>
+<div class="container py-4" style="max-width:860px">
+
+  <!-- Cabecera -->
+  <div class="d-flex align-items-center mb-4 gap-3">
+    <div>
+      <h4 class="mb-0">Extracción MES · Informes OEE</h4>
+      <small class="text-muted">Conexión directa a dbizaro — sin pasar por Excel</small>
+    </div>
+  </div>
+
+  <!-- ────────────────────────────────────────────────────────────
+       PANEL DE CONFIGURACIÓN BD (colapsable)
+  ──────────────────────────────────────────────────────────────── -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <details id="cfg-details">
+        <summary>⚙ Configuración de conexión a la base de datos</summary>
+      </details>
+    </div>
+    <div id="cfg-body" class="card-body" style="display:none">
+      <div class="row g-3">
+        <div class="col-sm-6">
+          <label class="form-label small">Servidor</label>
+          <input id="cfg-server" class="form-control form-control-sm" placeholder="192.168.x.x"
+                 value="{{ cfg.server }}">
+        </div>
+        <div class="col-sm-2">
+          <label class="form-label small">Puerto</label>
+          <input id="cfg-port" class="form-control form-control-sm" value="{{ cfg.port or '1433' }}">
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label small">Base de datos</label>
+          <input id="cfg-database" class="form-control form-control-sm" value="{{ cfg.database }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label small">Usuario SQL</label>
+          <input id="cfg-user" class="form-control form-control-sm" placeholder="(vacío = Windows Auth)"
+                 value="{{ cfg.user }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label small">Contraseña</label>
+          <input id="cfg-password" type="password" class="form-control form-control-sm"
+                 value="{{ cfg.password }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label small">Driver ODBC</label>
+          <input id="cfg-driver" class="form-control form-control-sm"
+                 value="{{ cfg.driver or 'ODBC Driver 17 for SQL Server' }}">
+        </div>
+        <div class="col-sm-3">
+          <label class="form-label small">Código empresa (UF)
+            <span class="text-muted">(vacío = sin filtro)</span></label>
+          <input id="cfg-uf" class="form-control form-control-sm" value="{{ cfg.uf_code }}">
+        </div>
+        <div class="col-sm-3">
+          <label class="form-label small">Campo Refer. en fmesdtc
+            <span class="text-muted">(ej: dt030)</span></label>
+          <div class="input-group input-group-sm">
+            <input id="cfg-refcampo" class="form-control" placeholder="dt030"
+                   value="{{ cfg.referencia_campo }}">
+            <button class="btn btn-outline-secondary" type="button" onclick="explorarColumnas()"
+                    title="Ver columnas de fmesdtc">?</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columnas fmesdtc (oculto por defecto) -->
+      <div id="cols-panel" class="mt-3" style="display:none">
+        <div class="fw-semibold small mb-1">Columnas de admuser.fmesdtc:</div>
+        <div id="cols-list" class="font-monospace small text-muted"
+             style="max-height:180px;overflow-y:auto;background:#f8f9fa;padding:8px;border-radius:4px"></div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2 align-items-center">
+        <button class="btn btn-sm btn-primary" onclick="guardarConfig()">Guardar</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="testConexion()">Probar conexión</button>
+        <span id="test-result" class="small ms-2"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────────────────────────────────────────────────────
+       FORMULARIO PRINCIPAL
+  ──────────────────────────────────────────────────────────────── -->
+  <div class="card mb-4">
+    <div class="card-header">Extracción de datos y generación de informes</div>
+    <div class="card-body">
+
+      <!-- Fechas -->
+      <div class="row g-3 mb-4">
+        <div class="col-sm-4">
+          <label class="form-label small fw-semibold">Fecha inicio</label>
+          <input id="fecha-inicio" type="date" class="form-control"
+                 value="{{ today }}">
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label small fw-semibold">Fecha fin</label>
+          <input id="fecha-fin" type="date" class="form-control"
+                 value="{{ today }}">
+        </div>
+        <div class="col-sm-4 d-flex align-items-end">
+          <div class="form-check ms-1">
+            <input class="form-check-input" type="checkbox" id="chk-single" checked>
+            <label class="form-check-label small" for="chk-single">Día único</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de recursos -->
+      <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-semibold small">Recursos (centros de trabajo)</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="addRecurso()">+ Añadir recurso</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:48px">Activo</th>
+                <th>CT (nº)</th>
+                <th>Nombre recurso</th>
+                <th>Sección</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="recursos-tbody">
+              <!-- filas generadas por JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Botón ejecutar -->
+      <div class="d-flex gap-2 align-items-center mt-3">
+        <button id="btn-run" class="btn btn-success" onclick="ejecutar()">
+          ▶ Extraer y generar informes
+        </button>
+        <span id="run-spinner" class="spinner-border text-success ms-2" style="display:none"></span>
+        <span id="run-status" class="small text-muted ms-1"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────────────────────────────────────────────────────
+       LOG Y RESULTADOS
+  ──────────────────────────────────────────────────────────────── -->
+  <div id="results-panel" style="display:none">
+    <div class="card mb-3">
+      <div class="card-header">Log de ejecución</div>
+      <div class="card-body p-2">
+        <div id="log-box"></div>
+      </div>
+    </div>
+
+    <div id="pdfs-panel" class="card" style="display:none">
+      <div class="card-header">Informes generados</div>
+      <div class="card-body">
+        <div id="pdfs-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ─── Estado ────────────────────────────────────────────────────────────────
+const SECTION_MAP = {
+  luk1:'LINEAS', luk2:'LINEAS', luk3:'LINEAS', luk6:'LINEAS',
+  coroa:'LINEAS', vw1:'LINEAS', omr:'LINEAS',
+  t48:'TALLADORAS'
+};
+
+// Recursos almacenados en config
+let recursos = {{ cfg.recursos | tojson }};
+
+// ─── Inicialización ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderRecursos();
+  // Día único: sincronizar fechas
+  document.getElementById('chk-single').addEventListener('change', (e) => {
+    document.getElementById('fecha-fin').disabled = e.target.checked;
+    if (e.target.checked) {
+      document.getElementById('fecha-fin').value =
+        document.getElementById('fecha-inicio').value;
+    }
+  });
+  document.getElementById('fecha-inicio').addEventListener('change', () => {
+    if (document.getElementById('chk-single').checked) {
+      document.getElementById('fecha-fin').value =
+        document.getElementById('fecha-inicio').value;
+    }
+  });
+  document.getElementById('fecha-fin').disabled = true;
+
+  // Desplegar panel de config si faltan datos
+  const cfg = {{ cfg | tojson }};
+  if (!cfg.server) {
+    document.getElementById('cfg-details').open = true;
+    document.getElementById('cfg-body').style.display = '';
+  }
+
+  // Toggle panel config al abrir/cerrar details
+  document.getElementById('cfg-details').addEventListener('toggle', (e) => {
+    document.getElementById('cfg-body').style.display =
+      e.target.open ? '' : 'none';
+  });
+});
+
+// ─── Tabla de recursos ──────────────────────────────────────────────────────
+function renderRecursos() {
+  const tbody = document.getElementById('recursos-tbody');
+  tbody.innerHTML = '';
+  recursos.forEach((r, i) => {
+    const section = SECTION_MAP[r.nombre?.toLowerCase()] || 'GENERAL';
+    const badge = section === 'LINEAS'
+      ? '<span class="badge bg-primary section-badge">LINEAS</span>'
+      : '<span class="badge bg-warning text-dark section-badge">TALLADORAS</span>';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td class="text-center">
+          <input type="checkbox" class="form-check-input" ${r.activo !== false ? 'checked' : ''}
+                 onchange="updateRecurso(${i},'activo',this.checked)">
+        </td>
+        <td><input type="number" class="form-control form-control-sm" style="width:80px"
+                   value="${r.centro_trabajo}"
+                   onchange="updateRecurso(${i},'centro_trabajo',parseInt(this.value))"></td>
+        <td><input type="text" class="form-control form-control-sm" style="width:120px"
+                   value="${r.nombre}"
+                   onchange="updateRecurso(${i},'nombre',this.value);renderRecursos()"></td>
+        <td>${badge}</td>
+        <td><button class="btn btn-sm btn-outline-danger py-0" onclick="removeRecurso(${i})">✕</button></td>
+      </tr>`);
+  });
+}
+
+function updateRecurso(i, field, value) {
+  recursos[i][field] = value;
+}
+
+function addRecurso() {
+  recursos.push({ centro_trabajo: 0, nombre: '', activo: true });
+  renderRecursos();
+}
+
+function removeRecurso(i) {
+  recursos.splice(i, 1);
+  renderRecursos();
+}
+
+// ─── Configuración ──────────────────────────────────────────────────────────
+async function guardarConfig() {
+  const payload = {
+    server:            document.getElementById('cfg-server').value,
+    port:              document.getElementById('cfg-port').value,
+    database:          document.getElementById('cfg-database').value,
+    driver:            document.getElementById('cfg-driver').value,
+    user:              document.getElementById('cfg-user').value,
+    password:          document.getElementById('cfg-password').value,
+    uf_code:           document.getElementById('cfg-uf').value,
+    referencia_campo:  document.getElementById('cfg-refcampo').value,
+    recursos:          recursos,
+  };
+  const r = await fetch('/config/guardar', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const d = await r.json();
+  alert(d.ok ? 'Configuración guardada.' : 'Error al guardar.');
+}
+
+async function testConexion() {
+  const el = document.getElementById('test-result');
+  el.textContent = 'Probando…';
+  // Guardar primero
+  await guardarConfig().catch(() => {});
+  const r = await fetch('/config/test', { method: 'POST' });
+  const d = await r.json();
+  el.textContent = d.mensaje;
+  el.className = 'small ms-2 ' + (d.ok ? 'text-success' : 'text-danger');
+}
+
+async function explorarColumnas() {
+  const panel = document.getElementById('cols-panel');
+  const list  = document.getElementById('cols-list');
+  list.textContent = 'Cargando…';
+  panel.style.display = '';
+  const r = await fetch('/config/explorar', { method: 'POST' });
+  const d = await r.json();
+  list.textContent = d.columnas.join('\n');
+}
+
+// ─── Ejecutar pipeline ──────────────────────────────────────────────────────
+async function ejecutar() {
+  // Guardar config (incluye recursos actuales)
+  const payload_cfg = {
+    server:           document.getElementById('cfg-server').value,
+    port:             document.getElementById('cfg-port').value,
+    database:         document.getElementById('cfg-database').value,
+    driver:           document.getElementById('cfg-driver').value,
+    user:             document.getElementById('cfg-user').value,
+    password:         document.getElementById('cfg-password').value,
+    uf_code:          document.getElementById('cfg-uf').value,
+    referencia_campo: document.getElementById('cfg-refcampo').value,
+    recursos:         recursos,
+  };
+  await fetch('/config/guardar', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload_cfg)
+  });
+
+  const fechaInicio = document.getElementById('fecha-inicio').value;
+  const fechaFin    = document.getElementById('chk-single').checked
+                        ? fechaInicio
+                        : document.getElementById('fecha-fin').value;
+
+  if (!fechaInicio) { alert('Indica una fecha de inicio.'); return; }
+
+  // UI: estado ejecutando
+  document.getElementById('btn-run').disabled = true;
+  document.getElementById('run-spinner').style.display = '';
+  document.getElementById('run-status').textContent = 'Ejecutando…';
+  document.getElementById('results-panel').style.display = '';
+  document.getElementById('pdfs-panel').style.display = 'none';
+  document.getElementById('log-box').textContent = '';
+  document.getElementById('pdfs-list').innerHTML = '';
+
+  try {
+    const r = await fetch('/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fecha_inicio: fechaInicio, fecha_fin: fechaFin }),
+    });
+    const d = await r.json();
+
+    // Mostrar log
+    document.getElementById('log-box').textContent = (d.log || []).join('\n');
+
+    // Mostrar PDFs
+    if (d.pdfs && d.pdfs.length > 0) {
+      const panel = document.getElementById('pdfs-panel');
+      const list  = document.getElementById('pdfs-list');
+      panel.style.display = '';
+      list.innerHTML = d.pdfs.map(p => {
+        const name = p.split('/').pop();
+        return `<a href="/informe/${p}" target="_blank" class="pdf-link">📄 ${name}</a>`;
+      }).join('');
+    }
+
+    document.getElementById('run-status').textContent = d.ok ? '✓ Completado' : '✗ Error';
+    document.getElementById('run-status').style.color = d.ok ? 'green' : 'red';
+  } catch (err) {
+    document.getElementById('log-box').textContent += '\nError de red: ' + err;
+    document.getElementById('run-status').textContent = '✗ Error de red';
+    document.getElementById('run-status').style.color = 'red';
+  } finally {
+    document.getElementById('btn-run').disabled = false;
+    document.getElementById('run-spinner').style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>

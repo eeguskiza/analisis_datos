@@ -21,3 +21,7 @@ Thumbs.db
 .claude
 
 .informes/
+
+# Base de datos / credenciales
+data/db_config.json
+.env
