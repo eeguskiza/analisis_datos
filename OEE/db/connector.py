@@ -55,6 +55,8 @@ DEFAULT_CONFIG: dict = {
     "port": "1433",
     "database": "dbizaro",
     "driver": "",        # vacío → se auto-detecta al conectar
+    "encrypt": "",       # vacío -> auto según driver (Driver 18: yes)
+    "trust_server_certificate": "",  # vacío -> auto según driver (Driver 18: yes)
     "user": "",
     "password": "",
     "uf_code": "",
@@ -95,6 +97,23 @@ def save_config(cfg: dict) -> None:
 # Conexión
 # ---------------------------------------------------------------------------
 
+def _to_bool(value: object, default: bool = False) -> bool:
+    """Normaliza valores bool leídos de JSON/UI."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in {"1", "true", "yes", "si", "sí", "y"}:
+            return True
+        if text in {"0", "false", "no", "n"}:
+            return False
+    return default
+
+
 def _build_connection_string(cfg: dict) -> str:
     driver = (cfg.get("driver") or "").strip() or detectar_driver()
     server = cfg["server"]
@@ -102,12 +121,24 @@ def _build_connection_string(cfg: dict) -> str:
     database = cfg["database"]
     user = (cfg.get("user") or "").strip()
     password = cfg.get("password") or ""
+    is_driver18 = "ODBC Driver 18 for SQL Server" in driver
+    encrypt = _to_bool(cfg.get("encrypt"), default=is_driver18)
+    trust_server_cert = _to_bool(
+        cfg.get("trust_server_certificate"),
+        default=is_driver18,
+    )
+
+    security_part = (
+        f"Encrypt={'yes' if encrypt else 'no'};"
+        f"TrustServerCertificate={'yes' if trust_server_cert else 'no'};"
+    )
 
     if user:
         return (
             f"DRIVER={{{driver}}};"
             f"SERVER={server},{port};"
             f"DATABASE={database};"
+            f"{security_part}"
             f"UID={user};"
             f"PWD={password};"
         )
@@ -115,6 +146,7 @@ def _build_connection_string(cfg: dict) -> str:
         f"DRIVER={{{driver}}};"
         f"SERVER={server},{port};"
         f"DATABASE={database};"
+        f"{security_part}"
         f"Trusted_Connection=yes;"
     )
 
@@ -171,8 +203,8 @@ SELECT
     dtc.dt060                                                              AS fecha,
     STUFF(RIGHT('0000' + CAST(dtc.dt080 AS VARCHAR(4)), 4), 3, 0, ':')   AS hora_inicio,
     STUFF(RIGHT('0000' + CAST(dtc.dt085 AS VARCHAR(4)), 4), 3, 0, ':')   AS hora_fin,
-    dtc.dt090                                                              AS tiempo,
-    dtc.dt150                                                              AS centro_trabajo,
+    COALESCE(TRY_CONVERT(FLOAT, dtc.dt090), 0)                            AS tiempo,
+    RTRIM(CAST(dtc.dt150 AS NVARCHAR(50)))                                AS centro_trabajo,
     CASE dtc.dt110
         WHEN '0' THEN 'Producción'
         WHEN '1' THEN 'Preparación'
@@ -180,28 +212,28 @@ SELECT
         ELSE ''
     END                                                                    AS proceso,
     COALESCE(RTRIM(CAST(inc.in020 AS NVARCHAR(MAX))), '')                 AS incidencia,
-    COALESCE(dtc.dt130, 0)                                                 AS cantidad,
+    COALESCE(TRY_CONVERT(FLOAT, dtc.dt130), 0)                            AS cantidad,
     COALESCE(def.malas, 0)                                                 AS malas,
     COALESCE(def.recuperadas, 0)                                           AS recuperadas
     {ref_select}
 FROM admuser.fmesdtc AS dtc
 LEFT JOIN (
     SELECT dd010, dd020, dd030, dd040, dd050,
-           SUM(dd080) AS malas,
-           SUM(dd090) AS recuperadas
+           SUM(COALESCE(TRY_CONVERT(FLOAT, dd080), 0)) AS malas,
+           SUM(COALESCE(TRY_CONVERT(FLOAT, dd090), 0)) AS recuperadas
     FROM admuser.fmesddf
     GROUP BY dd010, dd020, dd030, dd040, dd050
 ) AS def
-    ON  def.dd010 = dtc.dt010
-    AND def.dd020 = dtc.dt020
-    AND def.dd030 = dtc.dt030
-    AND def.dd040 = dtc.dt040
-    AND def.dd050 = dtc.dt050
+    ON  RTRIM(CAST(def.dd010 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt010 AS NVARCHAR(100)))
+    AND RTRIM(CAST(def.dd020 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt020 AS NVARCHAR(100)))
+    AND RTRIM(CAST(def.dd030 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt030 AS NVARCHAR(100)))
+    AND RTRIM(CAST(def.dd040 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt040 AS NVARCHAR(100)))
+    AND RTRIM(CAST(def.dd050 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt050 AS NVARCHAR(100)))
 LEFT JOIN admuser.fmesinc AS inc
     ON  RTRIM(inc.in010) = RTRIM(dtc.dt120)
-    AND inc.in000 = dtc.dt010
+    AND RTRIM(CAST(inc.in000 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt010 AS NVARCHAR(100)))
 WHERE CONVERT(DATE, dtc.dt060) BETWEEN ? AND ?
-  AND dtc.dt150 IN ({ct_placeholders})
+  AND RTRIM(CAST(dtc.dt150 AS NVARCHAR(50))) IN ({ct_placeholders})
   {uf_filter}
 ORDER BY dtc.dt150, dtc.dt060, dtc.dt080
 """
@@ -228,9 +260,9 @@ def extraer_y_guardar_csv(
     if not recursos_activos:
         raise ValueError("No hay recursos activos configurados.")
 
-    ct_codes = [int(r["centro_trabajo"]) for r in recursos_activos]
-    ct_to_resource: Dict[int, str] = {
-        int(r["centro_trabajo"]): r["nombre"] for r in recursos_activos
+    ct_codes = [str(r["centro_trabajo"]).strip() for r in recursos_activos]
+    ct_to_resource: Dict[str, str] = {
+        str(r["centro_trabajo"]).strip(): r["nombre"] for r in recursos_activos
     }
 
     # Construir query
@@ -287,7 +319,7 @@ def extraer_y_guardar_csv(
     generated: Dict[str, Path] = {}
 
     for ct_code, resource_name in ct_to_resource.items():
-        df_r = df[df["_ct"] == ct_code].drop(columns=["_ct"]).copy()
+        df_r = df[df["_ct"].astype(str).str.strip() == ct_code].drop(columns=["_ct"]).copy()
         if df_r.empty:
             continue
 

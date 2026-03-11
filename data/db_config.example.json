@@ -12,6 +12,10 @@
 
   "driver":           "",
   "_driver_nota":     "Dejar vacío para auto-detectar. Si falla, pon el nombre exacto: 'ODBC Driver 17 for SQL Server'",
+  "encrypt":          "",
+  "_encrypt_nota":    "Vacío=auto (Driver 18 -> yes). Puedes forzar true/false.",
+  "trust_server_certificate": "",
+  "_trustcert_nota":  "Vacío=auto (Driver 18 -> yes). Si el servidor usa certificado autofirmado, true evita error SSL.",
 
   "user":             "tu_usuario_sql",
   "password":         "tu_contraseña_sql",
