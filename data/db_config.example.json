@@ -1,0 +1,34 @@
+{
+  "_instrucciones": [
+    "1. Copia este fichero como 'db_config.json' en esta misma carpeta (data/).",
+    "2. Rellena los campos server, user y password con tus datos reales.",
+    "3. Arranca la app: python app.py",
+    "4. La sección 'recursos' la puedes editar también desde la interfaz web."
+  ],
+
+  "server":           "192.168.X.X",
+  "port":             "1433",
+  "database":         "dbizaro",
+
+  "driver":           "",
+  "_driver_nota":     "Dejar vacío para auto-detectar. Si falla, pon el nombre exacto: 'ODBC Driver 17 for SQL Server'",
+
+  "user":             "tu_usuario_sql",
+  "password":         "tu_contraseña_sql",
+
+  "uf_code":          "",
+  "_uf_nota":         "Código de empresa (campo dt010). Dejar vacío si solo hay una empresa en la BD.",
+
+  "referencia_campo": "",
+  "_ref_nota":        "Columna de fmesdtc con la referencia de pieza (ej: 'dt030'). Usa el botón 'Ver columnas' en la web para identificarla.",
+
+  "recursos": [
+    { "centro_trabajo": 21, "nombre": "luk1", "activo": true },
+    { "centro_trabajo": 22, "nombre": "luk2", "activo": true },
+    { "centro_trabajo": 23, "nombre": "luk3", "activo": true },
+    { "centro_trabajo": 24, "nombre": "luk6", "activo": true },
+    { "centro_trabajo": 25, "nombre": "vw1",  "activo": true },
+    { "centro_trabajo": 31, "nombre": "t48",  "activo": true }
+  ],
+  "_recursos_nota": "Ajusta los números de centro_trabajo a los reales de tu BD. Puedes añadir/quitar desde la web."
+}

@@ -1,12 +1,14 @@
 """
 Interfaz web local para extraer datos del MES (dbizaro) y generar informes OEE.
+
 Arrancar con:  python app.py
 Abrir en:      http://127.0.0.1:5000
+
+Configuración de conexión → editar data/db_config.json (ver data/db_config.example.json)
 """
 from __future__ import annotations
 
 import io
-import json
 import traceback
 from contextlib import redirect_stdout
 from datetime import date, datetime
@@ -47,35 +49,44 @@ def index():
 
 
 # ---------------------------------------------------------------------------
-# Configuración
+# Estado de conexión (lo llama la web nada más cargar la página)
 # ---------------------------------------------------------------------------
 
-@app.route("/config/guardar", methods=["POST"])
-def guardar_config():
-    data = request.get_json(force=True)
-    cfg = load_config()
-    for key in ("server", "port", "database", "driver", "user", "password",
-                "uf_code", "referencia_campo"):
-        if key in data:
-            cfg[key] = data[key]
-    if "recursos" in data:
-        cfg["recursos"] = data["recursos"]
-    save_config(cfg)
-    return jsonify({"ok": True})
-
-
-@app.route("/config/test", methods=["POST"])
-def test_bd():
+@app.route("/status")
+def status():
     cfg = load_config()
     msg = test_conexion(cfg)
-    return jsonify({"mensaje": msg, "ok": msg.startswith("OK")})
+    ok = msg.startswith("OK")
+    return jsonify({
+        "ok": ok,
+        "mensaje": msg,
+        "server": cfg.get("server", ""),
+        "database": cfg.get("database", ""),
+    })
 
+
+# ---------------------------------------------------------------------------
+# Explorar columnas (para identificar el campo Refer.)
+# ---------------------------------------------------------------------------
 
 @app.route("/config/explorar", methods=["POST"])
 def explorar_bd():
     cfg = load_config()
     cols = explorar_columnas_fmesdtc(cfg)
     return jsonify({"columnas": cols})
+
+
+# ---------------------------------------------------------------------------
+# Guardar solo la lista de recursos (la web no toca credenciales)
+# ---------------------------------------------------------------------------
+
+@app.route("/config/recursos", methods=["POST"])
+def guardar_recursos():
+    data = request.get_json(force=True)
+    cfg = load_config()
+    cfg["recursos"] = data.get("recursos", cfg["recursos"])
+    save_config(cfg)
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------
@@ -167,5 +178,15 @@ def servir_informe(filepath):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Verificar conexión al arrancar
+    cfg = load_config()
+    if not cfg.get("server"):
+        print("⚠  Sin configurar: edita data/db_config.json con los datos de conexión.")
+        print("   (Copia data/db_config.example.json como punto de partida)")
+    else:
+        print(f"Probando conexión a {cfg['server']} …", end=" ", flush=True)
+        resultado = test_conexion(cfg)
+        print("OK" if resultado.startswith("OK") else resultado)
+
     print("Abriendo interfaz en http://127.0.0.1:5000")
     app.run(debug=False, host="127.0.0.1", port=5000)

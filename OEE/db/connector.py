@@ -23,11 +23,38 @@ except ImportError:
 
 CONFIG_FILE = Path(__file__).resolve().parents[2] / "data" / "db_config.json"
 
+# ---------------------------------------------------------------------------
+# Driver ODBC: preferencia de mayor a menor versión
+# ---------------------------------------------------------------------------
+_DRIVER_PREFERENCE = [
+    "ODBC Driver 18 for SQL Server",
+    "ODBC Driver 17 for SQL Server",
+    "ODBC Driver 13 for SQL Server",
+    "SQL Server Native Client 11.0",
+    "SQL Server",
+]
+
+
+def detectar_driver() -> str:
+    """Devuelve el mejor driver ODBC para SQL Server disponible en este equipo."""
+    if not PYODBC_AVAILABLE:
+        return _DRIVER_PREFERENCE[1]  # fallback sin error
+    drivers_instalados = pyodbc.drivers()
+    for d in _DRIVER_PREFERENCE:
+        if d in drivers_instalados:
+            return d
+    # Si ninguno conocido, devolver el primero que contenga "SQL Server"
+    for d in drivers_instalados:
+        if "SQL Server" in d:
+            return d
+    return _DRIVER_PREFERENCE[1]
+
+
 DEFAULT_CONFIG: dict = {
     "server": "",
     "port": "1433",
     "database": "dbizaro",
-    "driver": "ODBC Driver 17 for SQL Server",
+    "driver": "",        # vacío → se auto-detecta al conectar
     "user": "",
     "password": "",
     "uf_code": "",
@@ -69,7 +96,7 @@ def save_config(cfg: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def _build_connection_string(cfg: dict) -> str:
-    driver = cfg.get("driver") or "ODBC Driver 17 for SQL Server"
+    driver = (cfg.get("driver") or "").strip() or detectar_driver()
     server = cfg["server"]
     port = cfg.get("port") or "1433"
     database = cfg["database"]
