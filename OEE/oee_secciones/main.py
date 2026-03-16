@@ -126,9 +126,17 @@ def normalize_ref(value: Optional[str]) -> str:
     return text
 
 
+def resolve_operating_hours(net_hours: float, gross_hours: float) -> float:
+    """Prioriza el tiempo neto real del CSV y cae al bruto si falta."""
+    if net_hours > 0:
+        return net_hours
+    return gross_hours
+
+
 def crear_raw_metricas() -> Dict[str, float]:
     return {
         "horas_produccion": 0.0,        # Tiempo bruto de producción (H Ini - F Fin)
+        "horas_operativo_real": 0.0,    # Tiempo neto real de producción (columna Tiempo)
         "horas_preparacion": 0.0,       # Tiempo de preparación
         "horas_indisponibilidad": 0.0,  # Incidencias: avería, mant. prev., limpieza
         "horas_paros": 0.0,             # Otras incidencias
@@ -141,6 +149,7 @@ def crear_raw_metricas() -> Dict[str, float]:
 
 def convertir_raw_a_metricas(raw: Dict[str, float]) -> Dict[str, float]:
     horas_produccion = raw.get("horas_produccion", 0.0)
+    horas_operativo_real = raw.get("horas_operativo_real", 0.0)
     horas_preparacion = raw.get("horas_preparacion", 0.0)
     horas_indisponibilidad = raw.get("horas_indisponibilidad", 0.0)
     horas_paros = raw.get("horas_paros", 0.0)
@@ -152,7 +161,8 @@ def convertir_raw_a_metricas(raw: Dict[str, float]) -> Dict[str, float]:
     horas_disponible = max(horas_brutas - horas_indisponibilidad, 0.0)
 
     # T. Operativo = T. Disponible - Preparación - Paros
-    horas_operativo = max(horas_disponible - horas_preparacion - horas_paros, 0.0)
+    horas_operativo_calc = max(horas_disponible - horas_preparacion - horas_paros, 0.0)
+    horas_operativo = horas_operativo_real if horas_operativo_real > 0 else horas_operativo_calc
 
     tiempo_ideal = raw.get("tiempo_ideal", 0.0)
     perdidas_rend = max(horas_operativo - tiempo_ideal, 0.0)
@@ -184,6 +194,7 @@ def convertir_raw_a_metricas(raw: Dict[str, float]) -> Dict[str, float]:
         "horas_brutas": horas_brutas,
         "horas_disponible": horas_disponible,
         "horas_operativo": horas_operativo,
+        "horas_operativo_real": horas_operativo_real,
         "horas_produccion": horas_produccion,
         "horas_preparacion": horas_preparacion,
         "horas_indisponibilidad": horas_indisponibilidad,
@@ -537,6 +548,10 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
                 shift_stats["horas_produccion"] += horas_seg_bruto
                 day_stats["horas_produccion"] += horas_seg_bruto
                 day_shift_stats["horas_produccion"] += horas_seg_bruto
+                horas_seg_operativo = resolve_operating_hours(reg.horas_netas, reg.horas) * peso
+                shift_stats["horas_operativo_real"] += horas_seg_operativo
+                day_stats["horas_operativo_real"] += horas_seg_operativo
+                day_shift_stats["horas_operativo_real"] += horas_seg_operativo
                 if ciclo_seg and ciclo_seg > 0 and piezas_seg > 0:
                     seg_tiempo_ideal = piezas_seg / ciclo_seg
                     tiempo_ideal += seg_tiempo_ideal
@@ -545,7 +560,6 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
                     day_shift_stats["tiempo_ideal"] += seg_tiempo_ideal
                 # Estadística por referencia
                 if piezas_seg > 0 or horas_seg_bruto > 0:
-                    horas_seg_neto = reg.horas_netas * peso
                     ref_entry = ref_stats.setdefault(
                         reg.referencia,
                         {
@@ -557,11 +571,11 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
                         ref_entry["ciclo_ideal"] = ciclo_seg
                     day_entry = ref_entry["dias"].setdefault(
                         day_seg,
-                        {"piezas": 0.0, "horas_brutas": 0.0, "horas_netas": 0.0},
+                        {"piezas": 0.0, "horas_brutas": 0.0, "horas_operativo": 0.0},
                     )
                     day_entry["piezas"] += piezas_seg
                     day_entry["horas_brutas"] += horas_seg_bruto
-                    day_entry["horas_netas"] += horas_seg_neto
+                    day_entry["horas_operativo"] += horas_seg_operativo
             else:  # preparacion
                 shift_stats["horas_preparacion"] += horas_seg_bruto
                 day_stats["horas_preparacion"] += horas_seg_bruto
@@ -575,7 +589,9 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
     horas_disponible = max(horas_brutas - total_horas_indisponibilidad, 0.0)
 
     # T. Operativo = T. Disponible - Preparación - Paros
-    horas_operativo = max(horas_disponible - total_horas_preparacion - total_horas_paros, 0.0)
+    horas_operativo_calc = max(horas_disponible - total_horas_preparacion - total_horas_paros, 0.0)
+    horas_operativo_real = sum(stats.get("horas_operativo_real", 0.0) for stats in daily_stats.values())
+    horas_operativo = horas_operativo_real if horas_operativo_real > 0 else horas_operativo_calc
 
     perdidas_rend = max(horas_operativo - tiempo_ideal, 0.0)
     scrap_final = max(piezas_malas - piezas_recuperadas, 0.0)
@@ -634,7 +650,7 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
                     day: {
                         "piezas": val.get("piezas", 0.0),
                         "horas_brutas": val.get("horas_brutas", 0.0),
-                        "horas_netas": val.get("horas_netas", 0.0),
+                        "horas_operativo": val.get("horas_operativo", 0.0),
                     }
                     for day, val in sorted(data.get("dias", {}).items())
                 },
@@ -731,6 +747,7 @@ def calcular_resumen_diario(maquinas: List[MachineSectionMetrics]) -> List[Tuple
     diarios: Dict[date, Dict[str, float]] = defaultdict(
         lambda: {
             "horas_produccion": 0.0,
+            "horas_operativo_real": 0.0,
             "horas_preparacion": 0.0,
             "horas_indisponibilidad": 0.0,
             "horas_paros": 0.0,
@@ -745,6 +762,7 @@ def calcular_resumen_diario(maquinas: List[MachineSectionMetrics]) -> List[Tuple
         for day, data in maquina.daily_stats.items():
             stats = diarios[day]
             stats["horas_produccion"] += data.get("horas_produccion", 0.0)
+            stats["horas_operativo_real"] += data.get("horas_operativo_real", 0.0)
             stats["horas_preparacion"] += data.get("horas_preparacion", 0.0)
             stats["horas_indisponibilidad"] += data.get("horas_indisponibilidad", 0.0)
             stats["horas_paros"] += data.get("horas_paros", 0.0)
@@ -761,7 +779,10 @@ def calcular_resumen_diario(maquinas: List[MachineSectionMetrics]) -> List[Tuple
         # T. Disponible = T. Bruto - Indisponibilidad
         horas_disponible = max(horas_brutas - data["horas_indisponibilidad"], 0.0)
         # T. Operativo = T. Disponible - Preparación - Paros
-        horas_operativo = max(horas_disponible - data["horas_preparacion"] - data["horas_paros"], 0.0)
+        horas_operativo_calc = max(horas_disponible - data["horas_preparacion"] - data["horas_paros"], 0.0)
+        horas_operativo = (
+            data["horas_operativo_real"] if data["horas_operativo_real"] > 0 else horas_operativo_calc
+        )
 
         perdidas_rend = max(horas_operativo - data["tiempo_ideal"], 0.0)
         scrap_final = max(data["piezas_malas"] - data["piezas_recuperadas"], 0.0)
@@ -787,6 +808,7 @@ def calcular_resumen_diario(maquinas: List[MachineSectionMetrics]) -> List[Tuple
                     "horas_brutas": horas_brutas,
                     "horas_disponible": horas_disponible,
                     "horas_operativo": horas_operativo,
+                    "horas_operativo_real": data["horas_operativo_real"],
                     "horas_preparacion": data["horas_preparacion"],
                     "horas_indisponibilidad": data["horas_indisponibilidad"],
                     "horas_paros": data["horas_paros"],
@@ -1207,12 +1229,12 @@ def build_reference_summary_pages(
                 dias = stats.get("dias", {}) or {}
                 ciclo_ideal = stats.get("ciclo_ideal")
                 total_piezas = 0.0
-                total_horas_netas = 0.0
+                total_horas_operativo = 0.0
                 for day in sorted(dias.keys()):
                     piezas = dias[day].get("piezas", 0.0)
-                    horas = dias[day].get("horas_netas", dias[day].get("horas_brutas", 0.0))
+                    horas = dias[day].get("horas_operativo", dias[day].get("horas_brutas", 0.0))
                     total_piezas += piezas
-                    total_horas_netas += horas
+                    total_horas_operativo += horas
                     ciclo_real = (piezas / horas) if horas > 0 else None  # piezas por hora real
                     ref_rows.append(
                         (
@@ -1227,7 +1249,7 @@ def build_reference_summary_pages(
                             False,
                         )
                     )
-                ciclo_real_avg = (total_piezas / total_horas_netas) if total_horas_netas > 0 else None
+                ciclo_real_avg = (total_piezas / total_horas_operativo) if total_horas_operativo > 0 else None
                 ref_rows.append(
                     (
                         [
