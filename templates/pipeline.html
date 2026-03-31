@@ -47,19 +47,33 @@
       <!-- Resources (only when source=db) -->
       <div x-show="source === 'db'" x-transition>
         <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Recursos activos</label>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {% for r in recursos %}
-          <label class="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border border-surface-200 cursor-pointer hover:bg-surface-50">
-            <input type="checkbox" value="{{ r.nombre }}" checked
-                   class="rounded text-brand-600 focus:ring-brand-500">
-            <span>{{ r.nombre }}</span>
-            <span class="text-xs text-gray-400">{{ r.centro_trabajo }}</span>
-          </label>
-          {% endfor %}
-          {% if not recursos %}
-          <p class="col-span-4 text-sm text-gray-400">Sin recursos configurados. <a href="/recursos" class="text-brand-600 hover:underline">Configurar</a></p>
+        {% set secciones = {} %}
+        {% for r in recursos %}
+          {% if r.seccion not in secciones %}
+            {% set _ = secciones.update({r.seccion: []}) %}
           {% endif %}
+          {% set _ = secciones[r.seccion].append(r) %}
+        {% endfor %}
+        {% for seccion, recs in secciones.items() %}
+        <div class="mb-3">
+          <div class="text-xs font-semibold mb-1">
+            <span class="inline-flex items-center px-2 py-0.5 rounded {{ 'bg-blue-100 text-blue-800' if seccion == 'LINEAS' else 'bg-amber-100 text-amber-800' if seccion == 'TALLADORAS' else 'bg-gray-100 text-gray-600' }}">{{ seccion }}</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {% for r in recs %}
+            <label class="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border border-surface-200 cursor-pointer hover:bg-surface-50">
+              <input type="checkbox" value="{{ r.nombre }}" checked
+                     class="rounded text-brand-600 focus:ring-brand-500">
+              <span>{{ r.nombre }}</span>
+              <span class="text-xs text-gray-400">{{ r.centro_trabajo }}</span>
+            </label>
+            {% endfor %}
+          </div>
         </div>
+        {% endfor %}
+        {% if not recursos %}
+        <p class="text-sm text-gray-400">Sin recursos configurados. <a href="/recursos" class="text-brand-600 hover:underline">Configurar</a></p>
+        {% endif %}
       </div>
 
       <!-- Modules -->

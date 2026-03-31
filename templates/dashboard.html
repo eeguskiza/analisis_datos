@@ -93,21 +93,26 @@
     </div>
 
     <div class="card">
-      <div class="card-header">Informes recientes</div>
+      <div class="card-header">Ultimas ejecuciones</div>
       <div class="card-body">
-        {% if last_date %}
-        <ul class="space-y-1">
-          {% for d in dates[:5] %}
-          <li>
-            <a href="/informes" class="text-sm text-brand-600 hover:text-brand-800 hover:underline">{{ d }}</a>
-          </li>
+        {% if ejecuciones %}
+        <div class="space-y-2">
+          {% for e in ejecuciones %}
+          <a href="/historial" class="flex items-center justify-between p-2 rounded-lg hover:bg-surface-50 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full {{ 'bg-green-500' if e.status == 'completed' else 'bg-red-500' if e.status == 'error' else 'bg-yellow-500' }}"></span>
+              <span class="font-medium">{{ e.fecha_inicio }}</span>
+              <span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-blue-100 text-blue-700' if e.source == 'db' else 'bg-gray-100 text-gray-600' }}">{{ e.source }}</span>
+            </div>
+            <span class="text-xs text-gray-400">{{ e.n_pdfs }} PDFs</span>
+          </a>
           {% endfor %}
-        </ul>
+        </div>
         {% else %}
-        <p class="text-sm text-gray-400">No hay informes generados aun.</p>
+        <p class="text-sm text-gray-400">Sin ejecuciones. Lanza el <a href="/pipeline" class="text-brand-600 hover:underline">pipeline</a>.</p>
         {% endif %}
         <div class="mt-3">
-          <a href="/informes" class="text-sm text-brand-600 hover:underline">Ver todos &rarr;</a>
+          <a href="/historial" class="text-sm text-brand-600 hover:underline">Ver historial completo &rarr;</a>
         </div>
       </div>
     </div>

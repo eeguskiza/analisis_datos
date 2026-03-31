@@ -33,7 +33,7 @@ app.mount("/static", StaticFiles(directory=str(settings.project_root / "static")
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 
-from api.routers import pages, conexion, recursos, pipeline, informes, ciclos, health  # noqa: E402
+from api.routers import pages, conexion, recursos, pipeline, informes, ciclos, health, historial, plantillas  # noqa: E402
 
 app.include_router(health.router, prefix="/api")
 app.include_router(pages.router)
@@ -42,3 +42,5 @@ app.include_router(recursos.router, prefix="/api")
 app.include_router(pipeline.router, prefix="/api")
 app.include_router(informes.router, prefix="/api")
 app.include_router(ciclos.router, prefix="/api")
+app.include_router(historial.router, prefix="/api")
+app.include_router(plantillas.router, prefix="/api")

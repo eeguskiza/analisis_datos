@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Plantillas — OEE Planta{% endblock %}
+{% block page_title %}Editor de plantillas de informes{% endblock %}
+
+{% block content %}
+<div x-data="plantillasEditor()" x-init="load()" class="space-y-6">
+
+  <!-- Toolbar -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <label class="text-sm font-semibold text-gray-500">Plantilla:</label>
+      <select x-model="selected" @change="loadTemplate()" class="input-inline w-48 text-sm">
+        <template x-for="t in templates" :key="t.name">
+          <option :value="t.name" x-text="t.name"></option>
+        </template>
+      </select>
+    </div>
+    <div class="flex gap-2">
+      <button @click="showNew = true" class="btn-ghost btn-sm">+ Nueva</button>
+      <button @click="guardar()" class="btn-primary btn-sm" :disabled="saving">
+        <span x-show="saving" class="spinner border-white"></span>
+        Guardar
+      </button>
+      <span x-show="saved" x-transition class="text-sm text-green-600">Guardado</span>
+    </div>
+  </div>
+
+  <!-- New template dialog -->
+  <div x-show="showNew" x-transition class="card card-body flex items-end gap-3">
+    <div class="flex-1">
+      <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nombre de la nueva plantilla</label>
+      <input type="text" x-model="newName" class="input-inline" placeholder="mi_plantilla">
+    </div>
+    <button @click="crear()" class="btn-primary btn-sm">Crear</button>
+    <button @click="showNew = false" class="btn-ghost btn-sm">Cancelar</button>
+  </div>
+
+  <!-- Loading -->
+  <template x-if="loading">
+    <div class="card card-body text-center py-8 text-gray-400">
+      <span class="spinner border-brand-600"></span> Cargando...
+    </div>
+  </template>
+
+  <!-- Module editors -->
+  <template x-if="!loading && data">
+    <div class="space-y-4">
+
+      <!-- Info -->
+      <div class="card card-body">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nombre</label>
+            <input type="text" x-model="data.name" class="input-inline">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Descripcion</label>
+            <input type="text" x-model="data.description" class="input-inline">
+          </div>
+        </div>
+      </div>
+
+      <!-- One card per OEE module -->
+      <template x-for="modKey in ['disponibilidad', 'rendimiento', 'calidad', 'oee_secciones']" :key="modKey">
+        <div class="card" x-data="{ open: false }">
+          <button @click="open = !open" class="card-header flex items-center justify-between w-full text-left cursor-pointer">
+            <span class="capitalize" x-text="modKey.replace('_', ' ')"></span>
+            <svg class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'"
+                 fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div x-show="open" x-transition class="card-body space-y-4" x-init="if (!data[modKey]) data[modKey] = {sections:[], colors:{}, page:{}}">
+
+            <!-- Sections -->
+            <div>
+              <div class="text-xs font-semibold text-gray-500 uppercase mb-2">Secciones del informe</div>
+              <div class="space-y-1">
+                <template x-for="(sec, si) in (data[modKey]?.sections || [])" :key="si">
+                  <div class="flex items-center gap-3 px-3 py-2 rounded-lg border border-surface-200" :class="!sec.show && 'opacity-50'">
+                    <input type="checkbox" x-model="sec.show" class="rounded text-brand-600 focus:ring-brand-500">
+                    <span class="text-sm font-mono flex-1" x-text="sec.type"></span>
+
+                    <!-- Editable props -->
+                    <template x-if="sec.max_rows !== undefined">
+                      <div class="flex items-center gap-1 text-xs">
+                        <span class="text-gray-400">max:</span>
+                        <input type="number" x-model.number="sec.max_rows" class="input-inline w-16 text-xs">
+                      </div>
+                    </template>
+                    <template x-if="sec.style !== undefined">
+                      <select x-model="sec.style" class="input-inline w-28 text-xs">
+                        <option value="stacked_bar">Barras apiladas</option>
+                        <option value="grouped_bar">Barras agrupadas</option>
+                        <option value="pie">Circular</option>
+                      </select>
+                    </template>
+
+                    <!-- Move up/down -->
+                    <button @click="moveSection(modKey, si, -1)" class="text-gray-400 hover:text-gray-600" :disabled="si === 0">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                    </button>
+                    <button @click="moveSection(modKey, si, 1)" class="text-gray-400 hover:text-gray-600" :disabled="si === (data[modKey].sections.length - 1)">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Colors -->
+            <div x-init="if (!data[modKey].colors) data[modKey].colors = {}">
+              <div class="text-xs font-semibold text-gray-500 uppercase mb-2">Colores</div>
+              <div class="flex flex-wrap gap-4">
+                <template x-for="colorKey in Object.keys(data[modKey]?.colors || {})" :key="colorKey">
+                  <div class="flex items-center gap-2">
+                    <label class="text-xs text-gray-500 capitalize" x-text="colorKey"></label>
+                    <input type="color" x-model="data[modKey].colors[colorKey]" class="w-8 h-8 rounded border-0 cursor-pointer">
+                    <input type="text" x-model="data[modKey].colors[colorKey]" class="input-inline w-24 text-xs font-mono">
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Page layout -->
+            <div x-init="if (!data[modKey].page) data[modKey].page = {}">
+              <div class="text-xs font-semibold text-gray-500 uppercase mb-2">Pagina</div>
+              <div class="flex gap-4">
+                <div>
+                  <label class="text-xs text-gray-500">Orientacion</label>
+                  <select x-model="data[modKey].page.orientation" class="input-inline text-xs">
+                    <option value="portrait">Vertical</option>
+                    <option value="landscape">Horizontal</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500">Margen (mm)</label>
+                  <input type="number" x-model.number="data[modKey].page.margin_mm" class="input-inline w-20 text-xs">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <!-- Help -->
+  <div class="card">
+    <div class="card-header">Info</div>
+    <div class="card-body text-sm text-gray-600 space-y-2">
+      <p>Las plantillas definen la estructura y apariencia de los informes PDF. Cada modulo (disponibilidad, rendimiento, calidad, OEE secciones) tiene sus propias secciones configurables.</p>
+      <p>La integracion con los modulos OEE para que lean estas plantillas al generar PDFs se implementara en una futura actualizacion. Por ahora puedes disenar la estructura que quieres.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+function plantillasEditor() {
+  return {
+    templates: [],
+    selected: 'default',
+    data: null,
+    loading: true,
+    saving: false,
+    saved: false,
+    showNew: false,
+    newName: '',
+
+    async load() {
+      this.loading = true;
+      const res = await fetch('/api/plantillas');
+      const d = await res.json();
+      this.templates = d.plantillas || [];
+      if (this.templates.length > 0 && !this.templates.find(t => t.name === this.selected)) {
+        this.selected = this.templates[0].name;
+      }
+      await this.loadTemplate();
+      this.loading = false;
+    },
+
+    async loadTemplate() {
+      if (!this.selected) return;
+      const res = await fetch(`/api/plantillas/${this.selected}`);
+      this.data = await res.json();
+    },
+
+    async guardar() {
+      this.saving = true;
+      await fetch(`/api/plantillas/${this.selected}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.data),
+      });
+      this.saving = false;
+      this.saved = true;
+      setTimeout(() => this.saved = false, 2000);
+      showToast('Plantilla guardada');
+    },
+
+    async crear() {
+      if (!this.newName.trim()) return;
+      await fetch('/api/plantillas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: this.newName.trim() }),
+      });
+      this.selected = this.newName.trim();
+      this.showNew = false;
+      this.newName = '';
+      await this.load();
+      showToast('Plantilla creada');
+    },
+
+    moveSection(modKey, idx, dir) {
+      const secs = this.data[modKey].sections;
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= secs.length) return;
+      [secs[idx], secs[newIdx]] = [secs[newIdx], secs[idx]];
+    }
+  };
+}
+</script>
+{% endblock %}

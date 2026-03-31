@@ -73,6 +73,7 @@ function runPipeline(formData) {
 
             statusEl.innerHTML = `<span class="text-green-600 font-semibold">${count} PDF(s) generados</span>`;
             btnRun.disabled = false;
+            notifyBrowser(`Pipeline completado: ${count} PDF(s)`);
 
             if (pdfs.length > 0) {
               pdfsPanel.classList.remove('hidden');
@@ -122,6 +123,25 @@ const SECTION_MAP = {
 
 function getSectionForResource(name) {
   return SECTION_MAP[(name || '').toLowerCase()] || 'GENERAL';
+}
+
+
+// ── Browser notifications ────────────────────────────────────────────────────
+
+function notifyBrowser(message) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    new Notification('OEE Planta', { body: message, icon: '/static/img/icon.png' });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') new Notification('OEE Planta', { body: message });
+    });
+  }
+}
+
+// Request permission on load
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
 }
 
 

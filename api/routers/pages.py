@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from api.config import settings
 from api.deps import templates
-from api.database import Recurso, get_db
+from api.database import Ejecucion, Recurso, get_db
 from api.services import db as db_service
 from api.services import informes as informes_service
 
@@ -32,6 +32,12 @@ def index(request: Request, db: Session = Depends(get_db)):
     ctx["total_dates"] = len(dates)
     ctx["total_pdfs"] = informes_service.count_pdfs()
     ctx["n_recursos"] = db.query(Recurso).filter_by(activo=True).count()
+    ctx["ejecuciones"] = [
+        {"id": e.id, "fecha_inicio": e.fecha_inicio, "fecha_fin": e.fecha_fin,
+         "source": e.source, "status": e.status, "n_pdfs": e.n_pdfs,
+         "created_at": e.created_at.isoformat() if e.created_at else ""}
+        for e in db.query(Ejecucion).order_by(Ejecucion.created_at.desc()).limit(5).all()
+    ]
     return templates.TemplateResponse("dashboard.html", ctx)
 
 
@@ -69,6 +75,18 @@ def recursos_page(request: Request, db: Session = Depends(get_db)):
 def ciclos_page(request: Request):
     ctx = _common_ctx(request, "ciclos")
     return templates.TemplateResponse("ciclos.html", ctx)
+
+
+@router.get("/historial")
+def historial_page(request: Request):
+    ctx = _common_ctx(request, "historial")
+    return templates.TemplateResponse("historial.html", ctx)
+
+
+@router.get("/plantillas")
+def plantillas_page(request: Request):
+    ctx = _common_ctx(request, "plantillas")
+    return templates.TemplateResponse("plantillas.html", ctx)
 
 
 @router.get("/ajustes")
