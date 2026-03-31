@@ -17,11 +17,15 @@ def listar():
 
 @router.get("/pdf/{filepath:path}")
 def servir_pdf(filepath: str):
-    """Sirve un PDF concreto."""
+    """Sirve un PDF para visualizar inline (no descarga)."""
     path = informes_service.get_pdf_path(filepath)
     if path is None:
         raise HTTPException(404, "PDF no encontrado")
-    return FileResponse(path, media_type="application/pdf", filename=path.name)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline"},
+    )
 
 
 @router.delete("/{date_str}")
