@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 
 from api.services import informes as informes_service
 
@@ -17,14 +17,35 @@ def listar():
 
 @router.get("/pdf/{filepath:path}")
 def servir_pdf(filepath: str):
-    """Sirve un PDF para visualizar inline (no descarga)."""
+    """Sirve un PDF para visualizar inline — nunca fuerza descarga."""
     path = informes_service.get_pdf_path(filepath)
     if path is None:
         raise HTTPException(404, "PDF no encontrado")
-    return FileResponse(
-        path,
+    data = path.read_bytes()
+    return Response(
+        content=data,
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline"},
+        headers={
+            "Content-Disposition": "inline",
+            "Content-Length": str(len(data)),
+        },
+    )
+
+
+@router.get("/download/{filepath:path}")
+def descargar_pdf(filepath: str):
+    """Fuerza descarga de un PDF."""
+    path = informes_service.get_pdf_path(filepath)
+    if path is None:
+        raise HTTPException(404, "PDF no encontrado")
+    data = path.read_bytes()
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{path.name}"',
+            "Content-Length": str(len(data)),
+        },
     )
 
 

@@ -72,7 +72,7 @@
       <div x-show="selectedPdf" class="flex gap-1">
         <a :href="'/api/informes/pdf/' + selectedPdf" target="_blank"
            class="px-2 py-1 text-xs text-gray-500 hover:text-brand-600 rounded hover:bg-surface-50">Nueva pestana</a>
-        <a :href="'/api/informes/pdf/' + selectedPdf" download
+        <a :href="'/api/informes/download/' + selectedPdf"
            class="px-2 py-1 text-xs text-gray-500 hover:text-brand-600 rounded hover:bg-surface-50">Descargar</a>
       </div>
     </div>
