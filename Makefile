@@ -1,8 +1,8 @@
-.PHONY: up down build restart logs status dev db-shell clean help
+.PHONY: up down build rebuild restart logs status dev db-shell clean help
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
-up: ## Arranca todos los servicios (db + web)
+up: ## Arranca todos los servicios (db + web + mcp)
 	docker compose up -d
 	@echo ""
 	@echo "  OEE Planta arrancado:"
@@ -14,7 +14,7 @@ up: ## Arranca todos los servicios (db + web)
 down: ## Para todos los servicios
 	docker compose down
 
-build: ## Reconstruye las imagenes
+build: ## Reconstruye las imagenes (arch nativa)
 	docker compose build
 
 rebuild: ## Reconstruye sin cache y arranca
@@ -32,6 +32,9 @@ logs-web: ## Logs solo de la web
 
 logs-db: ## Logs solo de la base de datos
 	docker compose logs -f db
+
+logs-mcp: ## Logs solo del MCP server
+	docker compose logs -f mcp
 
 status: ## Muestra el estado de los contenedores
 	docker compose ps
