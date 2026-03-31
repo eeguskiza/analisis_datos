@@ -1,88 +1,67 @@
 {% extends "base.html" %}
 {% block title %}Recursos — OEE Planta{% endblock %}
-{% block page_title %}Recursos (Centros de trabajo){% endblock %}
+{% block page_title %}Recursos{% endblock %}
 
 {% block content %}
-<div x-data="recursosEditor()" class="space-y-6">
+<div x-data="recursosEditor()" class="max-w-3xl mx-auto space-y-6">
 
-  <div class="card">
-    <div class="card-header flex items-center justify-between">
-      <span>Lista de recursos</span>
-      <button @click="addRecurso()" class="btn-ghost btn-sm">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-        </svg>
-        Anadir
-      </button>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th class="w-16 text-center">Activo</th>
-            <th class="w-32">N centro</th>
-            <th>Nombre</th>
-            <th class="w-32">Seccion</th>
-            <th class="w-16"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-if="recursos.length === 0">
-            <tr>
-              <td colspan="5" class="text-center text-gray-400 py-6">
-                Sin recursos configurados. Pulsa "Anadir" para empezar.
-              </td>
-            </tr>
-          </template>
-          <template x-for="(r, i) in recursos" :key="i">
-            <tr>
-              <td class="text-center">
-                <input type="checkbox" x-model="r.activo" class="rounded text-brand-600 focus:ring-brand-500">
-              </td>
-              <td>
-                <input type="number" x-model.number="r.centro_trabajo" class="input-inline w-24">
-              </td>
-              <td>
-                <input type="text" x-model="r.nombre" class="input-inline">
-              </td>
-              <td>
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                      :class="getSection(r.nombre) === 'LINEAS' ? 'bg-blue-100 text-blue-800' : getSection(r.nombre) === 'TALLADORAS' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'"
-                      x-text="getSection(r.nombre)">
-                </span>
-              </td>
-              <td>
-                <button @click="removeRecurso(i)" class="text-red-400 hover:text-red-600 p-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                </button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
-    <div class="px-5 py-3 border-t border-surface-100 flex items-center gap-3">
-      <button @click="guardar()" class="btn-primary btn-sm">
-        Guardar cambios
-      </button>
-      <span x-show="saved" x-transition class="text-sm text-green-600">Guardado</span>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">Mapa de secciones</div>
-    <div class="card-body text-sm text-gray-600">
-      <p class="mb-2">La seccion se detecta automaticamente por el nombre del recurso:</p>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div><span class="font-mono text-xs bg-blue-50 px-1.5 py-0.5 rounded">luk1-6</span> &rarr; LINEAS</div>
-        <div><span class="font-mono text-xs bg-blue-50 px-1.5 py-0.5 rounded">coroa</span> &rarr; LINEAS</div>
-        <div><span class="font-mono text-xs bg-blue-50 px-1.5 py-0.5 rounded">vw1</span> &rarr; LINEAS</div>
-        <div><span class="font-mono text-xs bg-blue-50 px-1.5 py-0.5 rounded">omr</span> &rarr; LINEAS</div>
-        <div><span class="font-mono text-xs bg-amber-50 px-1.5 py-0.5 rounded">t48</span> &rarr; TALLADORAS</div>
+  <!-- Cards por seccion -->
+  <template x-for="sec in sections()" :key="sec.name">
+    <div class="bg-white rounded-xl border border-surface-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-surface-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold"
+                :class="sec.name === 'LINEAS' ? 'bg-blue-100 text-blue-800' : sec.name === 'TALLADORAS' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'"
+                x-text="sec.name"></span>
+          <span class="text-xs text-gray-400" x-text="sec.items.length + ' recursos'"></span>
+        </div>
       </div>
-      <p class="mt-2 text-xs text-gray-400">Otros nombres se asignan a GENERAL.</p>
+      <div class="divide-y divide-surface-100">
+        <template x-for="(r, i) in sec.items" :key="r.nombre + i">
+          <div class="flex items-center gap-4 px-5 py-3 hover:bg-surface-50 transition-colors">
+            <!-- Toggle activo -->
+            <button @click="r.activo = !r.activo" class="shrink-0">
+              <div class="w-10 h-6 rounded-full transition-colors relative"
+                   :class="r.activo ? 'bg-green-500' : 'bg-gray-300'">
+                <div class="absolute w-4 h-4 bg-white rounded-full top-1 transition-all shadow"
+                     :class="r.activo ? 'left-5' : 'left-1'"></div>
+              </div>
+            </button>
+            <!-- Nombre -->
+            <div class="flex-1">
+              <span class="font-mono font-semibold text-sm text-brand-800" x-text="r.nombre"></span>
+            </div>
+            <!-- Centro trabajo -->
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs text-gray-400">CT:</span>
+              <input type="number" x-model.number="r.centro_trabajo"
+                     class="w-16 px-2 py-1 text-xs font-mono border border-surface-200 rounded focus:outline-none focus:ring-2 focus:ring-brand-400">
+            </div>
+            <!-- Borrar -->
+            <button @click="removeRecurso(r)" class="text-gray-300 hover:text-red-500 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- Anadir + Guardar -->
+  <div class="flex items-center justify-between">
+    <div class="flex gap-2" x-data="{ showAdd: false }">
+      <button @click="showAdd = !showAdd" class="btn-ghost btn-sm">+ Nuevo recurso</button>
+      <div x-show="showAdd" x-transition class="flex gap-2 items-center">
+        <input type="text" x-ref="newName" placeholder="nombre" class="input-inline w-28 text-xs">
+        <input type="number" x-ref="newCt" placeholder="CT" class="input-inline w-16 text-xs">
+        <button @click="addRecurso($refs.newName.value, $refs.newCt.value); showAdd=false" class="btn-primary btn-sm">Anadir</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span x-show="saved" x-transition class="text-sm text-green-600">Guardado</span>
+      <button @click="guardar()" class="btn-primary">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -93,16 +72,23 @@ function recursosEditor() {
     recursos: {{ recursos | tojson }},
     saved: false,
 
-    getSection(name) {
-      return getSectionForResource(name);
+    sections() {
+      const groups = {};
+      for (const r of this.recursos) {
+        const sec = getSectionForResource(r.nombre);
+        if (!groups[sec]) groups[sec] = [];
+        groups[sec].push(r);
+      }
+      return Object.entries(groups).sort().map(([name, items]) => ({ name, items }));
     },
 
-    addRecurso() {
-      this.recursos.push({ centro_trabajo: 0, nombre: '', activo: true });
+    addRecurso(nombre, ct) {
+      if (!nombre) return;
+      this.recursos.push({ centro_trabajo: parseInt(ct) || 0, nombre: nombre.trim(), activo: true });
     },
 
-    removeRecurso(i) {
-      this.recursos.splice(i, 1);
+    removeRecurso(r) {
+      this.recursos = this.recursos.filter(x => x !== r);
     },
 
     async guardar() {

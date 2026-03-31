@@ -29,20 +29,8 @@ def _render(name: str, ctx: dict):
 
 
 @router.get("/")
-def index(request: Request, db: Session = Depends(get_db)):
+def index(request: Request):
     ctx = _common_ctx(request, "dashboard")
-    dates = informes_service.list_dates()
-    ctx["dates"] = dates
-    ctx["last_date"] = dates[0] if dates else None
-    ctx["total_dates"] = len(dates)
-    ctx["total_pdfs"] = informes_service.count_pdfs()
-    ctx["n_recursos"] = db.query(Recurso).filter_by(activo=True).count()
-    ctx["ejecuciones"] = [
-        {"id": e.id, "fecha_inicio": e.fecha_inicio, "fecha_fin": e.fecha_fin,
-         "source": e.source, "status": e.status, "n_pdfs": e.n_pdfs,
-         "created_at": e.created_at.isoformat() if e.created_at else ""}
-        for e in db.query(Ejecucion).order_by(Ejecucion.created_at.desc()).limit(5).all()
-    ]
     return _render("dashboard.html", ctx)
 
 

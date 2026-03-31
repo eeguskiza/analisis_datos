@@ -1,141 +1,100 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — OEE Planta{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block page_title %}{% endblock %}
 
 {% block content %}
-<div x-data="dashboardData()" x-init="checkServices()" class="space-y-6">
+<div x-data="dashboardData()" x-init="checkServices()" class="flex items-center justify-center" style="min-height: calc(100vh - 120px);">
 
-  <!-- Service LEDs -->
-  <div class="card">
-    <div class="card-header">Estado de servicios</div>
-    <div class="card-body">
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  <!-- Banner 3D con los 3 indicadores -->
+  <div class="w-full max-w-4xl">
 
-        <!-- Web -->
-        <div class="flex items-center gap-3 p-3 rounded-lg border border-surface-200">
-          <div class="relative">
-            <div class="w-3 h-3 rounded-full" :class="services.web.ok ? 'bg-green-500' : 'bg-red-500'"></div>
-            <div x-show="services.web.ok" class="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-30"></div>
-          </div>
-          <div>
-            <div class="text-sm font-semibold">Web App</div>
-            <div class="text-xs text-gray-500" x-text="services.web.msg">Comprobando...</div>
-          </div>
-        </div>
-
-        <!-- DB local -->
-        <div class="flex items-center gap-3 p-3 rounded-lg border border-surface-200">
-          <div class="relative">
-            <div class="w-3 h-3 rounded-full" :class="services.db.ok === true ? 'bg-green-500' : services.db.ok === false ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'"></div>
-            <div x-show="services.db.ok === true" class="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-30"></div>
-          </div>
-          <div>
-            <div class="text-sm font-semibold">Base de datos</div>
-            <div class="text-xs text-gray-500" x-text="services.db.msg">Comprobando...</div>
-          </div>
-        </div>
-
-        <!-- BD MES -->
-        <div class="flex items-center gap-3 p-3 rounded-lg border border-surface-200">
-          <div class="relative">
-            <div class="w-3 h-3 rounded-full" :class="services.mes.ok === true ? 'bg-green-500' : services.mes.ok === false ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'"></div>
-            <div x-show="services.mes.ok === true" class="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-30"></div>
-          </div>
-          <div>
-            <div class="text-sm font-semibold">BD MES (dbizaro)</div>
-            <div class="text-xs text-gray-500 truncate max-w-[200px]" x-text="services.mes.msg">Comprobando...</div>
-          </div>
-        </div>
-      </div>
-      <div class="mt-3 text-right">
-        <button @click="checkServices()" class="btn-ghost btn-sm text-xs" :disabled="checking">
-          <span x-show="checking" class="spinner border-brand-600"></span>
-          Actualizar estado
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Stat cards -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="stat-card">
-      <div class="stat-label">Ultimo informe</div>
-      <div class="stat-value text-lg">{{ last_date or 'Ninguno' }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Fechas con informes</div>
-      <div class="stat-value">{{ total_dates }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">PDFs generados</div>
-      <div class="stat-value">{{ total_pdfs }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Recursos activos</div>
-      <div class="stat-value">{{ n_recursos }}</div>
-    </div>
-  </div>
-
-  <!-- Quick actions -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="card">
-      <div class="card-header">Accion rapida</div>
-      <div class="card-body space-y-3">
-        <p class="text-sm text-gray-600">Genera los informes de hoy con la configuracion actual.</p>
-        <a href="/pipeline" class="btn-primary">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          Ir al Pipeline
-        </a>
-      </div>
+    <!-- Titulo -->
+    <div class="text-center mb-10">
+      <h1 class="text-4xl font-black text-brand-800 tracking-tight">OEE Planta</h1>
+      <p class="text-sm text-gray-400 mt-1">Estado de los servicios</p>
     </div>
 
-    <div class="card">
-      <div class="card-header">Ultimas ejecuciones</div>
-      <div class="card-body">
-        {% if ejecuciones %}
-        <div class="space-y-2">
-          {% for e in ejecuciones %}
-          <a href="/historial" class="flex items-center justify-between p-2 rounded-lg hover:bg-surface-50 text-sm">
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full {{ 'bg-green-500' if e.status == 'completed' else 'bg-red-500' if e.status == 'error' else 'bg-yellow-500' }}"></span>
-              <span class="font-medium">{{ e.fecha_inicio }}</span>
-              <span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-blue-100 text-blue-700' if e.source == 'db' else 'bg-gray-100 text-gray-600' }}">{{ e.source }}</span>
+    <!-- 3 cards con efecto 3D -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+
+      <!-- Web App -->
+      <div class="group relative">
+        <div class="absolute -inset-1 rounded-2xl opacity-50 blur-lg transition-all duration-500"
+             :class="services.web.ok ? 'bg-green-400 group-hover:opacity-75' : 'bg-red-400'"></div>
+        <div class="relative bg-white rounded-2xl p-6 shadow-xl border border-surface-200
+                    transform transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+          <div class="flex flex-col items-center text-center gap-4">
+            <!-- LED grande -->
+            <div class="relative">
+              <div class="w-16 h-16 rounded-full flex items-center justify-center"
+                   :class="services.web.ok ? 'bg-green-100' : services.web.ok === false ? 'bg-red-100' : 'bg-yellow-100'">
+                <div class="w-8 h-8 rounded-full shadow-lg"
+                     :class="services.web.ok ? 'bg-green-500 shadow-green-500/50' : services.web.ok === false ? 'bg-red-500 shadow-red-500/50' : 'bg-yellow-500 shadow-yellow-500/50 animate-pulse'"></div>
+              </div>
+              <div x-show="services.web.ok" class="absolute inset-0 w-16 h-16 rounded-full bg-green-400 animate-ping opacity-20"></div>
             </div>
-            <span class="text-xs text-gray-400">{{ e.n_pdfs }} PDFs</span>
-          </a>
-          {% endfor %}
+            <div>
+              <div class="font-bold text-gray-800">Web App</div>
+              <div class="text-xs text-gray-400 mt-1 h-4" x-text="services.web.ok ? 'Operativo' : services.web.msg"></div>
+            </div>
+          </div>
         </div>
-        {% else %}
-        <p class="text-sm text-gray-400">Sin ejecuciones. Lanza el <a href="/pipeline" class="text-brand-600 hover:underline">pipeline</a>.</p>
-        {% endif %}
-        <div class="mt-3">
-          <a href="/historial" class="text-sm text-brand-600 hover:underline">Ver historial completo &rarr;</a>
+      </div>
+
+      <!-- Base de datos -->
+      <div class="group relative">
+        <div class="absolute -inset-1 rounded-2xl opacity-50 blur-lg transition-all duration-500"
+             :class="services.db.ok ? 'bg-green-400 group-hover:opacity-75' : services.db.ok === false ? 'bg-red-400' : 'bg-yellow-400'"></div>
+        <div class="relative bg-white rounded-2xl p-6 shadow-xl border border-surface-200
+                    transform transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+          <div class="flex flex-col items-center text-center gap-4">
+            <div class="relative">
+              <div class="w-16 h-16 rounded-full flex items-center justify-center"
+                   :class="services.db.ok ? 'bg-green-100' : services.db.ok === false ? 'bg-red-100' : 'bg-yellow-100'">
+                <div class="w-8 h-8 rounded-full shadow-lg"
+                     :class="services.db.ok ? 'bg-green-500 shadow-green-500/50' : services.db.ok === false ? 'bg-red-500 shadow-red-500/50' : 'bg-yellow-500 shadow-yellow-500/50 animate-pulse'"></div>
+              </div>
+              <div x-show="services.db.ok" class="absolute inset-0 w-16 h-16 rounded-full bg-green-400 animate-ping opacity-20"></div>
+            </div>
+            <div>
+              <div class="font-bold text-gray-800">Base de datos</div>
+              <div class="text-xs text-gray-400 mt-1 h-4" x-text="services.db.ok ? 'PostgreSQL OK' : services.db.msg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BD MES -->
+      <div class="group relative">
+        <div class="absolute -inset-1 rounded-2xl opacity-50 blur-lg transition-all duration-500"
+             :class="services.mes.ok ? 'bg-green-400 group-hover:opacity-75' : services.mes.ok === false ? 'bg-red-400' : 'bg-yellow-400'"></div>
+        <div class="relative bg-white rounded-2xl p-6 shadow-xl border border-surface-200
+                    transform transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+          <div class="flex flex-col items-center text-center gap-4">
+            <div class="relative">
+              <div class="w-16 h-16 rounded-full flex items-center justify-center"
+                   :class="services.mes.ok ? 'bg-green-100' : services.mes.ok === false ? 'bg-red-100' : 'bg-yellow-100'">
+                <div class="w-8 h-8 rounded-full shadow-lg"
+                     :class="services.mes.ok ? 'bg-green-500 shadow-green-500/50' : services.mes.ok === false ? 'bg-red-500 shadow-red-500/50' : 'bg-yellow-500 shadow-yellow-500/50 animate-pulse'"></div>
+              </div>
+              <div x-show="services.mes.ok" class="absolute inset-0 w-16 h-16 rounded-full bg-green-400 animate-ping opacity-20"></div>
+            </div>
+            <div>
+              <div class="font-bold text-gray-800">BD MES</div>
+              <div class="text-xs text-gray-400 mt-1 h-4 max-w-[180px] truncate"
+                   x-text="services.mes.ok ? (services.mes.database + ' @ ' + services.mes.server) : 'Sin conexion'"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- System info -->
-  <div class="card">
-    <div class="card-header">Sistema</div>
-    <div class="card-body">
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-        <div>
-          <span class="text-gray-500">API Docs:</span>
-          <a href="/api/docs" target="_blank" class="text-brand-600 hover:underline font-mono text-xs">/api/docs</a>
-        </div>
-        <div>
-          <span class="text-gray-500">Health:</span>
-          <a href="/api/health" target="_blank" class="text-brand-600 hover:underline font-mono text-xs">/api/health</a>
-        </div>
-        <div>
-          <span class="text-gray-500">Version:</span>
-          <span class="font-mono text-xs">2.0.0</span>
-        </div>
-      </div>
+    <!-- Refresh -->
+    <div class="text-center mt-8">
+      <button @click="checkServices()" class="text-xs text-gray-400 hover:text-brand-600 transition-colors" :disabled="checking">
+        <span x-show="checking" class="spinner border-gray-400 mr-1"></span>
+        <span x-text="checking ? 'Comprobando...' : 'Actualizar estado'"></span>
+      </button>
     </div>
   </div>
 </div>
@@ -147,9 +106,8 @@ function dashboardData() {
     services: {
       web: { ok: null, msg: 'Comprobando...' },
       db:  { ok: null, msg: 'Comprobando...' },
-      mes: { ok: null, msg: 'Comprobando...' },
+      mes: { ok: null, msg: 'Comprobando...', server: '', database: '' },
     },
-
     async checkServices() {
       this.checking = true;
       try {
@@ -158,7 +116,7 @@ function dashboardData() {
         this.services = {
           web: data.services.web || { ok: true, msg: 'Operativo' },
           db:  data.services.db  || { ok: false, msg: 'No disponible' },
-          mes: data.services.mes || { ok: false, msg: 'No configurado' },
+          mes: data.services.mes || { ok: false, msg: 'No configurado', server: '', database: '' },
         };
       } catch (e) {
         this.services.web = { ok: false, msg: 'Error de red' };
