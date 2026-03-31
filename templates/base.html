@@ -30,9 +30,11 @@
   <aside class="flex flex-col w-56 shrink-0 bg-brand-800 text-white transition-all duration-200"
          :class="sidebarOpen ? 'w-56' : 'w-16'">
 
-    <!-- Logo -->
+    <!-- Logo empresa (reemplazar src con el logo real) -->
     <div class="flex items-center gap-3 px-4 py-5 border-b border-brand-700">
-      <div class="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center font-bold text-sm">OEE</div>
+      <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg object-contain bg-white/10"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="w-8 h-8 rounded-lg bg-brand-500 items-center justify-center font-bold text-sm hidden">OEE</div>
       <span class="text-sm font-semibold tracking-wide whitespace-nowrap" x-show="sidebarOpen" x-cloak>ECS Planta</span>
     </div>
 

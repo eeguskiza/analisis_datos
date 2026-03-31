@@ -23,6 +23,11 @@ def _common_ctx(request: Request, page: str) -> dict:
     }
 
 
+def _render(name: str, ctx: dict):
+    """Render template compatible con Starlette viejo y nuevo."""
+    return templates.TemplateResponse(name=name, context=ctx, request=ctx["request"])
+
+
 @router.get("/")
 def index(request: Request, db: Session = Depends(get_db)):
     ctx = _common_ctx(request, "dashboard")
@@ -38,7 +43,7 @@ def index(request: Request, db: Session = Depends(get_db)):
          "created_at": e.created_at.isoformat() if e.created_at else ""}
         for e in db.query(Ejecucion).order_by(Ejecucion.created_at.desc()).limit(5).all()
     ]
-    return templates.TemplateResponse("dashboard.html", ctx)
+    return _render("dashboard.html", ctx)
 
 
 @router.get("/pipeline")
@@ -49,14 +54,14 @@ def pipeline_page(request: Request, db: Session = Depends(get_db)):
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
     ]
-    return templates.TemplateResponse("pipeline.html", ctx)
+    return _render("pipeline.html", ctx)
 
 
 @router.get("/informes")
 def informes_page(request: Request):
     ctx = _common_ctx(request, "informes")
     ctx["tree"] = informes_service.list_all()
-    return templates.TemplateResponse("informes.html", ctx)
+    return _render("informes.html", ctx)
 
 
 @router.get("/recursos")
@@ -68,28 +73,28 @@ def recursos_page(request: Request, db: Session = Depends(get_db)):
          "seccion": r.seccion, "activo": r.activo}
         for r in rows
     ]
-    return templates.TemplateResponse("recursos.html", ctx)
+    return _render("recursos.html", ctx)
 
 
 @router.get("/ciclos")
 def ciclos_page(request: Request):
     ctx = _common_ctx(request, "ciclos")
-    return templates.TemplateResponse("ciclos.html", ctx)
+    return _render("ciclos.html", ctx)
 
 
 @router.get("/historial")
 def historial_page(request: Request):
     ctx = _common_ctx(request, "historial")
-    return templates.TemplateResponse("historial.html", ctx)
+    return _render("historial.html", ctx)
 
 
 @router.get("/plantillas")
 def plantillas_page(request: Request):
     ctx = _common_ctx(request, "plantillas")
-    return templates.TemplateResponse("plantillas.html", ctx)
+    return _render("plantillas.html", ctx)
 
 
 @router.get("/ajustes")
 def ajustes_page(request: Request):
     ctx = _common_ctx(request, "ajustes")
-    return templates.TemplateResponse("ajustes.html", ctx)
+    return _render("ajustes.html", ctx)
