@@ -1,0 +1,44 @@
+{
+  "name": "Default",
+  "description": "Plantilla por defecto para informes OEE",
+  "disponibilidad": {
+    "sections": [
+      { "type": "header", "show": true },
+      { "type": "summary_metrics", "show": true, "metrics": ["t_bruto", "t_operativo", "disponibilidad", "mtbf", "mttr"] },
+      { "type": "time_distribution_chart", "show": true, "style": "stacked_bar" },
+      { "type": "incident_table", "show": true, "max_rows": 20 }
+    ],
+    "colors": { "primary": "#1a3a5c", "accent": "#2196F3", "warning": "#FF9800" },
+    "page": { "orientation": "portrait", "margin_mm": 15 }
+  },
+  "rendimiento": {
+    "sections": [
+      { "type": "header", "show": true },
+      { "type": "summary_metrics", "show": true, "metrics": ["horas_produccion", "piezas", "tiempo_ideal", "perdidas", "rendimiento_pct"] },
+      { "type": "reference_table", "show": true, "sort_by": "perdidas", "max_rows": 15 }
+    ],
+    "colors": { "primary": "#1a3a5c", "accent": "#4CAF50", "warning": "#FF5722" },
+    "page": { "orientation": "portrait", "margin_mm": 15 }
+  },
+  "calidad": {
+    "sections": [
+      { "type": "header", "show": true },
+      { "type": "summary_metrics", "show": true, "metrics": ["piezas_totales", "malas", "recuperadas", "scrap_pct", "fpy_pct", "calidad_oee"] },
+      { "type": "quality_chart", "show": true, "style": "stacked_bar" },
+      { "type": "scrap_table", "show": true, "max_rows": 10 }
+    ],
+    "colors": { "primary": "#1a3a5c", "accent": "#009688", "warning": "#E91E63" },
+    "page": { "orientation": "portrait", "margin_mm": 15 }
+  },
+  "oee_secciones": {
+    "sections": [
+      { "type": "cover", "show": true },
+      { "type": "machine_summary_table", "show": true },
+      { "type": "daily_breakdown", "show": true },
+      { "type": "shift_breakdown", "show": true },
+      { "type": "reference_details", "show": true }
+    ],
+    "colors": { "primary": "#1a3a5c", "accent": "#3F51B5", "good": "#4CAF50", "medium": "#FF9800", "bad": "#F44336" },
+    "page": { "orientation": "landscape", "margin_mm": 12 }
+  }
+}

@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — OEE Planta{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div x-data="dashboardData()" x-init="checkServices()" class="space-y-6">
+
+  <!-- Service LEDs -->
+  <div class="card">
+    <div class="card-header">Estado de servicios</div>
+    <div class="card-body">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+        <!-- Web -->
+        <div class="flex items-center gap-3 p-3 rounded-lg border border-surface-200">
+          <div class="relative">
+            <div class="w-3 h-3 rounded-full" :class="services.web.ok ? 'bg-green-500' : 'bg-red-500'"></div>
+            <div x-show="services.web.ok" class="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-30"></div>
+          </div>
+          <div>
+            <div class="text-sm font-semibold">Web App</div>
+            <div class="text-xs text-gray-500" x-text="services.web.msg">Comprobando...</div>
+          </div>
+        </div>
+
+        <!-- DB local -->
+        <div class="flex items-center gap-3 p-3 rounded-lg border border-surface-200">
+          <div class="relative">
+            <div class="w-3 h-3 rounded-full" :class="services.db.ok === true ? 'bg-green-500' : services.db.ok === false ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'"></div>
+            <div x-show="services.db.ok === true" class="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-30"></div>
+          </div>
+          <div>
+            <div class="text-sm font-semibold">Base de datos</div>
+            <div class="text-xs text-gray-500" x-text="services.db.msg">Comprobando...</div>
+          </div>
+        </div>
+
+        <!-- BD MES -->
+        <div class="flex items-center gap-3 p-3 rounded-lg border border-surface-200">
+          <div class="relative">
+            <div class="w-3 h-3 rounded-full" :class="services.mes.ok === true ? 'bg-green-500' : services.mes.ok === false ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'"></div>
+            <div x-show="services.mes.ok === true" class="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-30"></div>
+          </div>
+          <div>
+            <div class="text-sm font-semibold">BD MES (dbizaro)</div>
+            <div class="text-xs text-gray-500 truncate max-w-[200px]" x-text="services.mes.msg">Comprobando...</div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 text-right">
+        <button @click="checkServices()" class="btn-ghost btn-sm text-xs" :disabled="checking">
+          <span x-show="checking" class="spinner border-brand-600"></span>
+          Actualizar estado
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="stat-card">
+      <div class="stat-label">Ultimo informe</div>
+      <div class="stat-value text-lg">{{ last_date or 'Ninguno' }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Fechas con informes</div>
+      <div class="stat-value">{{ total_dates }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">PDFs generados</div>
+      <div class="stat-value">{{ total_pdfs }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Recursos activos</div>
+      <div class="stat-value">{{ n_recursos }}</div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card">
+      <div class="card-header">Accion rapida</div>
+      <div class="card-body space-y-3">
+        <p class="text-sm text-gray-600">Genera los informes de hoy con la configuracion actual.</p>
+        <a href="/pipeline" class="btn-primary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Ir al Pipeline
+        </a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Informes recientes</div>
+      <div class="card-body">
+        {% if last_date %}
+        <ul class="space-y-1">
+          {% for d in dates[:5] %}
+          <li>
+            <a href="/informes" class="text-sm text-brand-600 hover:text-brand-800 hover:underline">{{ d }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-gray-400">No hay informes generados aun.</p>
+        {% endif %}
+        <div class="mt-3">
+          <a href="/informes" class="text-sm text-brand-600 hover:underline">Ver todos &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System info -->
+  <div class="card">
+    <div class="card-header">Sistema</div>
+    <div class="card-body">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+        <div>
+          <span class="text-gray-500">API Docs:</span>
+          <a href="/api/docs" target="_blank" class="text-brand-600 hover:underline font-mono text-xs">/api/docs</a>
+        </div>
+        <div>
+          <span class="text-gray-500">Health:</span>
+          <a href="/api/health" target="_blank" class="text-brand-600 hover:underline font-mono text-xs">/api/health</a>
+        </div>
+        <div>
+          <span class="text-gray-500">Version:</span>
+          <span class="font-mono text-xs">2.0.0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function dashboardData() {
+  return {
+    checking: false,
+    services: {
+      web: { ok: null, msg: 'Comprobando...' },
+      db:  { ok: null, msg: 'Comprobando...' },
+      mes: { ok: null, msg: 'Comprobando...' },
+    },
+
+    async checkServices() {
+      this.checking = true;
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        this.services = {
+          web: data.services.web || { ok: true, msg: 'Operativo' },
+          db:  data.services.db  || { ok: false, msg: 'No disponible' },
+          mes: data.services.mes || { ok: false, msg: 'No configurado' },
+        };
+      } catch (e) {
+        this.services.web = { ok: false, msg: 'Error de red' };
+      }
+      this.checking = false;
+    }
+  };
+}
+</script>
+{% endblock %}

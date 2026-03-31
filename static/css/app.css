@@ -1,0 +1,100 @@
+/* ── OEE Planta — Estilos custom ──────────────────────────────────────────── */
+
+[x-cloak] { display: none !important; }
+
+/* Cards */
+.card {
+  @apply bg-white rounded-xl border border-surface-200 shadow-sm;
+}
+.card-header {
+  @apply px-5 py-3 border-b border-surface-200 font-semibold text-sm text-brand-800;
+}
+.card-body {
+  @apply px-5 py-4;
+}
+
+/* Log console */
+.log-console {
+  @apply bg-gray-900 text-green-300 font-mono text-xs rounded-lg p-4 overflow-y-auto;
+  min-height: 100px;
+  max-height: 400px;
+}
+
+/* Badge de conexion */
+.conn-ok  { @apply bg-green-100 text-green-800; }
+.conn-err { @apply bg-red-100 text-red-800; }
+.conn-chk { @apply bg-yellow-100 text-yellow-800; }
+
+/* Tables */
+.data-table {
+  @apply w-full text-sm;
+}
+.data-table th {
+  @apply px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-surface-50 border-b border-surface-200;
+}
+.data-table td {
+  @apply px-3 py-2 border-b border-surface-100;
+}
+.data-table tr:hover td {
+  @apply bg-surface-50;
+}
+
+/* Inputs inline */
+.input-inline {
+  @apply w-full px-2 py-1 text-sm border border-surface-200 rounded focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent;
+}
+
+/* Stat card */
+.stat-card {
+  @apply card p-5 flex flex-col gap-1;
+}
+.stat-card .stat-value {
+  @apply text-2xl font-bold text-brand-800;
+}
+.stat-card .stat-label {
+  @apply text-xs text-gray-500 uppercase tracking-wide;
+}
+
+/* Tree view */
+.tree-item {
+  @apply cursor-pointer select-none;
+}
+.tree-item:hover {
+  @apply bg-surface-50 rounded;
+}
+
+/* PDF viewer */
+.pdf-frame {
+  @apply w-full border-0 rounded-lg;
+  height: calc(100vh - 200px);
+}
+
+/* Buttons */
+.btn {
+  @apply inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+.btn-primary {
+  @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500;
+}
+.btn-success {
+  @apply btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
+}
+.btn-danger {
+  @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+}
+.btn-ghost {
+  @apply btn bg-transparent text-gray-600 hover:bg-surface-100 focus:ring-surface-300;
+}
+.btn-sm {
+  @apply px-3 py-1.5 text-xs;
+}
+
+/* Spinner */
+.spinner {
+  @apply inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin;
+}
+
+/* Highlight row with zero cycle time */
+.row-warning {
+  @apply bg-amber-50;
+}

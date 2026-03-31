@@ -1,60 +1,77 @@
-# Informes OEE de planta
+# OEE Planta — Informes de produccion
 
-Este repositorio genera informaciones analíticas (Disponibilidad, Rendimiento,
-Calidad y OEE maestro) por recurso a partir de los CSV exportados del sistema de
-producción.
+Herramienta interna para generar informes OEE (Overall Equipment Effectiveness) de la planta. Extrae datos de produccion directamente de la BD MES (IZARO/dbizaro) o desde ficheros Excel, calcula metricas de disponibilidad, rendimiento y calidad, y genera informes PDF por maquina y seccion.
+
+## Primer despliegue
+
+```bash
+# 1. Clonar el repo
+git clone <url> && cd analisis_datos
+
+# 2. Copiar la config de ejemplo
+cp .env.example .env
+
+# 3. Construir y arrancar (PostgreSQL + Web)
+make build
+make up
+
+# 4. Abrir http://localhost:8000
+#    - Ir a Ajustes > configurar la conexion al SQL Server (IP, usuario, password)
+#    - Ir a Recursos > verificar que los centros de trabajo son correctos
+#    - Ir a Pipeline > seleccionar fechas y ejecutar
+```
+
+Al primer arranque la app importa automaticamente los datos de `data/ciclos.csv` a la base de datos local.
+
+## Uso diario
+
+```bash
+make up          # Arranca los servicios (si estaban parados)
+                 # Abrir http://localhost:8000
+                 # Cuando termines:
+make down        # Para los servicios
+```
+
+Si has hecho `make up` y no has hecho `make down`, los servicios siguen corriendo. Solo necesitas abrir el navegador.
+
+## Despues de un pull (actualizacion de codigo)
+
+```bash
+make rebuild     # Reconstruye la imagen y arranca
+```
+
+## Comandos
+
+| Comando | Descripcion |
+|---------|-------------|
+| `make up` | Arranca todos los servicios (db + web) |
+| `make down` | Para todos los servicios |
+| `make build` | Reconstruye las imagenes Docker |
+| `make rebuild` | Reconstruye sin cache y arranca |
+| `make restart` | Reinicia todos los servicios |
+| `make logs` | Logs en tiempo real (todos) |
+| `make logs-web` | Logs solo de la web |
+| `make logs-db` | Logs solo de PostgreSQL |
+| `make status` | Estado de los contenedores |
+| `make db-shell` | Shell psql en la base de datos |
+| `make dev` | Servidor local sin Docker (desarrollo) |
+| `make install` | Instala dependencias Python |
+| `make health` | Health check de los servicios |
+| `make clean` | Elimina todo (contenedores, BD, caches) |
+| `make help` | Muestra todos los comandos |
 
 ## Estructura
 
-- `data/`
-  - `excels/`: aquí se dejan los Excel de entrada. El flujo los convierte a CSV
-    y elimina los originales.
-  - `csv/`: CSV planos generados desde Excel.
-  - `recursos/<SECCIÓN>/`: CSV definitivos por recurso (ej. `LINEAS/luk1-*.csv`,
-    `TALLADORAS/t48-*.csv`). El mapeo recurso→sección está en `OEE/utils/excel_import.py`.
-  - `ciclos.csv`: capacidades ideales (piezas/hora) por recurso y referencia.
-- `OEE/...`: código de generación por módulo.
-- `informes/`: salida final. Cada ejecución crea una carpeta `YYYY-MM-DD` con
-  subcarpetas por sección (`LINEAS/`, `TALLADORAS/`, etc.).
-  - Dentro de cada sección: `*_oee_seccion.pdf` (maestro), páginas de detalle
-    por puesto, referencias y los informes individuales de disponibilidad,
-    rendimiento y calidad de cada máquina.
-  - En la raíz del día: `resumen_oee.pdf` (si ejecutas el módulo `oee`).
+```
+api/            Backend FastAPI (routers, servicios, modelos)
+OEE/            Modulos de calculo OEE (disponibilidad, rendimiento, calidad, oee_secciones)
+templates/      Interfaz web (Jinja2 + Tailwind + HTMX + Alpine.js)
+static/         CSS y JS
+data/           Datos de entrada (ciclos, config BD, CSVs)
+informes/       PDFs generados (por fecha/seccion/maquina)
+```
 
 ## Requisitos
 
-- Python 3.10+
-- Matplotlib (se usa para renderizar los PDF).
-
-## Uso
-
-1. Coloca los Excel en `data/excels/` (se convertirán a CSV y se eliminarán) o,
-   si ya son CSV, colócalos directamente en `data/recursos/<SECCIÓN>/`.
-   Asegúrate de incluir `data/ciclos.csv` para los tiempos ideales (piezas/hora).
-2. Ejecuta:
-
-   ```bash
-   python -m OEE
-   ```
-
-   Esto generará (por ejemplo en `informes/2025-11-17/`):
-   - Carpeta `LINEAS/` con `LINEAS_oee_seccion.pdf` y subcarpetas `coroa/`,
-     `luk1/`, etc., cada una con sus PDF individuales (disponibilidad,
-     rendimiento y calidad).
-   - Carpeta `TALLADORAS/` con su maestro y las máquinas de esa sección.
-
-3. Para el informe maestro por secciones puedes limitar las secciones con `--seccion` (se puede repetir):
-
-   ```bash
-   python -m OEE --modulo oee_secciones --seccion talladoras --seccion lineas
-   ```
-
-## Notas
-
-- Al arrancar, el flujo convierte automáticamente los Excel de `data/excels/`,
-  coloca los CSV en `data/csv/` y los distribuye en `data/recursos/<SECCIÓN>/`
-  según el mapa `RESOURCE_SECTION_MAP`.
-- Los CSV deben incluir las columnas descritas en los módulos para que los
-  cálculos sean consistentes.
-- Si falta una referencia en `ciclos.csv`, el informe de Rendimiento la añade
-  con `tiempo_ciclo = 0` y muestra un aviso para que completes el valor real.
+- Docker y Docker Compose
+- (Para desarrollo local sin Docker: Python 3.11+, pip)

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Informes — OEE Planta{% endblock %}
+{% block page_title %}Informes generados{% endblock %}
+
+{% block content %}
+<div x-data="informesBrowser()" class="flex gap-6 h-[calc(100vh-160px)]">
+
+  <!-- Left panel: tree -->
+  <div class="w-72 shrink-0 card overflow-y-auto">
+    <div class="card-header flex items-center justify-between">
+      <span>Navegador</span>
+      <span class="text-xs font-normal text-gray-400" x-text="'(' + totalPdfs + ' PDFs)'"></span>
+    </div>
+    <div class="p-2">
+      {% if tree %}
+        {% for date_node in tree %}
+        <div x-data="{ open: false }" class="mb-1">
+          <!-- Date level -->
+          <button @click="open = !open"
+                  class="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-lg hover:bg-surface-50 text-left">
+            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="open && 'rotate-90'" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/>
+            </svg>
+            <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+            </svg>
+            <span class="font-medium">{{ date_node.name }}</span>
+          </button>
+
+          <!-- Section level -->
+          <div x-show="open" x-transition class="ml-5">
+            {% for section in date_node.children %}
+            <div x-data="{ secOpen: false }" class="mb-0.5">
+              <button @click="secOpen = !secOpen"
+                      class="flex items-center gap-2 w-full px-2 py-1 text-sm rounded hover:bg-surface-50 text-left">
+                <svg class="w-3 h-3 text-gray-400 transition-transform" :class="secOpen && 'rotate-90'" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/>
+                </svg>
+                <span class="text-gray-700">{{ section.name }}</span>
+              </button>
+
+              <div x-show="secOpen" x-transition class="ml-5">
+                {% for child in section.children recursive %}
+                  {% if child.type == 'dir' %}
+                  <div x-data="{ dirOpen: false }" class="mb-0.5">
+                    <button @click="dirOpen = !dirOpen"
+                            class="flex items-center gap-2 w-full px-2 py-0.5 text-sm rounded hover:bg-surface-50 text-left">
+                      <svg class="w-3 h-3 text-gray-400 transition-transform" :class="dirOpen && 'rotate-90'" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/>
+                      </svg>
+                      <span class="text-gray-600">{{ child.name }}</span>
+                    </button>
+                    <div x-show="dirOpen" x-transition class="ml-5">
+                      {{ loop(child.children) }}
+                    </div>
+                  </div>
+                  {% elif child.type == 'pdf' %}
+                  <button @click="selectPdf('{{ child.path }}')"
+                          class="flex items-center gap-2 w-full px-2 py-0.5 text-sm rounded hover:bg-surface-50 text-left"
+                          :class="selectedPdf === '{{ child.path }}' && 'bg-brand-50 text-brand-700'">
+                    <svg class="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="truncate text-xs">{{ child.name }}</span>
+                  </button>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-sm text-gray-400 p-4 text-center">No hay informes.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right panel: PDF viewer -->
+  <div class="flex-1 card flex flex-col">
+    <div class="card-header flex items-center justify-between">
+      <span x-text="selectedPdf ? selectedPdf.split('/').pop() : 'Selecciona un informe'"></span>
+      <div x-show="selectedPdf" class="flex gap-2">
+        <a :href="'/api/informes/pdf/' + selectedPdf" target="_blank" class="btn-ghost btn-sm">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+          Abrir
+        </a>
+        <a :href="'/api/informes/pdf/' + selectedPdf" download class="btn-ghost btn-sm">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Descargar
+        </a>
+      </div>
+    </div>
+    <div class="flex-1 p-2">
+      <template x-if="selectedPdf">
+        <iframe :src="'/api/informes/pdf/' + selectedPdf" class="pdf-frame"></iframe>
+      </template>
+      <template x-if="!selectedPdf">
+        <div class="flex items-center justify-center h-full text-gray-400 text-sm">
+          <div class="text-center">
+            <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            Selecciona un PDF del arbol para previsualizarlo
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<script>
+function informesBrowser() {
+  return {
+    selectedPdf: null,
+    totalPdfs: {{ tree | map(attribute='children') | sum(start=[]) | selectattr('type', 'equalto', 'pdf') | list | length if tree else 0 }},
+    selectPdf(path) {
+      this.selectedPdf = path;
+    }
+  };
+}
+</script>
+{% endblock %}

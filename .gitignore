@@ -20,8 +20,14 @@ env/
 Thumbs.db
 .claude
 
-.informes/
+# Informes generados (no rastrear en git)
+informes/
 
-# Base de datos / credenciales
+# Datos variables
 data/db_config.json
+data/recursos/
+data/csv/
+data/excels/
+
+# Credenciales
 .env

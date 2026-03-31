@@ -1,0 +1,50 @@
+services:
+  # ── Base de datos local ────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: oee
+      POSTGRES_PASSWORD: oee
+      POSTGRES_DB: oee_planta
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oee -d oee_planta"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Aplicacion web ─────────────────────────────────────────────────────────
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./informes:/app/informes
+    environment:
+      - OEE_DATA_DIR=/app/data
+      - OEE_INFORMES_DIR=/app/informes
+      - OEE_DATABASE_URL=postgresql://oee:oee@db:5432/oee_planta
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── MCP Server (futuro) ────────────────────────────────────────────────────
+  # mcp:
+  #   build: ./mcp
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./data:/app/data:ro
+  #     - ./informes:/app/informes:ro
+  #   depends_on:
+  #     - web
+  #   restart: unless-stopped
+
+volumes:
+  pgdata:
