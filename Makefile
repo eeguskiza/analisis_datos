@@ -1,20 +1,22 @@
-.PHONY: up down build rebuild restart logs status dev db-shell clean help
+.PHONY: up down build rebuild restart logs status dev db-shell clean help ip
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
-up: ## Arranca todos los servicios (db + web + mcp)
+up: ## Arranca todos los servicios
 	docker compose up -d
 	@echo ""
 	@echo "  OEE Planta arrancado:"
-	@echo "    Web:  http://localhost:8000"
-	@echo "    DB:   postgresql://oee:oee@localhost:5432/oee_planta"
-	@echo "    Docs: http://localhost:8000/api/docs"
+	@echo "    Local:  http://localhost:8000"
+	@echo "    HTTPS:  https://localhost  (cert auto-firmado)"
+	@IP=$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $$1}'); \
+	 if [ -n "$$IP" ]; then echo "    LAN:    https://$$IP  (desde otros equipos)"; fi
+	@echo "    Docs:   http://localhost:8000/api/docs"
 	@echo ""
 
 down: ## Para todos los servicios
 	docker compose down
 
-build: ## Reconstruye las imagenes (arch nativa)
+build: ## Reconstruye las imagenes
 	docker compose build
 
 rebuild: ## Reconstruye sin cache y arranca
@@ -24,7 +26,7 @@ rebuild: ## Reconstruye sin cache y arranca
 restart: ## Reinicia todos los servicios
 	docker compose restart
 
-logs: ## Muestra logs en tiempo real
+logs: ## Muestra logs en tiempo real (todos)
 	docker compose logs -f
 
 logs-web: ## Logs solo de la web
@@ -39,15 +41,20 @@ logs-mcp: ## Logs solo del MCP server
 status: ## Muestra el estado de los contenedores
 	docker compose ps
 
-db-shell: ## Abre una shell psql en la base de datos
+db-shell: ## Abre una shell psql
 	docker compose exec db psql -U oee oee_planta
+
+ip: ## Muestra la IP local para compartir el enlace
+	@IP=$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $$1}'); \
+	 echo "  Tu IP: $$IP"; \
+	 echo "  Enlace LAN: https://$$IP"
 
 # ── Desarrollo local (sin Docker) ────────────────────────────────────────────
 
-dev: ## Arranca el servidor en modo desarrollo (sin Docker)
+dev: ## Arranca en modo desarrollo (sin Docker, SQLite)
 	OEE_DEBUG=true python3 -m uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 
-install: ## Instala dependencias Python (para desarrollo local)
+install: ## Instala dependencias Python
 	pip install -r requirements.txt
 
 # ── Utilidades ────────────────────────────────────────────────────────────────
@@ -57,7 +64,7 @@ clean: ## Elimina contenedores, volumenes y caches
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	rm -f data/oee.db
 
-health: ## Comprueba el health de los servicios
+health: ## Health check de los servicios
 	@curl -s http://localhost:8000/api/health | python3 -m json.tool
 
 # ── Ayuda ─────────────────────────────────────────────────────────────────────

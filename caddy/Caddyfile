@@ -1,0 +1,14 @@
+{
+	# Certificado auto-firmado para LAN (sin dominio real)
+	auto_https disable_redirects
+}
+
+:443 {
+	tls internal
+
+	reverse_proxy web:8000
+}
+
+:80 {
+	reverse_proxy web:8000
+}

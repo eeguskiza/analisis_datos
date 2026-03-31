@@ -47,14 +47,7 @@
       <!-- Resources (only when source=db) -->
       <div x-show="source === 'db'" x-transition>
         <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Recursos activos</label>
-        {% set secciones = {} %}
-        {% for r in recursos %}
-          {% if r.seccion not in secciones %}
-            {% set _ = secciones.update({r.seccion: []}) %}
-          {% endif %}
-          {% set _ = secciones[r.seccion].append(r) %}
-        {% endfor %}
-        {% for seccion, recs in secciones.items() %}
+        {% for seccion, recs in recursos | groupby('seccion') %}
         <div class="mb-3">
           <div class="text-xs font-semibold mb-1">
             <span class="inline-flex items-center px-2 py-0.5 rounded {{ 'bg-blue-100 text-blue-800' if seccion == 'LINEAS' else 'bg-amber-100 text-amber-800' if seccion == 'TALLADORAS' else 'bg-gray-100 text-gray-600' }}">{{ seccion }}</span>

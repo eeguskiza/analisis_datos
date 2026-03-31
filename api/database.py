@@ -124,8 +124,11 @@ def _import_recursos_json(session: Session) -> None:
     if session.query(Recurso).count() > 0:
         return
 
-    from OEE.db.connector import load_config
-    cfg = load_config()
+    try:
+        from OEE.db.connector import load_config
+        cfg = load_config()
+    except Exception:
+        return
     for r in cfg.get("recursos", []):
         nombre = r.get("nombre", "").strip()
         if not nombre:
@@ -152,8 +155,9 @@ def get_db():
 def check_db_health() -> tuple[bool, str]:
     """Verifica conexion a la BBDD local."""
     try:
+        from sqlalchemy import text
         with engine.connect() as conn:
-            conn.execute(Ciclo.__table__.select().limit(1))
+            conn.execute(text("SELECT 1"))
         return True, "OK"
     except Exception as exc:
         return False, str(exc)

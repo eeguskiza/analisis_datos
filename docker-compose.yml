@@ -20,6 +20,8 @@ services:
   # ── Aplicacion web ─────────────────────────────────────────────────────────
   web:
     build: .
+    expose:
+      - "8000"
     ports:
       - "8000:8000"
     volumes:
@@ -34,6 +36,20 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ── Reverse proxy HTTPS (acceso LAN) ──────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
   # ── MCP Server ──────────────────────────────────────────────────────────────
   mcp:
     build: ./mcp
@@ -45,3 +61,5 @@ services:
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
