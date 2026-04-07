@@ -1,6 +1,21 @@
 # OEE Planta — Informes de produccion
 
-Herramienta interna para generar informes OEE (Overall Equipment Effectiveness) de la planta. Extrae datos de produccion directamente de la BD MES (IZARO/dbizaro) o desde ficheros Excel, calcula metricas de disponibilidad, rendimiento y calidad, y genera informes PDF por maquina y seccion.
+Herramienta interna para generar informes OEE (Overall Equipment Effectiveness) de la planta. Extrae datos de produccion directamente de la BD MES (IZARO/dbizaro), los almacena en base de datos local, y genera informes PDF bajo demanda.
+
+## Arquitectura
+
+```
+IZARO (SQL Server)  ──extraer──>  BD local (SQLite/PostgreSQL)  ──generar──>  PDFs bajo demanda
+     fmesdtc                         datos_produccion
+     fmesddf                         ejecuciones
+     fmesinc                         ciclos, recursos
+     fprolof
+```
+
+- **Extraccion**: conecta a IZARO, extrae datos de produccion y los guarda en la BD local
+- **Almacenamiento**: los datos quedan en `datos_produccion`, no se acumulan PDFs
+- **Informes**: se regeneran al momento desde los datos guardados
+- **Turnos**: T1 (06-14), T2 (14-22), T3 (22-06). Dia productivo = 06:00 a 06:00
 
 ## Primer despliegue
 
@@ -21,16 +36,26 @@ make up
 #    - Ir a Pipeline > seleccionar fechas y ejecutar
 ```
 
-Al primer arranque la app importa automaticamente `data/ciclos.csv` a la base de datos local.
+## Centros de trabajo
+
+| Recurso | CT   | Seccion     |
+|---------|------|-------------|
+| luk1    | 1001 | LINEAS      |
+| luk2    | 1002 | LINEAS      |
+| luk3    | 1003 | LINEAS      |
+| luk6    | 4001 | LINEAS      |
+| vw1     | 3001 | LINEAS      |
+| t48     | 48   | TALLADORAS  |
+
+Estos codigos se configuran en `data/db_config.json` o desde la UI en Ajustes/Recursos.
 
 ## Uso diario
 
 ```bash
 make up          # Arranca los servicios (si estaban parados)
 make down        # Para los servicios
+make dev         # Desarrollo local sin Docker (SQLite)
 ```
-
-Si no has hecho `make down`, los servicios siguen corriendo. Solo abre el navegador.
 
 ## Acceso desde otros equipos (LAN)
 
@@ -41,7 +66,7 @@ https://<tu-ip>          # HTTPS con certificado auto-firmado
 http://<tu-ip>           # HTTP sin cifrar
 ```
 
-El navegador avisara del certificado auto-firmado — es normal, dale a "Continuar". Usa `make ip` para ver tu IP.
+Usa `make ip` para ver tu IP.
 
 ## Despues de un pull
 
@@ -61,34 +86,30 @@ make rebuild     # Reconstruye y arranca
 | `make logs` | Logs en tiempo real (todos) |
 | `make logs-web` | Logs solo de la web |
 | `make logs-db` | Logs solo de PostgreSQL |
-| `make logs-mcp` | Logs solo del MCP server |
 | `make status` | Estado de los contenedores |
 | `make db-shell` | Shell psql en la base de datos |
 | `make ip` | Muestra tu IP + enlace LAN |
 | `make dev` | Servidor local sin Docker |
-| `make install` | Instala dependencias Python |
 | `make health` | Health check de los servicios |
 | `make clean` | Elimina todo (contenedores, BD, caches) |
-| `make help` | Muestra todos los comandos |
 
 ## Estructura
 
 ```
 api/            Backend FastAPI (routers, servicios, modelos)
 OEE/            Modulos de calculo OEE (disponibilidad, rendimiento, calidad, oee_secciones)
-templates/      Interfaz web (Jinja2 + Tailwind + HTMX + Alpine.js)
+  db/           Conector IZARO (SQL Server via pyodbc)
+templates/      Interfaz web (Jinja2 + Tailwind + Alpine.js)
 static/         CSS y JS
-data/           Datos de entrada (ciclos, config BD, CSVs)
-informes/       PDFs generados (por fecha/seccion/maquina)
+data/           Configuracion (ciclos.csv, db_config.json)
 caddy/          Reverse proxy HTTPS para acceso LAN
-mcp/            MCP server para integracion con Claude
 ```
 
 ## Requisitos
 
 - Docker y Docker Compose
-- (Para desarrollo local sin Docker: Python 3.11+, pip)
+- (Para desarrollo local sin Docker: Python 3.11+, pyodbc, pandas)
 
 ## Despliegue en Raspberry Pi
 
-Funciona igual. Clona el repo, `make build && make up`. Docker detecta la arquitectura (ARM64) automaticamente. El Dockerfile soporta tanto Intel (amd64) como ARM (arm64/Apple Silicon/RPi).
+Funciona igual. `make build && make up`. Docker detecta la arquitectura (ARM64) automaticamente.

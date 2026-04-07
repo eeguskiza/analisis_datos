@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}OEE Planta{% endblock %}</title>
+  <title>{% block title %}ECS Mobility{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
@@ -30,24 +30,23 @@
   <aside class="flex flex-col w-56 shrink-0 bg-brand-800 text-white transition-all duration-200"
          :class="sidebarOpen ? 'w-56' : 'w-16'">
 
-    <!-- Logo empresa (reemplazar src con el logo real) -->
+    <!-- Logo empresa -->
     <div class="flex items-center gap-3 px-4 py-5 border-b border-brand-700">
-      <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg object-contain bg-white/10"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-      <div class="w-8 h-8 rounded-lg bg-brand-500 items-center justify-center font-bold text-sm hidden">OEE</div>
-      <span class="text-sm font-semibold tracking-wide whitespace-nowrap" x-show="sidebarOpen" x-cloak>ECS Planta</span>
+      <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm">
+        <img src="/static/img/logo.png" alt="Logo" class="w-7 h-7 object-contain"
+             onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\'font-bold text-brand-600 text-sm\'>ECS</span>'">
+      </div>
+      <span class="text-sm font-semibold tracking-wide whitespace-nowrap" x-show="sidebarOpen" x-cloak>ECS MOBILITY</span>
     </div>
 
     <!-- Nav -->
     <nav class="flex-1 px-2 py-4 space-y-1 text-sm">
       {% set nav_items = [
         ("dashboard", "/",          "Dashboard",   "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"),
-        ("pipeline",  "/pipeline",  "Pipeline",    "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"),
+        ("pipeline",  "/pipeline",  "OEE",         "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"),
         ("historial", "/historial", "Historial",   "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
         ("informes",  "/informes",  "Informes",    "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"),
         ("recursos",  "/recursos",  "Recursos",    "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"),
-        ("ciclos",    "/ciclos",    "Ciclos",      "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
-        ("plantillas","/plantillas","Plantillas",  "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm12 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"),
         ("ajustes",   "/ajustes",   "Ajustes",     "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z||M15 12a3 3 0 11-6 0 3 3 0 016 0z"),
       ] %}
       {% for key, href, label, icon_paths in nav_items %}

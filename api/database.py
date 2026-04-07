@@ -6,10 +6,10 @@ from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, Integer, String, Text,
+    Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text,
     UniqueConstraint, create_engine, inspect,
 )
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
 from api.config import settings
 
@@ -75,6 +75,26 @@ class InformeMeta(Base):
     modulo = Column(String(50), default="")
     pdf_path = Column(String(500), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class DatosProduccion(Base):
+    """Datos extraídos de IZARO, almacenados por extracción."""
+    __tablename__ = "datos_produccion"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id", ondelete="CASCADE"), nullable=False)
+    recurso = Column(String(50), nullable=False)
+    seccion = Column(String(50), nullable=False)
+    fecha = Column(Date, nullable=False)
+    h_ini = Column(String(10))
+    h_fin = Column(String(10))
+    tiempo = Column(Float, default=0)
+    proceso = Column(String(30))
+    incidencia = Column(String(200), default="")
+    cantidad = Column(Float, default=0)
+    malas = Column(Float, default=0)
+    recuperadas = Column(Float, default=0)
+    referencia = Column(String(50), default="")
 
 
 # ── Mapa seccion ──────────────────────────────────────────────────────────────

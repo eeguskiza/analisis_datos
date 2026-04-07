@@ -1,139 +1,302 @@
 {% extends "base.html" %}
-{% block title %}Pipeline — OEE Planta{% endblock %}
-{% block page_title %}Pipeline: Extraccion y Generacion{% endblock %}
+{% block title %}OEE — ECS Mobility{% endblock %}
+{% block page_title %}OEE{% endblock %}
 
 {% block content %}
-<div x-data="pipelineForm()" class="space-y-6">
+<div x-data="pipelineWizard()" class="max-w-3xl mx-auto">
 
-  <!-- Form card -->
-  <div class="card">
-    <div class="card-header">Configuracion de ejecucion</div>
-    <div class="card-body space-y-5">
-
-      <!-- Source -->
-      <div>
-        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Origen de datos</label>
-        <div class="flex gap-3">
-          <template x-for="opt in [{v:'db',l:'Base de datos'},{v:'csv_only',l:'CSVs existentes'},{v:'excel',l:'Ficheros Excel'}]">
-            <label class="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="radio" :value="opt.v" x-model="source" class="text-brand-600 focus:ring-brand-500">
-              <span x-text="opt.l"></span>
-            </label>
-          </template>
-        </div>
-      </div>
-
-      <!-- Dates -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Fecha inicio</label>
-          <input type="date" x-model="fechaInicio" @change="if(singleDay) fechaFin=fechaInicio"
-                 class="input-inline">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Fecha fin</label>
-          <input type="date" x-model="fechaFin" :disabled="singleDay" class="input-inline"
-                 :class="singleDay && 'opacity-50'">
-        </div>
-        <div class="flex items-end pb-1">
-          <label class="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" x-model="singleDay" @change="if(singleDay) fechaFin=fechaInicio"
-                   class="rounded text-brand-600 focus:ring-brand-500">
-            Solo un dia
-          </label>
-        </div>
-      </div>
-
-      <!-- Resources (only when source=db) -->
-      <div x-show="source === 'db'" x-transition>
-        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Recursos activos</label>
-        {% for seccion, recs in recursos | groupby('seccion') %}
-        <div class="mb-3">
-          <div class="text-xs font-semibold mb-1">
-            <span class="inline-flex items-center px-2 py-0.5 rounded {{ 'bg-blue-100 text-blue-800' if seccion == 'LINEAS' else 'bg-amber-100 text-amber-800' if seccion == 'TALLADORAS' else 'bg-gray-100 text-gray-600' }}">{{ seccion }}</span>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {% for r in recs %}
-            <label class="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border border-surface-200 cursor-pointer hover:bg-surface-50">
-              <input type="checkbox" value="{{ r.nombre }}" checked
-                     class="rounded text-brand-600 focus:ring-brand-500">
-              <span>{{ r.nombre }}</span>
-              <span class="text-xs text-gray-400">{{ r.centro_trabajo }}</span>
-            </label>
-            {% endfor %}
-          </div>
-        </div>
-        {% endfor %}
-        {% if not recursos %}
-        <p class="text-sm text-gray-400">Sin recursos configurados. <a href="/recursos" class="text-brand-600 hover:underline">Configurar</a></p>
-        {% endif %}
-      </div>
-
-      <!-- Modules -->
-      <div>
-        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Modulos a ejecutar</label>
-        <div class="flex flex-wrap gap-3">
-          <template x-for="mod in modules">
-            <label class="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" :value="mod.key" x-model="selectedModules"
-                     class="rounded text-brand-600 focus:ring-brand-500">
-              <span x-text="mod.label"></span>
-            </label>
-          </template>
-        </div>
-      </div>
-
-      <!-- Run button -->
-      <div class="flex items-center gap-3 pt-2 border-t border-surface-100">
-        <button id="btn-run" @click="ejecutar()" class="btn-success">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-          </svg>
-          Ejecutar pipeline
+  <!-- ── Step indicator ──────────────────────────────────────────────── -->
+  <div class="flex items-center justify-center gap-0 mb-8" x-show="step < 5">
+    <template x-for="(s, i) in stepLabels" :key="i">
+      <div class="flex items-center">
+        <button @click="if (i+1 < step) step = i+1"
+                class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300"
+                :class="step === i+1 ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/25 scale-105'
+                       : step > i+1 ? 'bg-brand-100 text-brand-700 cursor-pointer hover:bg-brand-200'
+                       : 'bg-surface-100 text-gray-400'">
+          <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                :class="step > i+1 ? 'bg-brand-600 text-white' : step === i+1 ? 'bg-white/20' : 'bg-surface-200'">
+            <template x-if="step > i+1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            </template>
+            <template x-if="step <= i+1"><span x-text="i+1"></span></template>
+          </span>
+          <span x-text="s" class="hidden sm:inline"></span>
         </button>
-        <span id="run-status" class="text-sm text-gray-500"></span>
+        <div x-show="i < stepLabels.length - 1" class="w-8 h-px mx-1" :class="step > i+1 ? 'bg-brand-400' : 'bg-surface-200'"></div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ── STEP 1: Origen de datos ─────────────────────────────────────── -->
+  <div x-show="step === 1" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+    <div class="text-center mb-6">
+      <h2 class="text-xl font-bold text-brand-800">De donde vienen los datos?</h2>
+      <p class="text-sm text-gray-400 mt-1">Selecciona el origen para la extraccion</p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <template x-for="opt in sourceOptions" :key="opt.value">
+        <button @click="source = opt.value; step = 2"
+                class="group relative bg-white rounded-2xl border-2 p-6 text-center transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
+                :class="source === opt.value ? 'border-brand-500 shadow-lg shadow-brand-500/10' : 'border-surface-200 hover:border-brand-300'">
+          <div class="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center transition-colors"
+               :class="opt.color">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="opt.icon"/>
+            </svg>
+          </div>
+          <div class="font-semibold text-gray-800" x-text="opt.label"></div>
+          <div class="text-xs text-gray-400 mt-1" x-text="opt.desc"></div>
+        </button>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: Fechas ──────────────────────────────────────────────── -->
+  <div x-show="step === 2" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+    <div class="text-center mb-6">
+      <h2 class="text-xl font-bold text-brand-800">Periodo de analisis</h2>
+      <p class="text-sm text-gray-400 mt-1">Que rango de fechas quieres procesar?</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-5">
+
+      <!-- Toggle un dia / rango -->
+      <div class="flex items-center justify-center gap-1 p-1 bg-surface-100 rounded-xl w-fit mx-auto">
+        <button @click="singleDay = true; fechaFin = fechaInicio"
+                class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                :class="singleDay ? 'bg-white shadow-sm text-brand-700' : 'text-gray-500 hover:text-gray-700'">
+          Un dia
+        </button>
+        <button @click="singleDay = false"
+                class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                :class="!singleDay ? 'bg-white shadow-sm text-brand-700' : 'text-gray-500 hover:text-gray-700'">
+          Rango
+        </button>
+      </div>
+
+      <div class="flex items-center justify-center gap-4">
+        <div class="text-center">
+          <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">Desde</label>
+          <input type="date" x-model="fechaInicio" @change="if(singleDay) fechaFin = fechaInicio"
+                 class="px-4 py-3 text-center text-lg font-mono border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent">
+        </div>
+        <template x-if="!singleDay">
+          <div class="flex items-center gap-4">
+            <svg class="w-5 h-5 text-gray-300 mt-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            <div class="text-center">
+              <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">Hasta</label>
+              <input type="date" x-model="fechaFin"
+                     class="px-4 py-3 text-center text-lg font-mono border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent">
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="flex justify-between pt-4">
+        <button @click="step = 1" class="btn-ghost btn-sm">Atras</button>
+        <button @click="step = source === 'db' ? 3 : 4" class="btn-primary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Log console -->
-  <div class="card">
-    <div class="card-header">Log de ejecucion</div>
-    <div class="card-body p-3">
-      <div id="log-console" class="log-console">Esperando ejecucion...</div>
+  <!-- ── STEP 3: Recursos (solo DB) ──────────────────────────────────── -->
+  <div x-show="step === 3" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+    <div class="text-center mb-6">
+      <h2 class="text-xl font-bold text-brand-800">Maquinas a procesar</h2>
+      <p class="text-sm text-gray-400 mt-1">Selecciona las que quieres incluir</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-4">
+      <div class="flex items-center justify-between mb-2">
+        <button @click="toggleAllResources()" class="text-xs text-brand-600 hover:text-brand-700 font-medium">
+          <span x-text="allResourcesSelected() ? 'Deseleccionar todo' : 'Seleccionar todo'"></span>
+        </button>
+        <span class="text-xs text-gray-400" x-text="selectedResources.length + ' seleccionados'"></span>
+      </div>
+      {% for seccion, recs in recursos | groupby('seccion') %}
+      <div>
+        <div class="text-xs font-bold uppercase tracking-wider mb-2"
+             style="{{ 'color: #2563eb' if seccion == 'LINEAS' else 'color: #d97706' if seccion == 'TALLADORAS' else 'color: #6b7280' }}">{{ seccion }}</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {% for r in recs %}
+          <button @click="toggleResource('{{ r.nombre }}')"
+                  class="flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-150 text-left"
+                  :class="selectedResources.includes('{{ r.nombre }}')
+                    ? 'border-brand-500 bg-brand-50 shadow-sm'
+                    : 'border-surface-200 bg-white hover:border-surface-300'">
+            <div class="w-3 h-3 rounded-full shrink-0 transition-colors"
+                 :class="selectedResources.includes('{{ r.nombre }}') ? 'bg-brand-500' : 'bg-surface-200'"></div>
+            <div>
+              <div class="font-mono font-semibold text-sm">{{ r.nombre }}</div>
+              <div class="text-[10px] text-gray-400">CT {{ r.centro_trabajo }}</div>
+            </div>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      {% if not recursos %}
+      <p class="text-sm text-gray-400 text-center py-4">Sin recursos configurados. <a href="/recursos" class="text-brand-600 hover:underline">Configurar</a></p>
+      {% endif %}
+      <div class="flex justify-between pt-4">
+        <button @click="step = 2" class="btn-ghost btn-sm">Atras</button>
+        <button @click="step = 4" class="btn-primary" :disabled="selectedResources.length === 0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- PDFs panel -->
-  <div id="pdfs-panel" class="card hidden">
-    <div class="card-header">Informes generados</div>
-    <div class="card-body">
-      <div id="pdfs-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+  <!-- ── STEP 4: Modulos ─────────────────────────────────────────────── -->
+  <div x-show="step === 4" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+    <div class="text-center mb-6">
+      <h2 class="text-xl font-bold text-brand-800">Que calcular?</h2>
+      <p class="text-sm text-gray-400 mt-1">Elige los modulos de analisis</p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <template x-for="mod in modules" :key="mod.key">
+        <button @click="toggleModule(mod.key)"
+                class="flex items-center gap-4 p-5 rounded-2xl border-2 transition-all duration-150 text-left"
+                :class="selectedModules.includes(mod.key)
+                  ? 'border-brand-500 bg-brand-50 shadow-sm'
+                  : 'border-surface-200 bg-white hover:border-surface-300'">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+               :class="selectedModules.includes(mod.key) ? mod.activeColor : 'bg-surface-100 text-gray-400'">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="mod.icon"/></svg>
+          </div>
+          <div>
+            <div class="font-semibold text-sm text-gray-800" x-text="mod.label"></div>
+            <div class="text-xs text-gray-400" x-text="mod.desc"></div>
+          </div>
+        </button>
+      </template>
+    </div>
+    <div class="flex justify-between pt-6">
+      <button @click="step = source === 'db' ? 3 : 2" class="btn-ghost btn-sm">Atras</button>
+      <button @click="ejecutar()" class="btn-success !px-5 !py-3" :disabled="selectedModules.length === 0">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
     </div>
   </div>
+
+  <!-- ── STEP 5: Ejecucion ───────────────────────────────────────────── -->
+  <div x-show="step === 5" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+       class="space-y-4">
+
+    <!-- Resumen -->
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div id="run-status" class="flex items-center gap-2">
+            <span class="spinner border-brand-600"></span>
+            <span class="text-sm font-medium text-gray-600">Ejecutando pipeline...</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 text-xs text-gray-400">
+          <span x-text="sourceOptions.find(s => s.value === source)?.label"></span>
+          <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+          <span x-text="singleDay ? fechaInicio : fechaInicio + ' → ' + fechaFin"></span>
+          <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+          <span x-text="selectedModules.length + ' modulos'"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log console -->
+    <div class="bg-gray-900 rounded-2xl overflow-hidden shadow-xl">
+      <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-800/50 border-b border-gray-700">
+        <div class="flex gap-1.5">
+          <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+        </div>
+        <span class="text-[10px] text-gray-500 font-mono ml-2">pipeline output</span>
+      </div>
+      <div id="log-console" class="text-green-300 font-mono text-xs p-4 overflow-y-auto" style="min-height:120px; max-height:400px;">
+        Iniciando...
+      </div>
+    </div>
+
+    <!-- PDFs panel -->
+    <div id="pdfs-panel" class="hidden">
+      <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Informes generados</h3>
+        <div id="pdfs-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+      </div>
+    </div>
+
+    <!-- Volver -->
+    <div class="text-center pt-2">
+      <button id="btn-run" @click="step = 1; resetLog()" class="btn-ghost btn-sm" disabled>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Nueva ejecucion
+      </button>
+    </div>
+  </div>
+
 </div>
 
 <script>
-function pipelineForm() {
+function pipelineWizard() {
+  const allResources = [{% for r in recursos %}'{{ r.nombre }}'{% if not loop.last %},{% endif %}{% endfor %}];
   return {
+    step: 1,
+    stepLabels: ['Origen', 'Fechas', 'Recursos', 'Modulos'],
+
     source: 'db',
+    sourceOptions: [
+      { value: 'db',       label: 'Base de datos',  desc: 'Extraccion directa del MES',   icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4', color: 'bg-blue-100 text-blue-600' },
+      { value: 'csv_only', label: 'CSVs existentes', desc: 'Ficheros ya descargados',       icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', color: 'bg-emerald-100 text-emerald-600' },
+      { value: 'excel',    label: 'Ficheros Excel',  desc: 'Importar desde .xlsx',          icon: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', color: 'bg-purple-100 text-purple-600' },
+    ],
+
     fechaInicio: '{{ today }}',
     fechaFin: '{{ today }}',
     singleDay: true,
+
+    selectedResources: [...allResources],
+
     modules: [
-      { key: 'disponibilidad', label: 'Disponibilidad' },
-      { key: 'rendimiento', label: 'Rendimiento' },
-      { key: 'calidad', label: 'Calidad' },
-      { key: 'oee_secciones', label: 'OEE Secciones' },
+      { key: 'disponibilidad',  label: 'Disponibilidad',  desc: 'Tiempo productivo vs paradas', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',                                activeColor: 'bg-blue-100 text-blue-600' },
+      { key: 'rendimiento',     label: 'Rendimiento',     desc: 'Velocidad real vs ideal',      icon: 'M13 10V3L4 14h7v7l9-11h-7z',                                                    activeColor: 'bg-amber-100 text-amber-600' },
+      { key: 'calidad',         label: 'Calidad',         desc: 'Piezas buenas vs totales',     icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',                                  activeColor: 'bg-green-100 text-green-600' },
+      { key: 'oee_secciones',   label: 'OEE Secciones',   desc: 'Resumen global por seccion',   icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', activeColor: 'bg-purple-100 text-purple-600' },
     ],
     selectedModules: ['disponibilidad', 'rendimiento', 'calidad', 'oee_secciones'],
 
+    toggleResource(name) {
+      const i = this.selectedResources.indexOf(name);
+      i >= 0 ? this.selectedResources.splice(i, 1) : this.selectedResources.push(name);
+    },
+    allResourcesSelected() { return this.selectedResources.length === allResources.length; },
+    toggleAllResources() {
+      this.selectedResources = this.allResourcesSelected() ? [] : [...allResources];
+    },
+    toggleModule(key) {
+      const i = this.selectedModules.indexOf(key);
+      i >= 0 ? this.selectedModules.splice(i, 1) : this.selectedModules.push(key);
+    },
+
+    resetLog() {
+      const lc = document.getElementById('log-console');
+      if (lc) lc.textContent = '';
+      document.getElementById('pdfs-panel')?.classList.add('hidden');
+    },
+
     ejecutar() {
-      runPipeline({
-        fecha_inicio: this.fechaInicio,
-        fecha_fin: this.singleDay ? this.fechaInicio : this.fechaFin,
-        modulos: this.selectedModules,
-        source: this.source,
+      this.step = 5;
+      this.$nextTick(() => {
+        const payload = {
+          fecha_inicio: this.fechaInicio,
+          fecha_fin: this.singleDay ? this.fechaInicio : this.fechaFin,
+          modulos: this.selectedModules,
+          source: this.source,
+        };
+        if (this.source === 'db') {
+          payload.recursos = this.selectedResources;
+        }
+        runPipeline(payload);
       });
     }
   };

@@ -11,6 +11,8 @@ from api.services import db as mes_service
 
 router = APIRouter(prefix="/recursos", tags=["recursos"])
 
+SECCIONES_DISPONIBLES = sorted(set(SECTION_MAP.values()) | {"GENERAL"})
+
 
 @router.get("")
 def listar(db: Session = Depends(get_db)):
@@ -56,6 +58,40 @@ def add_row(recurso: RecursoModel, db: Session = Depends(get_db)):
     db.commit()
     _sync_to_config(db)
     return {"ok": True}
+
+
+@router.get("/detectar")
+def detectar(db: Session = Depends(get_db)):
+    """
+    Detecta centros de trabajo en IZARO.
+
+    Devuelve para cada CT:
+    - codigo: número del centro de trabajo en IZARO
+    - nombre_izaro: nombre descriptivo en IZARO (ej: "Linea Luk 1")
+    - ultimo_registro: fecha del último parte registrado
+    - n_registros_mes: nº de registros en el último mes (0 = inactivo)
+    - configurado: true si ya existe en nuestros recursos
+    - nombre_local: nombre asignado localmente (si está configurado)
+    - seccion_local: sección asignada (si está configurado)
+    """
+    try:
+        maquinas = mes_service.discover_resources()
+    except Exception as exc:
+        raise HTTPException(502, f"Error conectando a IZARO: {exc}")
+
+    # Marcar cuáles ya están configurados
+    locales = {r.centro_trabajo: r for r in db.query(Recurso).all()}
+
+    for m in maquinas:
+        local = locales.get(m["codigo"])
+        m["configurado"] = local is not None
+        m["nombre_local"] = local.nombre if local else ""
+        m["seccion_local"] = local.seccion if local else ""
+
+    return {
+        "maquinas": maquinas,
+        "secciones": SECCIONES_DISPONIBLES,
+    }
 
 
 def _sync_to_config(db: Session) -> None:

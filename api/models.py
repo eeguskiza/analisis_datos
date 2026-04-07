@@ -35,6 +35,7 @@ class PipelineRequest(BaseModel):
     fecha_fin: date
     modulos: list[str] = ["disponibilidad", "rendimiento", "calidad", "oee_secciones"]
     source: str = "db"  # "db", "excel", "csv_only"
+    recursos: Optional[list[str]] = None  # nombres de recursos a procesar (None = todos)
 
 
 class PipelineResult(BaseModel):

@@ -27,6 +27,7 @@ def run(req: PipelineRequest):
             fecha_fin=req.fecha_fin,
             modulos=req.modulos,
             source=req.source,
+            recursos=req.recursos,
         ):
             yield f"data: {msg}\n\n"
 

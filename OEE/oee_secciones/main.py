@@ -951,45 +951,13 @@ def build_machine_pages(maquinas: List[MachineSectionMetrics], semana_label: Opt
             "oee_pct": metric.oee_pct,
         }
 
-    for metric in sorted(maquinas, key=machine_sort_key):
+    MAX_ROWS_PER_PAGE = 20
+
+    def _render_table_page(titulo: str, rows, col_labels, bold_rows, highlight_rows):
         fig = plt.figure(figsize=(11.69, 8.27))
-        titulo = metric.name.upper()
-        if semana_label:
-            titulo = f"{titulo} · W{semana_label}"
         fig.suptitle(titulo, fontsize=16, fontweight="bold", color="#263238")
         ax = fig.add_subplot(111)
         ax.axis("off")
-        rows: List[List[str]] = []
-        bold_rows: set[int] = set()
-        highlight_rows: set[int] = set()
-
-        # Detalle diario
-        for day in sorted(metric.daily_stats.keys()):
-            day_idx = len(rows)
-            rows.append([day.strftime("%d-%b")] + [""] * (len(col_labels) - 1))
-            bold_rows.add(day_idx)
-            shift_day = metric.daily_shift_stats.get(day, {})
-            for shift in SHIFT_LABELS:
-                stats = shift_day.get(shift)
-                if stats:
-                    rows.append(format_row(shift, stats))
-            general_day = convertir_raw_a_metricas(metric.daily_stats[day])
-            total_idx = len(rows)
-            rows.append(format_row("Total", general_day))
-            bold_rows.add(total_idx)
-            rows.append([""] * len(col_labels))  # separador
-
-        # Totales turno global
-        for shift in SHIFT_LABELS:
-            shift_stats = metric.shift_stats.get(shift)
-            if shift_stats:
-                idx = len(rows)
-                rows.append(format_row(f"{shift} Total", shift_stats))
-                highlight_rows.add(idx)
-        final_idx = len(rows)
-        rows.append(format_row(f"TOTAL {metric.name.upper()}", general_stats(metric)))
-        bold_rows.add(final_idx)
-
         table = ax.table(
             cellText=rows,
             colLabels=col_labels,
@@ -1011,7 +979,86 @@ def build_machine_pages(maquinas: List[MachineSectionMetrics], semana_label: Opt
                 cell.set_facecolor("#F7F9FA")
             else:
                 cell.set_facecolor("white")
-        figures.append(fig)
+        return fig
+
+    for metric in sorted(maquinas, key=machine_sort_key):
+        titulo = metric.name.upper()
+        if semana_label:
+            titulo = f"{titulo} · W{semana_label}"
+
+        # Construir bloques diarios (un bloque = cabecera día + turnos + total + separador)
+        day_blocks: List[List[List[str]]] = []
+        day_bold_offsets: List[List[int]] = []
+        for day in sorted(metric.daily_stats.keys()):
+            block: List[List[str]] = []
+            bold_offsets: List[int] = []
+            bold_offsets.append(len(block))
+            block.append([day.strftime("%d-%b")] + [""] * (len(col_labels) - 1))
+            shift_day = metric.daily_shift_stats.get(day, {})
+            for shift in SHIFT_LABELS:
+                stats = shift_day.get(shift)
+                if stats:
+                    block.append(format_row(shift, stats))
+            general_day = convertir_raw_a_metricas(metric.daily_stats[day])
+            bold_offsets.append(len(block))
+            block.append(format_row("Total", general_day))
+            block.append([""] * len(col_labels))  # separador
+            day_blocks.append(block)
+            day_bold_offsets.append(bold_offsets)
+
+        # Totales globales (siempre en la última página)
+        footer_rows: List[List[str]] = []
+        footer_bold: List[int] = []
+        footer_highlight: List[int] = []
+        for shift in SHIFT_LABELS:
+            shift_stats = metric.shift_stats.get(shift)
+            if shift_stats:
+                footer_highlight.append(len(footer_rows))
+                footer_rows.append(format_row(f"{shift} Total", shift_stats))
+        footer_bold.append(len(footer_rows))
+        footer_rows.append(format_row(f"TOTAL {metric.name.upper()}", general_stats(metric)))
+
+        # Paginar bloques diarios
+        page_rows: List[List[str]] = []
+        page_bold: set[int] = set()
+        page_highlight: set[int] = set()
+        page_num = 0
+
+        for i, (block, bold_offs) in enumerate(zip(day_blocks, day_bold_offsets)):
+            # Si añadir este bloque supera el límite, flush página actual
+            if page_rows and len(page_rows) + len(block) > MAX_ROWS_PER_PAGE:
+                page_title = f"{titulo} ({page_num + 1})" if len(day_blocks) > 5 else titulo
+                figures.append(_render_table_page(page_title, page_rows, col_labels, page_bold, page_highlight))
+                page_rows = []
+                page_bold = set()
+                page_highlight = set()
+                page_num += 1
+
+            base = len(page_rows)
+            for off in bold_offs:
+                page_bold.add(base + off)
+            page_rows.extend(block)
+
+        # Añadir footer de totales a la última página
+        # Si no cabe, crear página nueva
+        if page_rows and len(page_rows) + len(footer_rows) > MAX_ROWS_PER_PAGE + 5:
+            page_title = f"{titulo} ({page_num + 1})" if page_num > 0 else titulo
+            figures.append(_render_table_page(page_title, page_rows, col_labels, page_bold, page_highlight))
+            page_rows = []
+            page_bold = set()
+            page_highlight = set()
+            page_num += 1
+
+        base = len(page_rows)
+        for off in footer_highlight:
+            page_highlight.add(base + off)
+        for off in footer_bold:
+            page_bold.add(base + off)
+        page_rows.extend(footer_rows)
+
+        page_title = f"{titulo} ({page_num + 1})" if page_num > 0 else titulo
+        figures.append(_render_table_page(page_title, page_rows, col_labels, page_bold, page_highlight))
+
     return figures
 
 

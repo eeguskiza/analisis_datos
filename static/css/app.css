@@ -4,7 +4,7 @@
 
 /* Cards */
 .card {
-  @apply bg-white rounded-xl border border-surface-200 shadow-sm;
+  @apply bg-white rounded-2xl border border-surface-200 shadow-sm;
 }
 .card-header {
   @apply px-5 py-3 border-b border-surface-200 font-semibold text-sm text-brand-800;
@@ -15,7 +15,7 @@
 
 /* Log console */
 .log-console {
-  @apply bg-gray-900 text-green-300 font-mono text-xs rounded-lg p-4 overflow-y-auto;
+  @apply bg-gray-900 text-green-300 font-mono text-xs rounded-xl p-4 overflow-y-auto;
   min-height: 100px;
   max-height: 400px;
 }
@@ -41,7 +41,10 @@
 
 /* Inputs inline */
 .input-inline {
-  @apply w-full px-2 py-1 text-sm border border-surface-200 rounded focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent;
+  @apply w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent bg-surface-50 transition-colors;
+}
+.input-inline:focus {
+  @apply bg-white;
 }
 
 /* Stat card */
@@ -71,16 +74,16 @@
 
 /* Buttons */
 .btn {
-  @apply inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+  @apply inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2;
 }
 .btn-primary {
-  @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500;
+  @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 shadow-sm hover:shadow;
 }
 .btn-success {
-  @apply btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
+  @apply btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-sm hover:shadow;
 }
 .btn-danger {
-  @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm hover:shadow;
 }
 .btn-ghost {
   @apply btn bg-transparent text-gray-600 hover:bg-surface-100 focus:ring-surface-300;

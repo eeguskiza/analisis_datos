@@ -1,4 +1,4 @@
-/* ── OEE Planta — JavaScript helpers ──────────────────────────────────────── */
+/* ── ECS Mobility — JavaScript helpers ──────────────────────────────────────── */
 
 // ── Conexion badge (responde al hx-get /api/conexion/status) ────────────────
 document.addEventListener('htmx:afterRequest', (evt) => {
@@ -20,7 +20,6 @@ document.addEventListener('htmx:afterRequest', (evt) => {
     badge.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-1"></span> Error`;
   }
 
-  // Prevent HTMX from swapping (we handled it manually)
   evt.detail.shouldSwap = false;
 });
 
@@ -39,7 +38,7 @@ function runPipeline(formData) {
   pdfsPanel.classList.add('hidden');
   pdfsList.innerHTML = '';
   btnRun.disabled = true;
-  statusEl.innerHTML = '<span class="spinner border-brand-600"></span> Ejecutando...';
+  statusEl.innerHTML = '<span class="spinner border-brand-600"></span> <span class="text-sm font-medium text-gray-600">Ejecutando pipeline...</span>';
 
   fetch('/api/pipeline/run', {
     method: 'POST',
@@ -59,19 +58,18 @@ function runPipeline(formData) {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        buffer = lines.pop(); // keep incomplete line
+        buffer = lines.pop();
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const msg = line.slice(6);
 
           if (msg.startsWith('DONE:')) {
-            // Parse DONE:<count>:<pdf1|pdf2|...>
             const parts = msg.split(':');
             const count = parseInt(parts[1]) || 0;
             const pdfs = parts.slice(2).join(':').split('|').filter(Boolean);
 
-            statusEl.innerHTML = `<span class="text-green-600 font-semibold">${count} PDF(s) generados</span>`;
+            statusEl.innerHTML = `<span class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="text-sm font-semibold text-green-700">${count} PDF(s) generados</span></span>`;
             btnRun.disabled = false;
             notifyBrowser(`Pipeline completado: ${count} PDF(s)`);
 
@@ -81,24 +79,23 @@ function runPipeline(formData) {
                 const name = p.split('/').pop();
                 const section = p.split('/').slice(-2, -1)[0] || '';
                 return `<a href="/api/informes/pdf/${p}" target="_blank"
-                           class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface-100 text-sm text-brand-700">
-                          <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-surface-50 hover:bg-surface-100 transition-colors text-sm text-brand-700">
+                          <svg class="w-4 h-4 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
                           </svg>
-                          <span>${name}</span>
+                          <span class="truncate">${name}</span>
                           <span class="text-xs text-gray-400">${section}</span>
                         </a>`;
               }).join('');
             }
           } else if (msg.startsWith('ERROR')) {
             logBox.textContent += msg + '\n';
-            statusEl.innerHTML = '<span class="text-red-600 font-semibold">Error</span>';
+            statusEl.innerHTML = '<span class="flex items-center gap-2"><svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="text-sm font-semibold text-red-700">Error</span></span>';
             btnRun.disabled = false;
           } else {
             logBox.textContent += msg + '\n';
           }
 
-          // Auto-scroll
           logBox.scrollTop = logBox.scrollHeight;
         }
 
@@ -109,7 +106,7 @@ function runPipeline(formData) {
     read();
   }).catch(err => {
     logBox.textContent += 'Error de red: ' + err + '\n';
-    statusEl.innerHTML = '<span class="text-red-600 font-semibold">Error de red</span>';
+    statusEl.innerHTML = '<span class="text-red-600 font-semibold text-sm">Error de red</span>';
     btnRun.disabled = false;
   });
 }
@@ -131,15 +128,14 @@ function getSectionForResource(name) {
 function notifyBrowser(message) {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
-    new Notification('OEE Planta', { body: message, icon: '/static/img/icon.png' });
+    new Notification('ECS Mobility', { body: message, icon: '/static/img/logo.png' });
   } else if (Notification.permission !== 'denied') {
     Notification.requestPermission().then(p => {
-      if (p === 'granted') new Notification('OEE Planta', { body: message });
+      if (p === 'granted') new Notification('ECS Mobility', { body: message });
     });
   }
 }
 
-// Request permission on load
 if ('Notification' in window && Notification.permission === 'default') {
   Notification.requestPermission();
 }
@@ -154,7 +150,7 @@ function showToast(message, type = 'success') {
     info: 'bg-brand-600',
   };
   const toast = document.createElement('div');
-  toast.className = `fixed bottom-4 right-4 ${colors[type] || colors.info} text-white px-4 py-2 rounded-lg shadow-lg text-sm z-50 transition-opacity duration-300`;
+  toast.className = `fixed bottom-4 right-4 ${colors[type] || colors.info} text-white px-4 py-2.5 rounded-xl shadow-lg text-sm z-50 transition-opacity duration-300`;
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => {

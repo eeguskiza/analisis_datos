@@ -6,11 +6,8 @@ from datetime import date
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from api.config import settings
 from api.deps import templates
-from api.database import Ejecucion, Recurso, get_db
-from api.services import db as db_service
-from api.services import informes as informes_service
+from api.database import Recurso, get_db
 
 router = APIRouter(tags=["pages"])
 
@@ -48,7 +45,6 @@ def pipeline_page(request: Request, db: Session = Depends(get_db)):
 @router.get("/informes")
 def informes_page(request: Request):
     ctx = _common_ctx(request, "informes")
-    ctx["tree"] = informes_service.list_all()
     return _render("informes.html", ctx)
 
 
@@ -64,22 +60,10 @@ def recursos_page(request: Request, db: Session = Depends(get_db)):
     return _render("recursos.html", ctx)
 
 
-@router.get("/ciclos")
-def ciclos_page(request: Request):
-    ctx = _common_ctx(request, "ciclos")
-    return _render("ciclos.html", ctx)
-
-
 @router.get("/historial")
 def historial_page(request: Request):
     ctx = _common_ctx(request, "historial")
     return _render("historial.html", ctx)
-
-
-@router.get("/plantillas")
-def plantillas_page(request: Request):
-    ctx = _common_ctx(request, "plantillas")
-    return _render("plantillas.html", ctx)
 
 
 @router.get("/ajustes")

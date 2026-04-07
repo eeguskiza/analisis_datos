@@ -194,6 +194,50 @@ def explorar_columnas_fmesdtc(cfg: dict) -> List[str]:
         return [f"ERROR: {exc}"]
 
 
+def detectar_recursos(cfg: dict) -> List[dict]:
+    """
+    Detecta centros de trabajo disponibles en IZARO.
+
+    Devuelve lista de dicts:
+      {codigo, nombre_izaro, ultimo_registro, n_registros_mes}
+    """
+    if not PYODBC_AVAILABLE:
+        raise RuntimeError("pyodbc no está instalado")
+    conn = pyodbc.connect(_build_connection_string(cfg), timeout=15)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT
+                CAST(rec.re010 AS INT) AS codigo,
+                RTRIM(rec.re020) AS nombre_izaro,
+                act.ultimo,
+                act.n_mes
+            FROM admuser.fmesrec AS rec
+            LEFT JOIN (
+                SELECT
+                    CAST(dt150 AS INT) AS ct,
+                    MAX(CONVERT(DATE, dt060)) AS ultimo,
+                    SUM(CASE WHEN dt060 >= DATEADD(MONTH, -1, GETDATE()) THEN 1 ELSE 0 END) AS n_mes
+                FROM admuser.fmesdtc
+                GROUP BY CAST(dt150 AS INT)
+            ) AS act ON act.ct = CAST(rec.re010 AS INT)
+            ORDER BY act.n_mes DESC, rec.re010
+        """)
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return [
+        {
+            "codigo": int(r[0]),
+            "nombre_izaro": (r[1] or "").strip(),
+            "ultimo_registro": r[2].isoformat() if r[2] else None,
+            "n_registros_mes": int(r[3] or 0),
+        }
+        for r in rows
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Consulta principal
 # ---------------------------------------------------------------------------
@@ -203,7 +247,7 @@ SELECT
     dtc.dt060                                                              AS fecha,
     STUFF(RIGHT('0000' + CAST(dtc.dt080 AS VARCHAR(4)), 4), 3, 0, ':')   AS hora_inicio,
     STUFF(RIGHT('0000' + CAST(dtc.dt085 AS VARCHAR(4)), 4), 3, 0, ':')   AS hora_fin,
-    COALESCE(TRY_CONVERT(FLOAT, dtc.dt090), 0)                            AS tiempo,
+    COALESCE(CAST(dtc.dt090 AS FLOAT), 0)                                  AS tiempo,
     RTRIM(CAST(dtc.dt150 AS NVARCHAR(50)))                                AS centro_trabajo,
     CASE dtc.dt110
         WHEN '0' THEN 'Producción'
@@ -212,49 +256,56 @@ SELECT
         ELSE ''
     END                                                                    AS proceso,
     COALESCE(RTRIM(CAST(inc.in020 AS NVARCHAR(MAX))), '')                 AS incidencia,
-    COALESCE(TRY_CONVERT(FLOAT, dtc.dt130), 0)                            AS cantidad,
+    COALESCE(CAST(dtc.dt130 AS FLOAT), 0)                                  AS cantidad,
     COALESCE(def.malas, 0)                                                 AS malas,
-    COALESCE(def.recuperadas, 0)                                           AS recuperadas
-    {ref_select}
+    COALESCE(def.recuperadas, 0)                                           AS recuperadas,
+    COALESCE(RTRIM(lof.lo030), '')                                         AS referencia
 FROM admuser.fmesdtc AS dtc
 LEFT JOIN (
     SELECT dd010, dd020, dd030, dd040, dd050,
-           SUM(COALESCE(TRY_CONVERT(FLOAT, dd080), 0)) AS malas,
-           SUM(COALESCE(TRY_CONVERT(FLOAT, dd090), 0)) AS recuperadas
+           SUM(COALESCE(CAST(dd080 AS FLOAT), 0)) AS malas,
+           SUM(COALESCE(CAST(dd090 AS FLOAT), 0)) AS recuperadas
     FROM admuser.fmesddf
     GROUP BY dd010, dd020, dd030, dd040, dd050
 ) AS def
-    ON  RTRIM(CAST(def.dd010 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt010 AS NVARCHAR(100)))
-    AND RTRIM(CAST(def.dd020 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt020 AS NVARCHAR(100)))
-    AND RTRIM(CAST(def.dd030 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt030 AS NVARCHAR(100)))
-    AND RTRIM(CAST(def.dd040 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt040 AS NVARCHAR(100)))
-    AND RTRIM(CAST(def.dd050 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt050 AS NVARCHAR(100)))
+    ON  RTRIM(def.dd010) = RTRIM(dtc.dt020)
+    AND def.dd020 = dtc.dt030
+    AND def.dd030 = dtc.dt030
+    AND def.dd040 = dtc.dt040
+    AND def.dd050 = dtc.dt050
 LEFT JOIN admuser.fmesinc AS inc
     ON  RTRIM(inc.in010) = RTRIM(dtc.dt120)
-    AND RTRIM(CAST(inc.in000 AS NVARCHAR(100))) = RTRIM(CAST(dtc.dt010 AS NVARCHAR(100)))
-WHERE CONVERT(DATE, dtc.dt060) BETWEEN ? AND ?
+    AND RTRIM(inc.in000) = RTRIM(dtc.dt000)
+LEFT JOIN admuser.fprolof AS lof
+    ON  RTRIM(lof.lo010) = RTRIM(dtc.dt020)
+    AND lof.lo020 = dtc.dt030
+WHERE (
+        -- Registros con hora >= 06:00 del rango pedido (T1, T2, inicio T3)
+        (CONVERT(DATE, dtc.dt060) BETWEEN ? AND ? AND dtc.dt080 >= 600)
+        OR
+        -- Registros de madrugada (<06:00) del día siguiente a fecha_fin
+        -- (continuación del T3 del último día pedido)
+        (CONVERT(DATE, dtc.dt060) = DATEADD(DAY, 1, CAST(? AS DATE)) AND dtc.dt080 < 600)
+  )
   AND RTRIM(CAST(dtc.dt150 AS NVARCHAR(50))) IN ({ct_placeholders})
   {uf_filter}
 ORDER BY dtc.dt150, dtc.dt060, dtc.dt080
 """
 
 
-def extraer_y_guardar_csv(
+def extraer_datos(
     cfg: dict,
     fecha_inicio: date,
     fecha_fin: date,
-    recursos_dir: Path,
-) -> Dict[str, Path]:
+) -> List[dict]:
     """
-    Consulta la BD y genera un CSV por recurso activo en recursos_dir/<SECCION>/.
+    Extrae datos de IZARO y devuelve lista de dicts con columnas normalizadas.
 
-    Devuelve un dict {nombre_recurso: path_csv}.
-    Lanza excepciones si hay error de conexión o la consulta falla.
+    Cada dict: {recurso, seccion, fecha, h_ini, h_fin, tiempo, proceso,
+                incidencia, cantidad, malas, recuperadas, referencia}
     """
     if not PYODBC_AVAILABLE:
-        raise RuntimeError(
-            "pyodbc no está instalado. Ejecuta: pip install pyodbc"
-        )
+        raise RuntimeError("pyodbc no está instalado. Ejecuta: pip install pyodbc")
 
     recursos_activos = [r for r in cfg.get("recursos", []) if r.get("activo", True)]
     if not recursos_activos:
@@ -265,24 +316,17 @@ def extraer_y_guardar_csv(
         str(r["centro_trabajo"]).strip(): r["nombre"] for r in recursos_activos
     }
 
-    # Construir query
-    ref_campo = (cfg.get("referencia_campo") or "").strip()
-    ref_select = f", dtc.{ref_campo} AS referencia" if ref_campo else ", '' AS referencia"
-
     uf_code = (cfg.get("uf_code") or "").strip()
     uf_filter = "AND dtc.dt010 = ?" if uf_code else ""
 
     sql = _SQL_TEMPLATE.format(
-        ref_select=ref_select,
         ct_placeholders=",".join(["?"] * len(ct_codes)),
         uf_filter=uf_filter,
     )
 
-    params: list = [
-        fecha_inicio.strftime("%Y-%m-%d"),
-        fecha_fin.strftime("%Y-%m-%d"),
-        *ct_codes,
-    ]
+    fi = fecha_inicio.strftime("%Y-%m-%d")
+    ff = fecha_fin.strftime("%Y-%m-%d")
+    params: list = [fi, ff, ff, *ct_codes]
     if uf_code:
         params.append(uf_code)
 
@@ -293,42 +337,89 @@ def extraer_y_guardar_csv(
         conn.close()
 
     if df.empty:
-        return {}
+        return []
 
-    # Renombrar columnas al formato que espera el pipeline
-    df = df.rename(columns={
-        "fecha":          "Fecha",
-        "hora_inicio":    "H Ini",
-        "hora_fin":       "F Fin",
-        "tiempo":         "Tiempo",
-        "proceso":        "Proceso",
-        "incidencia":     "Incidencia",
-        "cantidad":       "Cantidad",
-        "malas":          "Malas",
-        "recuperadas":    "Recu.",
-        "referencia":     "Refer.",
-        "centro_trabajo": "_ct",
-    })
+    rows: List[dict] = []
+    for _, r in df.iterrows():
+        ct = str(r["centro_trabajo"]).strip()
+        nombre = ct_to_resource.get(ct)
+        if not nombre:
+            continue
+        seccion = RESOURCE_SECTION_MAP.get(nombre.lower(), "GENERAL")
+        fecha_val = r["fecha"]
+        if hasattr(fecha_val, "date"):
+            fecha_val = fecha_val.date()
+        rows.append({
+            "recurso": nombre,
+            "seccion": seccion,
+            "fecha": fecha_val,
+            "h_ini": str(r["hora_inicio"] or ""),
+            "h_fin": str(r["hora_fin"] or ""),
+            "tiempo": float(r["tiempo"] or 0),
+            "proceso": str(r["proceso"] or ""),
+            "incidencia": str(r["incidencia"] or ""),
+            "cantidad": float(r["cantidad"] or 0),
+            "malas": float(r["malas"] or 0),
+            "recuperadas": float(r["recuperadas"] or 0),
+            "referencia": str(r["referencia"] or ""),
+        })
+    return rows
 
-    fecha_str = (
-        fecha_inicio.strftime("%Y%m%d")
-        if fecha_inicio == fecha_fin
-        else f"{fecha_inicio.strftime('%Y%m%d')}-{fecha_fin.strftime('%Y%m%d')}"
-    )
+
+def datos_a_csvs(rows: List[dict], recursos_dir: Path) -> Dict[str, Path]:
+    """
+    Escribe datos (lista de dicts) como CSVs en recursos_dir/<SECCION>/.
+    Devuelve {nombre_recurso: path_csv}.
+    """
+    import pandas as _pd
+
+    CSV_COLUMNS = {
+        "fecha": "Fecha", "h_ini": "H Ini", "h_fin": "F Fin",
+        "tiempo": "Tiempo", "proceso": "Proceso", "incidencia": "Incidencia",
+        "cantidad": "Cantidad", "malas": "Malas", "recuperadas": "Recu.",
+        "referencia": "Refer.",
+    }
+
+    # Agrupar por recurso
+    by_recurso: Dict[str, list] = {}
+    for r in rows:
+        by_recurso.setdefault(r["recurso"], []).append(r)
 
     generated: Dict[str, Path] = {}
-
-    for ct_code, resource_name in ct_to_resource.items():
-        df_r = df[df["_ct"].astype(str).str.strip() == ct_code].drop(columns=["_ct"]).copy()
-        if df_r.empty:
-            continue
-
-        section = RESOURCE_SECTION_MAP.get(resource_name.lower(), "GENERAL")
-        out_dir = recursos_dir / section
+    for nombre, data in by_recurso.items():
+        seccion = data[0]["seccion"]
+        out_dir = recursos_dir / seccion
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        out_path = out_dir / f"{resource_name}-{fecha_str}.csv"
-        df_r.to_csv(out_path, index=False, encoding="utf-8-sig")
-        generated[resource_name] = out_path
+        # Limpiar CSVs anteriores de este recurso
+        for old_csv in out_dir.glob(f"{nombre}-*.csv"):
+            old_csv.unlink()
+
+        df = _pd.DataFrame(data)
+        df = df.rename(columns=CSV_COLUMNS)
+        df = df[list(CSV_COLUMNS.values())]
+
+        fechas = sorted(df["Fecha"].unique())
+        if len(fechas) <= 1:
+            tag = str(fechas[0]).replace("-", "") if fechas else "nodata"
+        else:
+            tag = f"{str(fechas[0]).replace('-', '')}_{str(fechas[-1]).replace('-', '')}"
+
+        out_path = out_dir / f"{nombre}-{tag}.csv"
+        df.to_csv(out_path, index=False, encoding="utf-8-sig")
+        generated[nombre] = out_path
 
     return generated
+
+
+def extraer_y_guardar_csv(
+    cfg: dict,
+    fecha_inicio: date,
+    fecha_fin: date,
+    recursos_dir: Path,
+) -> Dict[str, Path]:
+    """Extrae datos de IZARO y los guarda como CSVs. Wrapper de compatibilidad."""
+    rows = extraer_datos(cfg, fecha_inicio, fecha_fin)
+    if not rows:
+        return {}
+    return datos_a_csvs(rows, recursos_dir)

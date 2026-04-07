@@ -22,7 +22,6 @@ class MesConfig(BaseModel):
     user: str = ""
     password: str = ""
     uf_code: str = ""
-    referencia_campo: str = ""
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -47,7 +46,6 @@ def get_config():
         "user": cfg.get("user", ""),
         "password": cfg.get("password", ""),
         "uf_code": cfg.get("uf_code", ""),
-        "referencia_campo": cfg.get("referencia_campo", ""),
     }
 
 
@@ -65,7 +63,6 @@ def save_config(payload: MesConfig):
     cfg["user"] = payload.user
     cfg["password"] = payload.password
     cfg["uf_code"] = payload.uf_code
-    cfg["referencia_campo"] = payload.referencia_campo
 
     db_service.update_config(cfg)
     return {"ok": True}

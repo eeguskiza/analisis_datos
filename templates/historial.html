@@ -1,103 +1,118 @@
 {% extends "base.html" %}
-{% block title %}Historial — OEE Planta{% endblock %}
-{% block page_title %}Historial de ejecuciones{% endblock %}
+{% block title %}Historial — ECS Mobility{% endblock %}
+{% block page_title %}Historial{% endblock %}
 
 {% block content %}
-<div x-data="historialPage()" x-init="load()" class="space-y-6">
+<div x-data="historialPage()" x-init="load()" class="max-w-5xl mx-auto space-y-5">
 
-  <div class="card">
-    <div class="card-header flex items-center justify-between">
-      <span>Ejecuciones del pipeline</span>
-      <button @click="load()" class="btn-ghost btn-sm">Actualizar</button>
+  <!-- Toolbar -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <h2 class="text-lg font-bold text-brand-800">Ejecuciones</h2>
+      <span class="text-xs text-gray-400 bg-surface-100 px-2 py-0.5 rounded-full" x-text="ejecuciones.length + ' registros'" x-show="!loading"></span>
     </div>
-    <div class="overflow-x-auto">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th class="w-12">#</th>
-            <th>Periodo</th>
-            <th class="w-24">Origen</th>
-            <th class="w-20">Estado</th>
-            <th class="w-20">PDFs</th>
-            <th>Modulos</th>
-            <th class="w-36">Fecha</th>
-            <th class="w-12"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-if="loading">
-            <tr><td colspan="8" class="text-center py-6 text-gray-400"><span class="spinner border-brand-600"></span></td></tr>
-          </template>
-          <template x-if="!loading && ejecuciones.length === 0">
-            <tr><td colspan="8" class="text-center py-6 text-gray-400">Sin ejecuciones registradas.</td></tr>
-          </template>
-          <template x-for="e in ejecuciones" :key="e.id">
-            <tr class="cursor-pointer" @click="toggleDetail(e.id)">
-              <td class="font-mono text-xs text-gray-400" x-text="e.id"></td>
-              <td>
-                <span class="text-sm font-medium" x-text="e.fecha_inicio === e.fecha_fin ? e.fecha_inicio : e.fecha_inicio + ' → ' + e.fecha_fin"></span>
-              </td>
-              <td>
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                      :class="e.source === 'db' ? 'bg-blue-100 text-blue-800' : e.source === 'excel' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'"
-                      x-text="e.source"></span>
-              </td>
-              <td>
-                <span class="inline-flex items-center gap-1 text-xs font-medium">
-                  <span class="w-2 h-2 rounded-full"
-                        :class="e.status === 'completed' ? 'bg-green-500' : e.status === 'running' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'"></span>
-                  <span x-text="e.status === 'completed' ? 'OK' : e.status === 'running' ? 'Ejecutando' : 'Error'"></span>
-                </span>
-              </td>
-              <td class="font-mono text-sm" x-text="e.n_pdfs"></td>
-              <td class="text-xs text-gray-500" x-text="e.modulos"></td>
-              <td class="text-xs text-gray-500" x-text="formatDate(e.created_at)"></td>
-              <td>
-                <button @click.stop="borrar(e.id)" class="text-red-400 hover:text-red-600 p-1" title="Borrar">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                </button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
+    <button @click="load()" class="btn-ghost btn-sm" :disabled="loading">
+      <svg class="w-3.5 h-3.5" :class="loading && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      Actualizar
+    </button>
   </div>
 
-  <!-- Detail panel -->
-  <template x-if="detail">
-    <div class="card">
-      <div class="card-header flex items-center justify-between">
-        <span>Ejecucion #<span x-text="detail.id"></span> — <span x-text="detail.fecha_inicio"></span></span>
-        <button @click="detail = null" class="btn-ghost btn-sm">Cerrar</button>
-      </div>
-      <div class="card-body space-y-4">
-        <!-- Log -->
-        <div>
-          <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Log</div>
-          <div class="log-console" x-text="detail.log || '(sin log)'"></div>
-        </div>
-        <!-- PDFs -->
-        <div x-show="detail.informes && detail.informes.length > 0">
-          <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Informes generados</div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <template x-for="inf in detail.informes" :key="inf.id">
-              <a :href="'/api/informes/pdf/' + inf.pdf_path" target="_blank"
-                 class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface-100 text-sm text-brand-700 border border-surface-200">
-                <svg class="w-4 h-4 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
-                </svg>
-                <div class="min-w-0">
-                  <div class="truncate text-xs font-medium" x-text="inf.pdf_path.split('/').pop()"></div>
-                  <div class="text-xs text-gray-400" x-text="[inf.seccion, inf.maquina].filter(Boolean).join(' / ')"></div>
+  <!-- Loading -->
+  <template x-if="loading">
+    <div class="flex items-center justify-center py-20">
+      <span class="spinner border-brand-600 w-6 h-6"></span>
+    </div>
+  </template>
+
+  <!-- Empty -->
+  <template x-if="!loading && ejecuciones.length === 0">
+    <div class="text-center py-20">
+      <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <p class="text-gray-400">Sin ejecuciones registradas</p>
+      <a href="/pipeline" class="text-brand-600 text-sm hover:underline mt-1 inline-block">Ejecutar pipeline</a>
+    </div>
+  </template>
+
+  <!-- Cards list -->
+  <template x-if="!loading && ejecuciones.length > 0">
+    <div class="space-y-3">
+      <template x-for="e in ejecuciones" :key="e.id">
+        <div class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+          <!-- Row principal -->
+          <button @click="toggleDetail(e.id)" class="w-full text-left px-5 py-4 flex items-center gap-4">
+            <!-- Status dot -->
+            <div class="shrink-0">
+              <div class="w-3 h-3 rounded-full"
+                   :class="e.status === 'completed' ? 'bg-green-500 shadow-sm shadow-green-500/50'
+                          : e.status === 'running' ? 'bg-yellow-500 shadow-sm shadow-yellow-500/50 animate-pulse'
+                          : 'bg-red-500 shadow-sm shadow-red-500/50'"></div>
+            </div>
+            <!-- Info -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-sm text-gray-800"
+                      x-text="e.fecha_inicio === e.fecha_fin ? e.fecha_inicio : e.fecha_inicio + '  →  ' + e.fecha_fin"></span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wide"
+                      :class="e.source === 'db' ? 'bg-blue-50 text-blue-600' : e.source === 'excel' ? 'bg-purple-50 text-purple-600' : 'bg-gray-50 text-gray-500'"
+                      x-text="e.source"></span>
+              </div>
+              <div class="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+                <span x-text="formatDate(e.created_at)"></span>
+                <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                <span x-text="e.modulos"></span>
+              </div>
+            </div>
+            <!-- PDFs count -->
+            <div class="text-right shrink-0" x-show="e.n_pdfs > 0">
+              <div class="text-lg font-bold text-brand-700" x-text="e.n_pdfs"></div>
+              <div class="text-[10px] text-gray-400 uppercase">PDFs</div>
+            </div>
+            <!-- Chevron -->
+            <svg class="w-4 h-4 text-gray-300 shrink-0 transition-transform" :class="detail && detail.id === e.id && 'rotate-180'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          <!-- Detail panel (expandible) -->
+          <div x-show="detail && detail.id === e.id" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+               class="border-t border-surface-100">
+            <template x-if="detail && detail.id === e.id">
+              <div class="p-5 space-y-4">
+                <!-- Log -->
+                <div>
+                  <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Log de ejecucion</div>
+                  <div class="bg-gray-900 text-green-300 font-mono text-[11px] rounded-xl p-4 overflow-y-auto max-h-64" x-text="detail.log || '(sin log)'"></div>
                 </div>
-              </a>
+                <!-- PDFs -->
+                <div x-show="detail.informes && detail.informes.length > 0">
+                  <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Informes generados</div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <template x-for="inf in detail.informes" :key="inf.id">
+                      <a :href="'/api/informes/pdf/' + inf.pdf_path" target="_blank"
+                         class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-surface-50 hover:bg-surface-100 transition-colors">
+                        <svg class="w-4 h-4 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="min-w-0">
+                          <div class="truncate text-xs font-medium text-gray-700" x-text="inf.pdf_path.split('/').pop()"></div>
+                          <div class="text-[10px] text-gray-400" x-text="[inf.seccion, inf.maquina].filter(Boolean).join(' / ')"></div>
+                        </div>
+                      </a>
+                    </template>
+                  </div>
+                </div>
+                <!-- Actions -->
+                <div class="flex justify-end pt-2">
+                  <button @click.stop="borrar(e.id)" class="text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    Borrar
+                  </button>
+                </div>
+              </div>
             </template>
           </div>
         </div>
-      </div>
+      </template>
     </div>
   </template>
 </div>
@@ -137,7 +152,7 @@ function historialPage() {
     formatDate(iso) {
       if (!iso) return '';
       const d = new Date(iso);
-      return d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     }
   };
 }
