@@ -66,6 +66,12 @@ def historial_page(request: Request):
     return _render("historial.html", ctx)
 
 
+@router.get("/operarios")
+def operarios_page(request: Request):
+    ctx = _common_ctx(request, "operarios")
+    return _render("operarios.html", ctx)
+
+
 @router.get("/ajustes")
 def ajustes_page(request: Request):
     ctx = _common_ctx(request, "ajustes")

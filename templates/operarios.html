@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}Operarios — ECS Mobility{% endblock %}
+{% block page_title %}Operarios{% endblock %}
+
+{% block content %}
+<div x-data="operariosPage()" class="flex gap-4 h-[calc(100vh-130px)]">
+
+  <!-- ── Panel izquierdo: lista ──────────────────────────────────────── -->
+  <div class="w-72 shrink-0 bg-white rounded-2xl border border-surface-200 shadow-sm flex flex-col overflow-hidden">
+    <!-- Buscador -->
+    <div class="p-3 border-b border-surface-100 shrink-0">
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" x-model="search" @focus="if(!loaded) loadList()"
+               placeholder="Buscar operario..."
+               class="w-full pl-9 pr-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent bg-surface-50 focus:bg-white transition-colors">
+      </div>
+    </div>
+
+    <!-- Estado inicial -->
+    <div x-show="!loaded && !loadingList" class="flex-1 flex items-center justify-center">
+      <div class="text-center px-6">
+        <svg class="w-12 h-12 mx-auto text-gray-200 mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <p class="text-xs text-gray-400">Pulsa en el buscador para cargar la lista</p>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="loadingList" class="flex-1 flex items-center justify-center">
+      <span class="spinner border-brand-600 w-5 h-5"></span>
+    </div>
+
+    <!-- Lista -->
+    <div x-show="loaded && !loadingList" class="flex-1 overflow-y-auto p-1.5 space-y-0.5">
+      <template x-for="op in filteredList()" :key="op.codigo">
+        <button @click="selectOperario(op.codigo)"
+                class="w-full text-left px-3 py-2.5 rounded-xl transition-all duration-150"
+                :class="selected?.codigo === op.codigo ? 'bg-brand-50 border border-brand-200' : 'hover:bg-surface-50 border border-transparent'">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-800 truncate" x-text="op.nombre"></span>
+          </div>
+          <div class="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
+            <span class="font-mono" x-text="'#' + op.codigo"></span>
+            <template x-if="op.ultimo_registro">
+              <span class="flex items-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                <span x-text="'Ultimo: ' + op.ultimo_registro"></span>
+              </span>
+            </template>
+          </div>
+        </button>
+      </template>
+      <div x-show="filteredList().length === 0 && loaded" class="text-center py-8 text-xs text-gray-400">
+        Sin resultados
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Panel derecho: ficha ────────────────────────────────────────── -->
+  <div class="flex-1 min-w-0 overflow-y-auto">
+
+    <!-- Sin seleccion -->
+    <div x-show="!selected && !loadingFicha" class="h-full bg-white rounded-2xl border border-surface-200 shadow-sm flex items-center justify-center">
+      <div class="text-center text-gray-300">
+        <svg class="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <p class="text-sm">Selecciona un operario</p>
+      </div>
+    </div>
+
+    <!-- Loading ficha -->
+    <div x-show="loadingFicha" class="h-full bg-white rounded-2xl border border-surface-200 shadow-sm flex items-center justify-center">
+      <span class="spinner border-brand-600 w-6 h-6"></span>
+    </div>
+
+    <!-- Ficha -->
+    <div x-show="selected && !loadingFicha" class="space-y-4">
+
+      <!-- Cabecera -->
+      <div class="bg-white rounded-2xl border border-surface-200 shadow-sm px-6 py-4">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div class="flex items-center gap-3">
+              <h2 class="text-lg font-bold text-brand-800" x-text="ficha?.operario?.nombre"></h2>
+              <span class="font-mono text-xs text-gray-400 bg-surface-100 px-2 py-0.5 rounded-full" x-text="'#' + ficha?.operario?.codigo"></span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="date" x-model="desde" @change="reloadFicha()"
+                   class="px-3 py-1.5 text-xs font-mono border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+            <span class="text-gray-300">→</span>
+            <input type="date" x-model="hasta" @change="reloadFicha()"
+                   class="px-3 py-1.5 text-xs font-mono border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 text-center">
+          <div class="text-2xl font-bold text-brand-800" x-text="fmt(ficha?.resumen?.total_piezas)"></div>
+          <div class="text-[10px] text-gray-400 uppercase tracking-wide mt-1">Piezas</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 text-center">
+          <div class="text-2xl font-bold text-brand-800" x-text="ficha?.resumen?.piezas_hora_media?.toFixed(1) || '—'"></div>
+          <div class="text-[10px] text-gray-400 uppercase tracking-wide mt-1">Piezas/hora</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 text-center">
+          <div class="text-2xl font-bold text-brand-800" x-text="ficha?.resumen?.total_horas_produccion?.toFixed(1) || '—'"></div>
+          <div class="text-[10px] text-gray-400 uppercase tracking-wide mt-1">Horas prod.</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 text-center">
+          <div class="text-2xl font-bold text-brand-800" x-text="ficha?.resumen?.n_dias || '—'"></div>
+          <div class="text-[10px] text-gray-400 uppercase tracking-wide mt-1">Dias</div>
+        </div>
+      </div>
+
+      <!-- Graficos row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Donut centros -->
+        <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Distribucion por centro</div>
+          <div class="relative" style="height:200px">
+            <canvas id="chart-centros"></canvas>
+          </div>
+        </div>
+
+        <!-- Evolucion diaria -->
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Evolucion diaria (pzs/hora)</div>
+          <div class="relative" style="height:200px">
+            <canvas id="chart-evolucion"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla referencias -->
+      <div class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-3 border-b border-surface-100">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Referencias</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-surface-50">
+                <th class="px-4 py-2 text-left">Referencia</th>
+                <th class="px-4 py-2 text-left">Centro</th>
+                <th class="px-4 py-2 text-right">Piezas</th>
+                <th class="px-4 py-2 text-right">Horas</th>
+                <th class="px-4 py-2 text-right">Pzs/h real</th>
+                <th class="px-4 py-2 text-right">Pzs/h teorico</th>
+                <th class="px-4 py-2 text-right">Eficiencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="ref in ficha?.referencias || []" :key="ref.referencia + ref.codigo_ct">
+                <tr class="border-t border-surface-100 hover:bg-surface-50">
+                  <td class="px-4 py-2 font-mono font-medium text-brand-800" x-text="ref.referencia"></td>
+                  <td class="px-4 py-2 text-gray-500 text-xs" x-text="ref.nombre_ct"></td>
+                  <td class="px-4 py-2 text-right font-mono" x-text="fmt(ref.piezas)"></td>
+                  <td class="px-4 py-2 text-right font-mono text-gray-500" x-text="ref.horas?.toFixed(1)"></td>
+                  <td class="px-4 py-2 text-right font-mono font-semibold" x-text="ref.piezas_hora?.toFixed(1)"></td>
+                  <td class="px-4 py-2 text-right font-mono text-gray-400" x-text="ref.piezas_hora_teorico || '—'"></td>
+                  <td class="px-4 py-2 text-right">
+                    <span class="font-mono font-semibold px-2 py-0.5 rounded-lg text-xs"
+                          :class="ref.eficiencia_pct >= 90 ? 'bg-green-50 text-green-700' : ref.eficiencia_pct >= 70 ? 'bg-amber-50 text-amber-700' : ref.eficiencia_pct ? 'bg-red-50 text-red-700' : 'text-gray-300'"
+                          x-text="ref.eficiencia_pct ? ref.eficiencia_pct.toFixed(1) + '%' : '—'"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function operariosPage() {
+  let chartCentros = null;
+  let chartEvolucion = null;
+
+  // Default: ultimo mes
+  const hoy = new Date();
+  const hace1m = new Date(hoy.getFullYear(), hoy.getMonth() - 1, hoy.getDate());
+  const toISO = d => d.toISOString().slice(0, 10);
+
+  return {
+    search: '',
+    operarios: [],
+    loaded: false,
+    loadingList: false,
+    selected: null,
+    ficha: null,
+    loadingFicha: false,
+    desde: toISO(hace1m),
+    hasta: toISO(hoy),
+
+    fmt(n) { return n != null ? n.toLocaleString('es-ES') : '—'; },
+
+    async loadList() {
+      if (this.loaded) return;
+      this.loadingList = true;
+      try {
+        const res = await fetch('/api/operarios');
+        const data = await res.json();
+        this.operarios = data.operarios || [];
+        this.loaded = true;
+      } catch { }
+      this.loadingList = false;
+    },
+
+    filteredList() {
+      if (!this.search.trim()) return this.operarios;
+      const q = this.search.toLowerCase().trim();
+      return this.operarios.filter(o =>
+        String(o.codigo).includes(q) || (o.nombre || '').toLowerCase().includes(q)
+      );
+    },
+
+    async selectOperario(codigo) {
+      this.loadingFicha = true;
+      this.selected = this.operarios.find(o => o.codigo === codigo) || { codigo };
+      try {
+        const res = await fetch(`/api/operarios/${codigo}?desde=${this.desde}&hasta=${this.hasta}`);
+        this.ficha = await res.json();
+      } catch {
+        this.ficha = null;
+      }
+      this.loadingFicha = false;
+      this.$nextTick(() => this.renderCharts());
+    },
+
+    async reloadFicha() {
+      if (!this.selected) return;
+      await this.selectOperario(this.selected.codigo);
+    },
+
+    renderCharts() {
+      this.renderCentros();
+      this.renderEvolucion();
+    },
+
+    renderCentros() {
+      const ctx = document.getElementById('chart-centros');
+      if (!ctx) return;
+      if (chartCentros) chartCentros.destroy();
+      const centros = this.ficha?.centros || [];
+      if (!centros.length) return;
+
+      const colors = ['#336dff', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#f97316', '#ec4899'];
+      chartCentros = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: centros.map(c => c.nombre_ct),
+          datasets: [{
+            data: centros.map(c => c.horas_produccion),
+            backgroundColor: colors.slice(0, centros.length),
+            borderWidth: 0,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, padding: 8 } },
+          }
+        }
+      });
+    },
+
+    renderEvolucion() {
+      const ctx = document.getElementById('chart-evolucion');
+      if (!ctx) return;
+      if (chartEvolucion) chartEvolucion.destroy();
+      const evo = this.ficha?.evolucion || [];
+      if (!evo.length) return;
+
+      const media = this.ficha?.resumen?.piezas_hora_media || 0;
+      chartEvolucion = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: evo.map(e => { const d = new Date(e.fecha); return d.getDate() + '/' + (d.getMonth()+1); }),
+          datasets: [
+            {
+              label: 'Pzs/hora',
+              data: evo.map(e => e.piezas_hora),
+              borderColor: '#336dff',
+              backgroundColor: 'rgba(51,109,255,0.08)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              borderWidth: 2,
+            },
+            {
+              label: 'Media',
+              data: evo.map(() => media),
+              borderColor: '#f59e0b',
+              borderDash: [6, 3],
+              borderWidth: 1.5,
+              pointRadius: 0,
+              fill: false,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { beginAtZero: false, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+          },
+          plugins: {
+            legend: { display: true, labels: { boxWidth: 10, font: { size: 10 }, padding: 12 } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ctx.dataset.label + ': ' + ctx.parsed.y?.toFixed(1) + ' pzs/h'
+              }
+            }
+          }
+        }
+      });
+    },
+  };
+}
+</script>
+{% endblock %}
