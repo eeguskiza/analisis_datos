@@ -19,6 +19,16 @@ from api.config import settings
 engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
+# Habilitar FK constraints en SQLite (desactivados por defecto)
+if "sqlite" in settings.database_url:
+    from sqlalchemy import event
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 
 class Base(DeclarativeBase):
     pass
@@ -95,6 +105,15 @@ class DatosProduccion(Base):
     malas = Column(Float, default=0)
     recuperadas = Column(Float, default=0)
     referencia = Column(String(50), default="")
+
+
+class Contacto(Base):
+    """Lista de contactos para envío de informes."""
+    __tablename__ = "contactos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nombre = Column(String(100), nullable=False)
+    email = Column(String(200), nullable=False, unique=True)
 
 
 # ── Mapa seccion ──────────────────────────────────────────────────────────────

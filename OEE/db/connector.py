@@ -262,14 +262,13 @@ SELECT
     COALESCE(RTRIM(lof.lo030), '')                                         AS referencia
 FROM admuser.fmesdtc AS dtc
 LEFT JOIN (
-    SELECT dd010, dd020, dd030, dd040, dd050,
+    SELECT dd010, dd030, dd040, dd050,
            SUM(COALESCE(CAST(dd080 AS FLOAT), 0)) AS malas,
            SUM(COALESCE(CAST(dd090 AS FLOAT), 0)) AS recuperadas
     FROM admuser.fmesddf
-    GROUP BY dd010, dd020, dd030, dd040, dd050
+    GROUP BY dd010, dd030, dd040, dd050
 ) AS def
     ON  RTRIM(def.dd010) = RTRIM(dtc.dt020)
-    AND def.dd020 = dtc.dt030
     AND def.dd030 = dtc.dt030
     AND def.dd040 = dtc.dt040
     AND def.dd050 = dtc.dt050

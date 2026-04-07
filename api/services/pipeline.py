@@ -238,7 +238,8 @@ def run_pipeline(
                 dest = run_dir / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(pdf), str(dest))
-                pdfs.append(str(rel))
+                # Ruta relativa a informes_dir (incluye fecha)
+                pdfs.append(str(dest.relative_to(settings.informes_dir)))
 
         # Persistir informes_meta
         fecha_str = datetime.now().strftime("%Y-%m-%d")
