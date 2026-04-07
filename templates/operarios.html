@@ -43,7 +43,8 @@
             <span class="font-mono" x-text="'#' + op.codigo"></span>
             <template x-if="op.ultimo_registro">
               <span class="flex items-center gap-1">
-                <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                <span class="w-2 h-2 rounded-full"
+                      :class="op.ultimo_registro === new Date().toISOString().slice(0,10) ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-gray-300'"></span>
                 <span x-text="'Ultimo: ' + op.ultimo_registro"></span>
               </span>
             </template>
