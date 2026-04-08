@@ -1,4 +1,4 @@
-"""Motor SQLAlchemy, sesion y modelos ORM."""
+"""Motor SQLAlchemy, sesion y modelos ORM — conecta a SQL Server (oee_ecs)."""
 from __future__ import annotations
 
 import csv
@@ -16,18 +16,29 @@ from api.config import settings
 
 # ── Engine ────────────────────────────────────────────────────────────────────
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+def _mssql_creator():
+    """Crea conexion pyodbc directa (más fiable que URL de SQLAlchemy)."""
+    import pyodbc
+    return pyodbc.connect(
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        "SERVER=192.168.0.4,1433;"
+        "DATABASE=oee_ecs;"
+        "UID=sa;"
+        "PWD=AdmS1552+;"
+        "TrustServerCertificate=yes;"
+        "Encrypt=yes;",
+        timeout=10,
+    )
+
+engine = create_engine(
+    "mssql+pyodbc://",
+    creator=_mssql_creator,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=3600,
+)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
-
-# Habilitar FK constraints en SQLite (desactivados por defecto)
-if "sqlite" in settings.database_url:
-    from sqlalchemy import event
-
-    @event.listens_for(engine, "connect")
-    def _set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
 
 
 class Base(DeclarativeBase):
@@ -46,7 +57,7 @@ class Ciclo(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
-        UniqueConstraint("maquina", "referencia", name="uq_maquina_ref"),
+        UniqueConstraint("maquina", "referencia", name="uq_ciclos"),
     )
 
 
@@ -88,11 +99,11 @@ class InformeMeta(Base):
 
 
 class DatosProduccion(Base):
-    """Datos extraídos de IZARO, almacenados por extracción."""
+    """Datos extraidos de IZARO, almacenados por extraccion."""
     __tablename__ = "datos_produccion"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id", ondelete="CASCADE"), nullable=False)
+    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id"), nullable=False)
     recurso = Column(String(50), nullable=False)
     seccion = Column(String(50), nullable=False)
     fecha = Column(Date, nullable=False)
@@ -108,12 +119,66 @@ class DatosProduccion(Base):
 
 
 class Contacto(Base):
-    """Lista de contactos para envío de informes."""
+    """Lista de contactos para envio de informes."""
     __tablename__ = "contactos"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), nullable=False)
     email = Column(String(200), nullable=False, unique=True)
+
+
+# Tablas adicionales para Power BI (solo escritura desde pipeline)
+
+class MetricaOEE(Base):
+    """Metricas OEE calculadas — tabla principal para Power BI."""
+    __tablename__ = "metricas_oee"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id"), nullable=False)
+    seccion = Column(String(50))
+    recurso = Column(String(50))
+    fecha = Column(Date)
+    turno = Column(String(5))
+    horas_brutas = Column(Float, default=0)
+    horas_disponible = Column(Float, default=0)
+    horas_operativo = Column(Float, default=0)
+    horas_preparacion = Column(Float, default=0)
+    horas_indisponibilidad = Column(Float, default=0)
+    horas_paros = Column(Float, default=0)
+    tiempo_ideal = Column(Float, default=0)
+    perdidas_rend = Column(Float, default=0)
+    piezas_totales = Column(Integer, default=0)
+    piezas_malas = Column(Integer, default=0)
+    piezas_recuperadas = Column(Integer, default=0)
+    buenas_finales = Column(Integer, default=0)
+    disponibilidad_pct = Column(Float, default=0)
+    rendimiento_pct = Column(Float, default=0)
+    calidad_pct = Column(Float, default=0)
+    oee_pct = Column(Float, default=0)
+
+
+class ReferenciaStats(Base):
+    __tablename__ = "referencias_stats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id"), nullable=False)
+    recurso = Column(String(50))
+    referencia = Column(String(50))
+    ciclo_ideal = Column(Float)
+    ciclo_real = Column(Float)
+    cantidad = Column(Integer, default=0)
+    horas = Column(Float, default=0)
+
+
+class IncidenciaResumen(Base):
+    __tablename__ = "incidencias_resumen"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id"), nullable=False)
+    recurso = Column(String(50))
+    nombre = Column(String(200))
+    tipo = Column(String(20))
+    horas = Column(Float, default=0)
 
 
 # ── Mapa seccion ──────────────────────────────────────────────────────────────
@@ -124,19 +189,18 @@ SECTION_MAP = {
 }
 
 
-# ── Init / Migracion ─────────────────────────────────────────────────────────
+# ── Init ──────────────────────────────────────────────────────────────────────
 
 def init_db() -> None:
-    """Crea tablas si no existen e importa datos iniciales."""
-    Base.metadata.create_all(engine)
-
+    """Verifica conexion y carga datos iniciales si tablas vacias."""
+    # Las tablas ya existen en SQL Server, no hacemos create_all
     with SessionLocal() as session:
         _import_ciclos_csv(session)
         _import_recursos_json(session)
 
 
 def _import_ciclos_csv(session: Session) -> None:
-    """Importa ciclos.csv si la tabla esta vacia. Ignora duplicados."""
+    """Importa ciclos.csv si la tabla esta vacia."""
     if session.query(Ciclo).count() > 0:
         return
 
@@ -192,7 +256,7 @@ def get_db():
 
 
 def check_db_health() -> tuple[bool, str]:
-    """Verifica conexion a la BBDD local."""
+    """Verifica conexion a la BBDD."""
     try:
         from sqlalchemy import text
         with engine.connect() as conn:

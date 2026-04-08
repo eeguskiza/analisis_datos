@@ -60,7 +60,7 @@ def add_row(row: CicloRow, db: Session = Depends(get_db)):
 @router.put("/row/{ciclo_id}")
 def update_row(ciclo_id: int, row: CicloRow, db: Session = Depends(get_db)):
     """Actualiza un ciclo por ID."""
-    ciclo = db.query(Ciclo).get(ciclo_id)
+    ciclo = db.get(Ciclo, ciclo_id)
     if not ciclo:
         raise HTTPException(404, "Ciclo no encontrado")
     ciclo.maquina = row.maquina
@@ -73,7 +73,7 @@ def update_row(ciclo_id: int, row: CicloRow, db: Session = Depends(get_db)):
 @router.delete("/row/{ciclo_id}")
 def delete_row(ciclo_id: int, db: Session = Depends(get_db)):
     """Elimina un ciclo por ID."""
-    ciclo = db.query(Ciclo).get(ciclo_id)
+    ciclo = db.get(Ciclo, ciclo_id)
     if not ciclo:
         raise HTTPException(404, "Ciclo no encontrado")
     db.delete(ciclo)

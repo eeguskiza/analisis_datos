@@ -44,7 +44,7 @@ def listar(limit: int = 50, db: Session = Depends(get_db)):
 @router.get("/{ejec_id}")
 def detalle(ejec_id: int, db: Session = Depends(get_db)):
     """Detalle de una ejecucion: log + PDFs."""
-    ejec = db.query(Ejecucion).get(ejec_id)
+    ejec = db.get(Ejecucion, ejec_id)
     if not ejec:
         raise HTTPException(404, "Ejecucion no encontrada")
 
@@ -78,10 +78,24 @@ def detalle(ejec_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/{ejec_id}/metrics")
+def metrics(ejec_id: int, db: Session = Depends(get_db)):
+    """Calcula metricas OEE interactivas desde datos almacenados."""
+    ejec = db.get(Ejecucion, ejec_id)
+    if not ejec:
+        raise HTTPException(404, "Ejecucion no encontrada")
+
+    from api.services.metrics import calcular_metrics_ejecucion
+    result = calcular_metrics_ejecucion(db, ejec_id)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
 @router.post("/{ejec_id}/regenerar")
 def regenerar(ejec_id: int, db: Session = Depends(get_db)):
     """Regenera PDFs a partir de datos almacenados en BD."""
-    ejec = db.query(Ejecucion).get(ejec_id)
+    ejec = db.get(Ejecucion, ejec_id)
     if not ejec:
         raise HTTPException(404, "Ejecucion no encontrada")
 
@@ -102,7 +116,7 @@ def regenerar(ejec_id: int, db: Session = Depends(get_db)):
 @router.delete("/{ejec_id}")
 def borrar(ejec_id: int, db: Session = Depends(get_db)):
     """Borra una ejecucion, sus datos y sus informes_meta."""
-    ejec = db.query(Ejecucion).get(ejec_id)
+    ejec = db.get(Ejecucion, ejec_id)
     if not ejec:
         raise HTTPException(404, "Ejecucion no encontrada")
     db.query(DatosProduccion).filter_by(ejecucion_id=ejec_id).delete()

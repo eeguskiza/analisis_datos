@@ -48,7 +48,7 @@ def crear_contacto(payload: ContactoIn, db: Session = Depends(get_db)):
 
 @router.delete("/contactos/{contacto_id}")
 def borrar_contacto(contacto_id: int, db: Session = Depends(get_db)):
-    c = db.query(Contacto).get(contacto_id)
+    c = db.get(Contacto, contacto_id)
     if not c:
         raise HTTPException(404, "Contacto no encontrado")
     db.delete(c)

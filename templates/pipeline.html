@@ -3,7 +3,7 @@
 {% block page_title %}OEE{% endblock %}
 
 {% block content %}
-<div x-data="pipelineWizard()" class="max-w-3xl mx-auto">
+<div x-data="pipelineWizard()" :class="step === 5 ? 'h-[calc(100vh-130px)]' : 'max-w-3xl mx-auto'">
 
   <!-- ── Step indicator ──────────────────────────────────────────────── -->
   <div class="flex items-center justify-center gap-0 mb-8" x-show="step < 5">
@@ -182,56 +182,43 @@
 
   <!-- ── STEP 5: Ejecucion ───────────────────────────────────────────── -->
   <div x-show="step === 5" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
-       class="space-y-4">
+       class="flex flex-col h-full gap-2">
 
-    <!-- Resumen -->
-    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <div id="run-status" class="flex items-center gap-2">
-            <span class="spinner border-brand-600"></span>
-            <span class="text-sm font-medium text-gray-600">Ejecutando pipeline...</span>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 text-xs text-gray-400">
-          <span x-text="sourceOptions.find(s => s.value === source)?.label"></span>
-          <span class="w-1 h-1 rounded-full bg-gray-300"></span>
-          <span x-text="singleDay ? fechaInicio : fechaInicio + ' → ' + fechaFin"></span>
-          <span class="w-1 h-1 rounded-full bg-gray-300"></span>
-          <span x-text="selectedModules.length + ' modulos'"></span>
-        </div>
+    <!-- Resumen + log (collapsible) -->
+    <div class="shrink-0 flex items-center gap-3">
+      <div id="run-status" class="flex items-center gap-2">
+        <span class="spinner border-brand-600"></span>
+        <span class="text-sm font-medium text-gray-600">Ejecutando pipeline...</span>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-gray-400 ml-auto">
+        <span x-text="sourceOptions.find(s => s.value === source)?.label"></span>
+        <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+        <span x-text="singleDay ? fechaInicio : fechaInicio + ' → ' + fechaFin"></span>
+        <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+        <span x-text="selectedModules.length + ' mod.'"></span>
+        <button id="btn-run" @click="step = 1; resetLog()" class="btn-ghost btn-sm ml-2" disabled>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Nueva
+        </button>
       </div>
     </div>
 
-    <!-- Log console -->
-    <div class="bg-gray-900 rounded-2xl overflow-hidden shadow-xl">
-      <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-800/50 border-b border-gray-700">
-        <div class="flex gap-1.5">
-          <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
-          <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
-          <div class="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
-        </div>
-        <span class="text-[10px] text-gray-500 font-mono ml-2">pipeline output</span>
-      </div>
-      <div id="log-console" class="text-green-300 font-mono text-xs p-4 overflow-y-auto" style="min-height:120px; max-height:400px;">
+    <!-- Log console (compact, shrinks when dashboard appears) -->
+    <div id="log-wrapper" class="bg-gray-900 rounded-lg overflow-hidden shrink-0">
+      <div id="log-console" class="text-green-300 font-mono text-[11px] p-3 overflow-y-auto" style="max-height:150px;">
         Iniciando...
       </div>
     </div>
 
-    <!-- PDFs panel -->
-    <div id="pdfs-panel" class="hidden">
-      <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
-        <h3 class="text-sm font-bold text-gray-700 mb-3">Informes generados</h3>
-        <div id="pdfs-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"></div>
-      </div>
-    </div>
+    <!-- Interactive OEE Dashboard (takes remaining space) -->
+    <div id="oee-dashboard" class="hidden flex-1 min-h-0"></div>
 
-    <!-- Volver -->
-    <div class="text-center pt-2">
-      <button id="btn-run" @click="step = 1; resetLog()" class="btn-ghost btn-sm" disabled>
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        Nueva ejecucion
-      </button>
+    <!-- PDFs panel (compact) -->
+    <div id="pdfs-panel" class="hidden shrink-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] font-semibold text-gray-400 uppercase">PDFs:</span>
+        <div id="pdfs-list" class="flex items-center gap-1 flex-wrap"></div>
+      </div>
     </div>
   </div>
 
@@ -282,6 +269,8 @@ function pipelineWizard() {
       const lc = document.getElementById('log-console');
       if (lc) lc.textContent = '';
       document.getElementById('pdfs-panel')?.classList.add('hidden');
+      const dash = document.getElementById('oee-dashboard');
+      if (dash) { dash.classList.add('hidden'); dash.innerHTML = ''; }
     },
 
     ejecutar() {

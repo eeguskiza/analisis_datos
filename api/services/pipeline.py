@@ -255,9 +255,16 @@ def run_pipeline(
             ))
 
         _finalize(db, ejec_id, status, log_lines, len(pdfs))
+
+        # Guardar metricas OEE en tablas para Power BI
+        try:
+            _save_metrics_to_db(db, ejec_id)
+        except Exception as exc:
+            _log(f"WARN metricas: {exc}")
+
         db.close()
 
-        yield f"DONE:{len(pdfs)}:" + "|".join(pdfs)
+        yield f"DONE:{ejec_id}:{len(pdfs)}:" + "|".join(pdfs)
 
     finally:
         # Limpiar directorio temporal
@@ -277,7 +284,7 @@ def generar_informes_desde_bd(
 
     db = SessionLocal()
     try:
-        ejec = db.query(Ejecucion).get(ejecucion_id)
+        ejec = db.get(Ejecucion, ejecucion_id)
         if not ejec:
             raise ValueError(f"Ejecución {ejecucion_id} no encontrada")
 
@@ -332,9 +339,85 @@ def generar_informes_desde_bd(
 
 def _finalize(db, ejec_id: int, status: str, log_lines: list[str], n_pdfs: int) -> None:
     """Actualiza la ejecucion en BD."""
-    ejec = db.query(Ejecucion).get(ejec_id)
+    ejec = db.get(Ejecucion, ejec_id)
     if ejec:
         ejec.status = status
         ejec.log = "\n".join(log_lines)
         ejec.n_pdfs = n_pdfs
+    db.commit()
+
+
+def _save_metrics_to_db(db, ejec_id: int) -> None:
+    """Calcula y guarda metricas OEE en tablas para Power BI."""
+    from api.database import MetricaOEE, ReferenciaStats, IncidenciaResumen
+    from api.services.metrics import calcular_metrics_ejecucion
+
+    result = calcular_metrics_ejecucion(db, ejec_id)
+    if "error" in result:
+        return
+
+    for sec_name, sec in result.get("secciones", {}).items():
+        for maq in sec.get("maquinas", []):
+            # Total de la maquina (turno=NULL)
+            db.add(MetricaOEE(
+                ejecucion_id=ejec_id, seccion=sec_name, recurso=maq["nombre"],
+                fecha=None, turno=None,
+                horas_brutas=maq["horas_brutas"], horas_disponible=maq["horas_disponible"],
+                horas_operativo=maq["horas_operativo"], horas_preparacion=maq["horas_preparacion"],
+                horas_indisponibilidad=maq["horas_indisponibilidad"], horas_paros=maq["horas_paros"],
+                tiempo_ideal=maq["tiempo_ideal"], perdidas_rend=maq["perdidas_rend"],
+                piezas_totales=maq["piezas_totales"], piezas_malas=maq["piezas_malas"],
+                piezas_recuperadas=maq["piezas_recuperadas"], buenas_finales=maq["buenas_finales"],
+                disponibilidad_pct=maq["disponibilidad_pct"], rendimiento_pct=maq["rendimiento_pct"],
+                calidad_pct=maq["calidad_pct"], oee_pct=maq["oee_pct"],
+            ))
+
+            # Por turno
+            for turno, tm in maq.get("turnos", {}).items():
+                if tm.get("piezas_totales", 0) == 0:
+                    continue
+                db.add(MetricaOEE(
+                    ejecucion_id=ejec_id, seccion=sec_name, recurso=maq["nombre"],
+                    fecha=None, turno=turno,
+                    horas_brutas=tm["horas_brutas"], horas_disponible=tm["horas_disponible"],
+                    horas_operativo=tm["horas_operativo"], horas_preparacion=tm["horas_preparacion"],
+                    horas_indisponibilidad=tm["horas_indisponibilidad"], horas_paros=tm["horas_paros"],
+                    tiempo_ideal=tm["tiempo_ideal"], perdidas_rend=tm["perdidas_rend"],
+                    piezas_totales=tm["piezas_totales"], piezas_malas=tm["piezas_malas"],
+                    piezas_recuperadas=tm["piezas_recuperadas"], buenas_finales=tm["buenas_finales"],
+                    disponibilidad_pct=tm["disponibilidad_pct"], rendimiento_pct=tm["rendimiento_pct"],
+                    calidad_pct=tm["calidad_pct"], oee_pct=tm["oee_pct"],
+                ))
+
+            # Por dia
+            for day_entry in maq.get("resumen_diario", []):
+                db.add(MetricaOEE(
+                    ejecucion_id=ejec_id, seccion=sec_name, recurso=maq["nombre"],
+                    fecha=day_entry["fecha"], turno=None,
+                    horas_brutas=day_entry["horas_brutas"], horas_disponible=day_entry["horas_disponible"],
+                    horas_operativo=day_entry["horas_operativo"], horas_preparacion=day_entry["horas_preparacion"],
+                    horas_indisponibilidad=day_entry["horas_indisponibilidad"], horas_paros=day_entry["horas_paros"],
+                    tiempo_ideal=day_entry["tiempo_ideal"], perdidas_rend=day_entry["perdidas_rend"],
+                    piezas_totales=day_entry["piezas_totales"], piezas_malas=day_entry["piezas_malas"],
+                    piezas_recuperadas=day_entry["piezas_recuperadas"], buenas_finales=day_entry["buenas_finales"],
+                    disponibilidad_pct=day_entry["disponibilidad_pct"], rendimiento_pct=day_entry["rendimiento_pct"],
+                    calidad_pct=day_entry["calidad_pct"], oee_pct=day_entry["oee_pct"],
+                ))
+
+            # Referencias
+            for ref in maq.get("ref_stats", []):
+                db.add(ReferenciaStats(
+                    ejecucion_id=ejec_id, recurso=maq["nombre"],
+                    referencia=ref["referencia"], ciclo_ideal=ref.get("ciclo_ideal"),
+                    ciclo_real=ref.get("ciclo_real"), cantidad=ref.get("cantidad", 0),
+                    horas=ref.get("horas", 0),
+                ))
+
+            # Incidencias
+            for inc in maq.get("incidencias", []):
+                db.add(IncidenciaResumen(
+                    ejecucion_id=ejec_id, recurso=maq["nombre"],
+                    nombre=inc["nombre"], tipo="paros", horas=inc["horas"],
+                ))
+
     db.commit()

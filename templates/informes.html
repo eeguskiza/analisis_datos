@@ -56,7 +56,7 @@
     </div>
   </div>
 
-  <!-- ── Panel derecho: PDFs ─────────────────────────────────────────── -->
+  <!-- ── Panel derecho ──────────────────────────────────────────────── -->
   <div class="flex-1 flex flex-col min-w-0">
 
     <!-- Sin seleccion -->
@@ -73,7 +73,7 @@
     <template x-if="selected">
       <div class="flex flex-col h-full gap-4">
 
-        <!-- Cabecera con info + regenerar -->
+        <!-- Cabecera -->
         <div class="bg-white rounded-2xl border border-surface-200 shadow-sm px-5 py-4 shrink-0">
           <div class="flex items-center justify-between">
             <div>
@@ -86,83 +86,109 @@
               </div>
               <div class="text-xs text-gray-400 mt-0.5" x-text="selected.n_registros + ' registros en BD · ' + selected.modulos"></div>
             </div>
-            <button @click="regenerar()" class="btn-primary btn-sm" :disabled="regenerando">
-              <span x-show="regenerando" class="spinner border-white"></span>
-              <svg x-show="!regenerando" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              Generar PDFs
-            </button>
-          </div>
-        </div>
-
-        <!-- Grid de PDFs o visor -->
-        <div class="flex-1 min-h-0" x-show="!viewingPdf">
-          <div class="bg-white rounded-2xl border border-surface-200 shadow-sm h-full flex flex-col overflow-hidden">
-            <div class="px-4 py-3 border-b border-surface-100 flex items-center justify-between shrink-0">
-              <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Informes disponibles</span>
-              <span class="text-[10px] text-gray-400" x-text="informes.length + ' PDFs'"></span>
-            </div>
-
-            <!-- Sin PDFs -->
-            <div x-show="informes.length === 0 && !regenerando" class="flex-1 flex items-center justify-center">
-              <div class="text-center py-8">
-                <svg class="w-12 h-12 mx-auto text-gray-200 mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                <p class="text-sm text-gray-400 mb-2">Sin PDFs generados</p>
-                <p class="text-xs text-gray-300">Pulsa "Generar PDFs" para crearlos desde los datos guardados</p>
-              </div>
-            </div>
-
-            <!-- Lista de PDFs agrupados por seccion -->
-            <div x-show="informes.length > 0" class="flex-1 overflow-y-auto p-4">
-              <template x-for="[seccion, items] in groupedInformes()" :key="seccion">
-                <div class="mb-4">
-                  <div class="text-[10px] font-bold uppercase tracking-widest mb-2"
-                       :class="seccion === 'LINEAS' ? 'text-blue-600' : seccion === 'TALLADORAS' ? 'text-amber-600' : 'text-gray-400'"
-                       x-text="seccion || 'GENERAL'"></div>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    <template x-for="inf in items" :key="inf.id">
-                      <button @click="openPdf(inf)"
-                              class="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-50 hover:bg-surface-100 transition-colors text-left group">
-                        <svg class="w-5 h-5 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
-                        </svg>
-                        <div class="min-w-0 flex-1">
-                          <div class="text-sm font-medium text-gray-700 truncate" x-text="inf.pdf_path.split('/').pop()"></div>
-                          <div class="text-[10px] text-gray-400" x-text="[inf.maquina, inf.modulo].filter(Boolean).join(' · ')"></div>
-                        </div>
-                        <svg class="w-4 h-4 text-gray-300 group-hover:text-brand-500 shrink-0 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                      </button>
-                    </template>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <!-- Visor PDF inline -->
-        <div class="flex-1 min-h-0" x-show="viewingPdf">
-          <div class="bg-white rounded-2xl border border-surface-200 shadow-sm h-full flex flex-col overflow-hidden">
-            <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-100 shrink-0">
-              <div class="flex items-center gap-2 min-w-0">
-                <button @click="viewingPdf = null" class="text-gray-400 hover:text-gray-600 shrink-0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <div class="flex items-center gap-2">
+              <!-- Tab switcher -->
+              <div class="flex items-center gap-1 p-0.5 bg-surface-100 rounded-lg">
+                <button @click="activeTab = 'dashboard'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                        :class="activeTab === 'dashboard' ? 'bg-white shadow-sm text-brand-700' : 'text-gray-500 hover:text-gray-700'">
+                  Dashboard
                 </button>
-                <span class="text-sm font-medium text-gray-700 truncate" x-text="viewingPdf?.split('/').pop()"></span>
+                <button @click="activeTab = 'pdfs'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                        :class="activeTab === 'pdfs' ? 'bg-white shadow-sm text-brand-700' : 'text-gray-500 hover:text-gray-700'">
+                  PDFs
+                </button>
               </div>
-              <div class="flex gap-1 shrink-0">
-                <a :href="'/api/informes/pdf/' + viewingPdf" target="_blank"
-                   class="px-2 py-1 text-[10px] text-gray-400 hover:text-brand-600 rounded-lg hover:bg-surface-50">Abrir</a>
-                <a :href="'/api/informes/download/' + viewingPdf"
-                   class="px-2 py-1 text-[10px] text-gray-400 hover:text-brand-600 rounded-lg hover:bg-surface-50">Descargar</a>
-              </div>
-            </div>
-            <div class="flex-1">
-              <object :data="'/api/informes/pdf/' + viewingPdf" type="application/pdf" class="w-full h-full">
-                <iframe :src="'/api/informes/pdf/' + viewingPdf" class="w-full h-full border-0"></iframe>
-              </object>
+              <button @click="regenerar()" class="btn-primary btn-sm" :disabled="regenerando">
+                <span x-show="regenerando" class="spinner border-white"></span>
+                <svg x-show="!regenerando" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Generar PDFs
+              </button>
             </div>
           </div>
         </div>
+
+        <!-- Dashboard Tab -->
+        <div class="flex-1 min-h-0" x-show="activeTab === 'dashboard'">
+          <div x-ref="dashboardContainer" class="h-full">
+            <div x-show="metricsLoading" class="flex items-center justify-center h-full">
+              <span class="spinner border-brand-600 w-5 h-5"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PDFs Tab -->
+        <div class="flex-1 min-h-0" x-show="activeTab === 'pdfs'">
+          <!-- Visor PDF inline -->
+          <div class="h-full" x-show="viewingPdf">
+            <div class="bg-white rounded-2xl border border-surface-200 shadow-sm h-full flex flex-col overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-100 shrink-0">
+                <div class="flex items-center gap-2 min-w-0">
+                  <button @click="viewingPdf = null" class="text-gray-400 hover:text-gray-600 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                  </button>
+                  <span class="text-sm font-medium text-gray-700 truncate" x-text="viewingPdf?.split('/').pop()"></span>
+                </div>
+                <div class="flex gap-1 shrink-0">
+                  <a :href="'/api/informes/pdf/' + viewingPdf" target="_blank"
+                     class="px-2 py-1 text-[10px] text-gray-400 hover:text-brand-600 rounded-lg hover:bg-surface-50">Abrir</a>
+                  <a :href="'/api/informes/download/' + viewingPdf"
+                     class="px-2 py-1 text-[10px] text-gray-400 hover:text-brand-600 rounded-lg hover:bg-surface-50">Descargar</a>
+                </div>
+              </div>
+              <div class="flex-1">
+                <object :data="'/api/informes/pdf/' + viewingPdf" type="application/pdf" class="w-full h-full">
+                  <iframe :src="'/api/informes/pdf/' + viewingPdf" class="w-full h-full border-0"></iframe>
+                </object>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grid de PDFs -->
+          <div class="h-full" x-show="!viewingPdf">
+            <div class="bg-white rounded-2xl border border-surface-200 shadow-sm h-full flex flex-col overflow-hidden">
+              <div class="px-4 py-3 border-b border-surface-100 flex items-center justify-between shrink-0">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Informes disponibles</span>
+                <span class="text-[10px] text-gray-400" x-text="informes.length + ' PDFs'"></span>
+              </div>
+
+              <div x-show="informes.length === 0 && !regenerando" class="flex-1 flex items-center justify-center">
+                <div class="text-center py-8">
+                  <svg class="w-12 h-12 mx-auto text-gray-200 mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  <p class="text-sm text-gray-400 mb-2">Sin PDFs generados</p>
+                  <p class="text-xs text-gray-300">Pulsa "Generar PDFs" para crearlos desde los datos guardados</p>
+                </div>
+              </div>
+
+              <div x-show="informes.length > 0" class="flex-1 overflow-y-auto p-4">
+                <template x-for="[seccion, items] in groupedInformes()" :key="seccion">
+                  <div class="mb-4">
+                    <div class="text-[10px] font-bold uppercase tracking-widest mb-2"
+                         :class="seccion === 'LINEAS' ? 'text-blue-600' : seccion === 'TALLADORAS' ? 'text-amber-600' : 'text-gray-400'"
+                         x-text="seccion || 'GENERAL'"></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      <template x-for="inf in items" :key="inf.id">
+                        <button @click="openPdf(inf)"
+                                class="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-50 hover:bg-surface-100 transition-colors text-left group">
+                          <svg class="w-5 h-5 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+                          </svg>
+                          <div class="min-w-0 flex-1">
+                            <div class="text-sm font-medium text-gray-700 truncate" x-text="inf.pdf_path.split('/').pop()"></div>
+                            <div class="text-[10px] text-gray-400" x-text="[inf.maquina, inf.modulo].filter(Boolean).join(' · ')"></div>
+                          </div>
+                          <svg class="w-4 h-4 text-gray-300 group-hover:text-brand-500 shrink-0 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </template>
   </div>
@@ -177,6 +203,8 @@ function informesPage() {
     viewingPdf: null,
     loading: true,
     regenerando: false,
+    activeTab: 'dashboard',
+    metricsLoading: false,
 
     async load() {
       this.loading = true;
@@ -190,9 +218,30 @@ function informesPage() {
       this.selected = e;
       this.viewingPdf = null;
       this.informes = [];
-      const res = await fetch(`/api/historial/${e.id}`);
-      const data = await res.json();
-      this.informes = data.informes || [];
+      this.activeTab = 'dashboard';
+      this.metricsLoading = true;
+
+      // Fetch informes and metrics in parallel
+      const [histRes, metricsRes] = await Promise.all([
+        fetch(`/api/historial/${e.id}`),
+        fetch(`/api/historial/${e.id}/metrics`),
+      ]);
+      const histData = await histRes.json();
+      this.informes = histData.informes || [];
+
+      const metricsData = await metricsRes.json();
+      this.metricsLoading = false;
+
+      // Render dashboard
+      this.$nextTick(() => {
+        const container = this.$refs.dashboardContainer;
+        if (container && metricsData && !metricsData.error) {
+          const pdfPaths = this.informes.map(i => i.pdf_path);
+          renderOeeDashboard(container, metricsData, pdfPaths);
+        } else if (container) {
+          container.innerHTML = '<p class="text-sm text-gray-400 text-center py-12">Sin datos de metricas para esta ejecucion</p>';
+        }
+      });
     },
 
     groupedInformes() {
@@ -214,6 +263,7 @@ function informesPage() {
 
     openPdf(inf) {
       this.viewingPdf = inf.pdf_path;
+      this.activeTab = 'pdfs';
     },
 
     async regenerar() {
@@ -224,9 +274,7 @@ function informesPage() {
         const data = await res.json();
         if (data.ok) {
           showToast(`${data.n_pdfs} PDF(s) generados`);
-          // Recargar informes
           await this.selectEjecucion(this.selected);
-          // Actualizar contador en lista
           this.selected.n_pdfs = data.n_pdfs;
         } else {
           showToast('Error al regenerar', 'error');

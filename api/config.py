@@ -17,7 +17,13 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    database_url: str = f"sqlite:///{_PROJECT_ROOT / 'data' / 'oee.db'}"
+    database_url: str = (
+        "mssql+pyodbc://sa:AdmS1552%2B@192.168.0.4:1433/oee_ecs"
+        "?driver=ODBC+Driver+18+for+SQL+Server"
+        "&TrustServerCertificate=yes"
+        "&Encrypt=yes"
+    )
+    # Fallback local: f"sqlite:///{_PROJECT_ROOT / 'data' / 'oee.db'}"
 
     @property
     def logo_path(self) -> Path | None:
