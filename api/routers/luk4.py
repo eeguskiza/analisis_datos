@@ -4,7 +4,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
+from typing import List, Optional
+
 from fastapi import APIRouter
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from api.database import engine
@@ -158,3 +161,52 @@ def luk4_status():
         "top_alarmas": top_alarmas,
         "timestamp": datetime.now().strftime("%H:%M:%S"),
     }
+
+
+# ── Zonas del plano (persistidas en BBDD) ───────────────────────────────
+
+class ZonaIn(BaseModel):
+    id: str
+    label: str
+    left: float
+    top: float
+    width: float
+    height: float
+    source: str = "none"
+
+
+@router.get("/zonas")
+def get_zonas():
+    """Devuelve las zonas guardadas del plano."""
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT id, label, left_pct, top_pct, width_pct, height_pct, source FROM plano_zonas ORDER BY label"
+            )).fetchall()
+            return [
+                {"id": r[0], "label": r[1], "left": r[2], "top": r[3],
+                 "width": r[4], "height": r[5], "source": r[6]}
+                for r in rows
+            ]
+    except Exception as exc:
+        log.warning("Error cargando zonas: %s", exc)
+        return []
+
+
+@router.put("/zonas")
+def save_zonas(zonas: List[ZonaIn]):
+    """Guarda las zonas del plano (reemplaza todas)."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("DELETE FROM plano_zonas"))
+            for z in zonas:
+                conn.execute(text("""
+                    INSERT INTO plano_zonas (id, label, left_pct, top_pct, width_pct, height_pct, source)
+                    VALUES (:id, :label, :left, :top, :width, :height, :source)
+                """), {"id": z.id, "label": z.label, "left": z.left, "top": z.top,
+                       "width": z.width, "height": z.height, "source": z.source})
+            conn.commit()
+        return {"ok": True, "count": len(zonas)}
+    except Exception as exc:
+        log.warning("Error guardando zonas: %s", exc)
+        return {"ok": False, "error": str(exc)}

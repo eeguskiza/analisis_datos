@@ -7,9 +7,10 @@ router = APIRouter(prefix="/bbdd", tags=["bbdd"])
 
 
 def _get_conn_string(database: str | None = None):
-    """Construye connection string usando la config guardada."""
-    from OEE.db.connector import load_config, detectar_driver
-    cfg = load_config()
+    """Construye connection string usando config (con credenciales de .env)."""
+    from api.services.db import get_config
+    from OEE.db.connector import detectar_driver
+    cfg = get_config()
     original_db = cfg.get("database", "")
     db = database or original_db
 

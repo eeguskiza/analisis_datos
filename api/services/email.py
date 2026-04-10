@@ -9,11 +9,11 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import List
 
-from OEE.db.connector import load_config
+from OEE.db.connector import load_config as _load_cfg
 
 
 def _get_smtp_config() -> dict:
-    cfg = load_config()
+    cfg = _load_cfg()
     return cfg.get("smtp", {})
 
 

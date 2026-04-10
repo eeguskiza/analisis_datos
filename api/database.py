@@ -231,8 +231,8 @@ def _import_recursos_json(session: Session) -> None:
 
     # 1) Desde db_config.json (tienen centro_trabajo real)
     try:
-        from OEE.db.connector import load_config
-        cfg = load_config()
+        from OEE.db.connector import load_config as _load_cfg
+        cfg = _load_cfg()
     except Exception:
         cfg = {}
     for r in cfg.get("recursos", []):
