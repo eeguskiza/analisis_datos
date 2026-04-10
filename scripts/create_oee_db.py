@@ -1,4 +1,4 @@
-"""Crea la base de datos oee_ecs y sus tablas en SQL Server."""
+"""Crea la base de datos ecs_mobility y sus tablas en SQL Server."""
 import pyodbc
 
 CONN_STR = (
@@ -118,14 +118,14 @@ def main():
     conn = pyodbc.connect(CONN_STR.format(db="master"), timeout=10, autocommit=True)
     cursor = conn.cursor()
     cursor.execute(
-        "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'oee_ecs') "
-        "CREATE DATABASE oee_ecs"
+        "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'ecs_mobility') "
+        "CREATE DATABASE ecs_mobility"
     )
-    print("Base de datos oee_ecs: OK")
+    print("Base de datos ecs_mobility: OK")
     conn.close()
 
     # Crear tablas
-    conn = pyodbc.connect(CONN_STR.format(db="oee_ecs"), timeout=10, autocommit=True)
+    conn = pyodbc.connect(CONN_STR.format(db="ecs_mobility"), timeout=10, autocommit=True)
     cursor = conn.cursor()
 
     for name, ddl in TABLES:
@@ -144,7 +144,7 @@ def main():
     print("  Indices: OK")
 
     # Verificar
-    print("\n=== TABLAS EN oee_ecs ===")
+    print("\n=== TABLAS EN ecs_mobility ===")
     cursor.execute("SELECT name FROM sys.tables ORDER BY name")
     for row in cursor.fetchall():
         print(f"  {row[0]}")

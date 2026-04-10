@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block title %}Base de Datos — ECS Mobility{% endblock %}
+{% block page_title %}Explorador de Base de Datos{% endblock %}
+
+{% block content %}
+<div x-data="bbddExplorer()" x-init="init()" class="flex gap-4 h-[calc(100vh-130px)]">
+
+  <!-- ── Panel izquierdo ─────────────────────────────────────────────── -->
+  <div class="w-72 shrink-0 bg-white rounded-2xl border border-surface-200 shadow-sm flex flex-col overflow-hidden">
+    <div class="px-4 py-3 border-b border-surface-100 shrink-0">
+      <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Base de datos</label>
+      <select x-model="selectedDb" @change="onDbChange()" class="w-full px-2.5 py-2 text-sm font-mono border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 bg-surface-50">
+        <option value="">Seleccionar...</option>
+        <template x-for="db in databases" :key="db.name">
+          <option :value="db.name" x-text="db.name + ' (' + db.size_mb + ' MB)'"></option>
+        </template>
+      </select>
+    </div>
+    <div class="flex-1 overflow-y-auto">
+      <div x-show="loadingTables" class="flex items-center justify-center py-12"><span class="spinner border-brand-600"></span></div>
+      <div x-show="!loadingTables && tables.length > 0" class="p-1.5 space-y-0.5">
+        <template x-for="t in tables" :key="t.schema + '.' + t.table">
+          <button @click="selectTable(t)"
+                  class="w-full text-left px-3 py-2 rounded-lg transition-all text-sm"
+                  :class="selectedTable?.table === t.table ? 'bg-brand-50 border border-brand-200 font-semibold' : 'hover:bg-surface-50 border border-transparent'">
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-xs truncate" x-text="t.schema !== 'dbo' ? t.schema + '.' + t.table : t.table"></span>
+              <span class="text-[10px] text-gray-300 tabular-nums" x-text="t.rows.toLocaleString('es-ES')"></span>
+            </div>
+          </button>
+        </template>
+      </div>
+    </div>
+    <div x-show="tables.length > 0" class="px-4 py-2.5 border-t border-surface-100 shrink-0 text-[10px] text-gray-400 flex justify-between">
+      <span x-text="tables.length + ' tablas'"></span>
+      <span x-text="tables.reduce((s,t) => s + t.rows, 0).toLocaleString('es-ES') + ' filas'"></span>
+    </div>
+  </div>
+
+  <!-- ── Panel derecho ──────────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- Sin BBDD -->
+    <div x-show="!selectedDb" class="flex-1 bg-white rounded-2xl border border-surface-200 shadow-sm flex items-center justify-center">
+      <div class="text-center text-gray-300">
+        <svg class="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+        <p class="text-sm">Selecciona una base de datos</p>
+      </div>
+    </div>
+
+    <!-- Con BBDD seleccionada -->
+    <div x-show="selectedDb" class="flex flex-col h-full gap-4">
+      <!-- Tabs -->
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-0.5 p-0.5 bg-surface-100 rounded-lg">
+          <button @click="activeTab = 'diagram'" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                  :class="activeTab === 'diagram' ? 'bg-white shadow-sm text-brand-700' : 'text-gray-500 hover:text-gray-700'">Diagrama ER</button>
+          <button @click="activeTab = 'data'" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                  :class="activeTab === 'data' ? 'bg-white shadow-sm text-brand-700' : 'text-gray-500 hover:text-gray-700'">
+            Datos <span x-show="selectedTable" class="text-[9px] text-gray-400 font-mono ml-1" x-text="selectedTable?.table"></span>
+          </button>
+        </div>
+        <span x-show="loadingSchema" class="spinner border-brand-600 w-4 h-4"></span>
+        <div class="flex-1"></div>
+        <button x-show="activeTab === 'diagram' && !loadingSchema && schemaData" @click="exportPng()"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-surface-100 transition-all" title="Exportar imagen">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </button>
+      </div>
+
+      <!-- Tab: Diagrama ER -->
+      <div class="flex-1 min-h-0" x-show="activeTab === 'diagram'">
+        <div class="bg-white rounded-2xl border border-surface-200 shadow-sm h-full overflow-hidden flex items-center justify-center p-4">
+          <div x-show="loadingSchema" class="flex items-center justify-center"><span class="spinner border-brand-600 w-6 h-6"></span></div>
+          <div x-show="!loadingSchema" id="mermaid-container" class="w-full h-full flex items-center justify-center"></div>
+        </div>
+      </div>
+
+      <!-- Tab: Datos -->
+      <div class="flex-1 min-h-0" x-show="activeTab === 'data'">
+        <div class="bg-white rounded-2xl border border-surface-200 shadow-sm h-full flex flex-col overflow-hidden">
+          <div x-show="!selectedTable" class="flex-1 flex items-center justify-center text-gray-300 text-sm">
+            Selecciona una tabla del panel izquierdo
+          </div>
+          <template x-if="selectedTable">
+            <div class="flex flex-col h-full">
+              <div class="px-4 py-3 border-b border-surface-100 shrink-0 flex items-center justify-between">
+                <div>
+                  <span class="text-sm font-mono font-bold text-brand-800" x-text="selectedTable.schema + '.' + selectedTable.table"></span>
+                  <span class="text-[10px] text-gray-400 ml-2" x-text="selectedTable.rows.toLocaleString('es-ES') + ' filas'"></span>
+                </div>
+              </div>
+              <div x-show="loadingPreview" class="flex-1 flex items-center justify-center"><span class="spinner border-brand-600"></span></div>
+              <div x-show="!loadingPreview" class="flex-1 overflow-auto">
+                <table class="data-table text-xs">
+                  <thead class="sticky top-0 bg-surface-50">
+                    <tr>
+                      <template x-for="col in previewCols" :key="col"><th class="whitespace-nowrap" x-text="col"></th></template>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, ridx) in previewRows" :key="ridx">
+                      <tr>
+                        <template x-for="(val, cidx) in row" :key="cidx">
+                          <td class="font-mono whitespace-nowrap max-w-xs truncate" x-text="val ?? 'NULL'" :class="val === null && 'text-gray-300 italic'"></td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: false, theme: 'neutral', er: { useMaxWidth: false } });
+  window.__mermaid = mermaid;
+</script>
+
+<script>
+function bbddExplorer() {
+  return {
+    databases: [], selectedDb: '', tables: [], selectedTable: null,
+    previewCols: [], previewRows: [],
+    activeTab: 'diagram',
+    loadingDbs: false, loadingTables: false, loadingSchema: false, loadingPreview: false,
+    schemaData: null,
+
+    async init() {
+      await this.loadDatabases();
+      // Pre-select ecs_mobility
+      if (this.databases.some(d => d.name === 'ecs_mobility')) {
+        this.selectedDb = 'ecs_mobility';
+        await this.onDbChange();
+      }
+    },
+
+    async loadDatabases() {
+      this.loadingDbs = true;
+      try {
+        const res = await fetch('/api/bbdd/databases');
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        this.databases = data.databases || [];
+      } catch { showToast('Error conectando al servidor', 'error'); }
+      this.loadingDbs = false;
+    },
+
+    async onDbChange() {
+      this.selectedTable = null;
+      this.previewCols = []; this.previewRows = [];
+      if (!this.selectedDb) { this.tables = []; return; }
+      // Load tables first to decide light mode
+      this.loadingTables = true;
+      this.loadingSchema = true;
+      const tablesRes = await fetch(`/api/bbdd/tables?database=${encodeURIComponent(this.selectedDb)}`);
+      this.tables = ((await tablesRes.json()).tables || []);
+      this.loadingTables = false;
+
+      // BBDDs con >30 tablas → modo light (solo nombres + relaciones, sin columnas)
+      const light = this.tables.length > 30;
+      const schemaRes = await fetch(`/api/bbdd/schema?database=${encodeURIComponent(this.selectedDb)}&light=${light}`);
+      this.schemaData = await schemaRes.json();
+      this.loadingSchema = false;
+      this.$nextTick(() => this.renderDiagram());
+    },
+
+    _renderId: 0,
+    async renderDiagram() {
+      if (!this.schemaData) return;
+      const container = document.getElementById('mermaid-container');
+      if (!container) return;
+
+      const mmd = this.buildMermaid(this.schemaData);
+      const id = 'er-' + (++this._renderId);
+      try {
+        const { svg } = await window.__mermaid.render(id, mmd);
+        container.innerHTML = svg;
+        const svgEl = container.querySelector('svg');
+        if (svgEl) {
+          svgEl.removeAttribute('height');
+          svgEl.style.width = '100%';
+          svgEl.style.height = '100%';
+          svgEl.style.maxWidth = '100%';
+          svgEl.style.maxHeight = '100%';
+          svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        }
+      } catch (err) {
+        container.innerHTML = '<p class="text-red-500 text-sm">Error renderizando: ' + err.message + '</p>';
+      }
+    },
+
+    buildMermaid(schema) {
+      const light = schema.light;
+      let mmd = 'erDiagram\n';
+      for (const t of schema.tables) {
+        const safeName = t.name.replace(/[^a-zA-Z0-9_]/g, '_');
+        if (light || !t.columns?.length) {
+          // Modo light: solo nombre + filas como unico campo
+          mmd += `  ${safeName} {\n    int rows "${(t.rows || 0).toLocaleString('es-ES')}"\n  }\n`;
+        } else {
+          mmd += `  ${safeName} {\n`;
+          for (const c of t.columns) {
+            mmd += `    ${c.type} ${c.name} ${c.pk ? 'PK' : ''}\n`;
+          }
+          mmd += '  }\n';
+        }
+      }
+      for (const r of schema.relationships) {
+        const fromName = r.from.split('.').pop().replace(/[^a-zA-Z0-9_]/g, '_');
+        const toName = r.to.split('.').pop().replace(/[^a-zA-Z0-9_]/g, '_');
+        mmd += `  ${toName} ||--o{ ${fromName} : "${r.from_col}"\n`;
+      }
+      return mmd;
+    },
+
+    exportPng() {
+      const svgEl = document.querySelector('#mermaid-container svg');
+      if (!svgEl) return;
+
+      // Get the natural viewBox dimensions
+      const vb = svgEl.getAttribute('viewBox');
+      let w = 1200, h = 800;
+      if (vb) {
+        const parts = vb.split(/[\s,]+/).map(Number);
+        if (parts.length === 4) { w = parts[2]; h = parts[3]; }
+      }
+
+      // Clone and set explicit dimensions + embed styles
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('width', w);
+      clone.setAttribute('height', h);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      clone.removeAttribute('style');
+
+      // Inline all computed styles so the exported image looks correct
+      const sheets = document.styleSheets;
+      let css = '';
+      try {
+        for (const sheet of sheets) {
+          try { for (const rule of sheet.cssRules) css += rule.cssText + '\n'; } catch {}
+        }
+      } catch {}
+      const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      styleEl.textContent = css;
+      clone.insertBefore(styleEl, clone.firstChild);
+
+      const xml = new XMLSerializer().serializeToString(clone);
+      const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+
+      const img = new Image();
+      const db = this.selectedDb;
+      img.onload = () => {
+        const scale = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = w * scale;
+        canvas.height = h * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((pngBlob) => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(pngBlob);
+          a.download = `esquema_${db}_${new Date().toISOString().slice(0,10)}.png`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+          showToast('Diagrama exportado');
+        }, 'image/png');
+      };
+      img.onerror = () => {
+        // Fallback: download as SVG directly
+        URL.revokeObjectURL(url);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `esquema_${db}_${new Date().toISOString().slice(0,10)}.svg`;
+        a.click();
+        showToast('Exportado como SVG');
+      };
+      img.src = url;
+    },
+
+    async selectTable(t) {
+      this.selectedTable = t;
+      this.activeTab = 'data';
+      this.previewCols = []; this.previewRows = [];
+      this.loadingPreview = true;
+      try {
+        const res = await fetch(`/api/bbdd/preview?database=${encodeURIComponent(this.selectedDb)}&schema=${encodeURIComponent(t.schema)}&table=${encodeURIComponent(t.table)}&limit=50`);
+        const data = await res.json();
+        this.previewCols = data.columns || [];
+        this.previewRows = data.rows || [];
+      } catch { showToast('Error cargando datos', 'error'); }
+      this.loadingPreview = false;
+    },
+  };
+}
+</script>
+{% endblock %}

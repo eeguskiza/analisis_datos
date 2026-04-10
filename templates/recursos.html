@@ -73,6 +73,10 @@
              x-text="sec.name"></div>
         <span class="text-[10px] text-gray-300" x-text="sec.items.length"></span>
         <div class="flex-1 h-px bg-surface-200"></div>
+        <button x-show="sec.name !== 'GENERAL'" @click="deleteSection(sec.name)"
+                class="text-gray-300 hover:text-red-500 transition-colors p-1" :title="'Eliminar seccion ' + sec.name">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
       </div>
 
       <!-- Empty section placeholder (organize mode) -->
@@ -378,8 +382,7 @@ function recursosPage() {
     get allSections() {
       const secs = new Set(['LINEAS', 'TALLADORAS', 'GENERAL', ...this.customSections]);
       for (const r of this.recursos) {
-        const s = r._customSection || getSectionForResource(r.nombre);
-        secs.add(s);
+        secs.add(r._customSection || r.seccion || 'GENERAL');
       }
       return [...secs].sort();
     },
@@ -392,7 +395,7 @@ function recursosPage() {
 
     getResourceSection(r) {
       if (!r) return 'GENERAL';
-      return r._customSection || getSectionForResource(r.nombre);
+      return r._customSection || r.seccion || 'GENERAL';
     },
 
     sections() {
@@ -462,7 +465,7 @@ function recursosPage() {
     addMachine() {
       const name = this.newMachine.nombre.trim().toLowerCase();
       if (!name || this.recursos.some(r => r.nombre === name)) return;
-      const seccion = this.newMachine.seccion || getSectionForResource(name);
+      const seccion = this.newMachine.seccion || 'GENERAL';
       this.recursos.push({
         id: null,
         centro_trabajo: this.newMachine.ct || 0,
@@ -494,6 +497,22 @@ function recursosPage() {
       this.dirty = true;
     },
 
+    deleteSection(secName) {
+      const count = this.recursos.filter(r => this.getResourceSection(r) === secName).length;
+      const msg = count > 0
+        ? `Eliminar seccion "${secName}"? Sus ${count} maquinas pasaran a GENERAL.`
+        : `Eliminar seccion "${secName}"?`;
+      if (!confirm(msg)) return;
+      for (const r of this.recursos) {
+        if (this.getResourceSection(r) === secName) {
+          r.seccion = 'GENERAL';
+          r._customSection = 'GENERAL';
+        }
+      }
+      this.customSections = this.customSections.filter(s => s !== secName);
+      this.dirty = true;
+    },
+
     filteredDetected() {
       if (!this.detectFilter.trim()) return this.detectedMachines;
       const q = this.detectFilter.toLowerCase().trim();
@@ -508,6 +527,10 @@ function recursosPage() {
       this.detecting = true;
       try {
         const res = await fetch('/api/recursos/detectar');
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Error ' + res.status);
+        }
         const data = await res.json();
         this.detectSecciones = data.secciones || ['GENERAL', 'LINEAS', 'TALLADORAS'];
         // Ordenar: activas primero (por n_registros_mes desc), ya configuradas al final
@@ -520,7 +543,7 @@ function recursosPage() {
         this.detectFilter = '';
         this.showDetect = true;
       } catch (err) {
-        showToast('Error conectando con IZARO', 'error');
+        showToast('Error conectando con IZARO: ' + (err.message || ''), 'error');
       }
       this.detecting = false;
     },
@@ -533,11 +556,16 @@ function recursosPage() {
         return;
       }
       try {
-        await fetch('/api/recursos/row', {
+        const res = await fetch('/api/recursos/row', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ centro_trabajo: m.codigo, nombre: nombre, activo: true }),
+          body: JSON.stringify({ centro_trabajo: m.codigo, nombre: nombre, seccion: m._seccion || 'GENERAL', activo: true }),
         });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showToast(err.detail || 'Error al añadir', 'error');
+          return;
+        }
         // Añadir al estado local
         this.recursos.push({
           id: null, centro_trabajo: m.codigo, nombre: nombre,
@@ -555,20 +583,26 @@ function recursosPage() {
 
     async guardarTodo() {
       this.saving = true;
-      await fetch('/api/recursos', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recursos: this.recursos }),
-      });
-      await fetch('/api/ciclos', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: this.ciclos.map(r => ({ maquina: r.maquina, referencia: r.referencia, tiempo_ciclo: r.tiempo_ciclo })) }),
-      });
-      await fetch('/api/ciclos/sync-csv', { method: 'POST' });
+      try {
+        const r1 = await fetch('/api/recursos', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recursos: this.recursos }),
+        });
+        if (!r1.ok) throw new Error('Error guardando recursos');
+        const r2 = await fetch('/api/ciclos', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: this.ciclos.map(r => ({ maquina: r.maquina, referencia: r.referencia, tiempo_ciclo: r.tiempo_ciclo })) }),
+        });
+        if (!r2.ok) throw new Error('Error guardando ciclos');
+        await fetch('/api/ciclos/sync-csv', { method: 'POST' });
+        this.dirty = false;
+        showToast('Guardado');
+      } catch (err) {
+        showToast(err.message || 'Error al guardar', 'error');
+      }
       this.saving = false;
-      this.dirty = false;
-      showToast('Guardado');
     },
   };
 }

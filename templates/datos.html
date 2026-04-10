@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Datos — ECS Mobility{% endblock %}
+{% block page_title %}Datos{% endblock %}
+
+{% block content %}
+<div x-data="datosPage()" class="space-y-6">
+
+  <!-- ── Header toolbar ──────────────────────────────────────────────── -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center">
+        <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75"/></svg>
+      </div>
+      <div>
+        <h2 class="text-sm font-bold text-brand-800">Extraer datos de IZARO</h2>
+        <p class="text-[10px] text-gray-400">Descarga fichajes y calcula metricas OEE para Power BI</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span x-show="selectedRecursos.length > 0 && !running" class="text-[10px] text-gray-400 bg-surface-100 px-2.5 py-1 rounded-full"
+            x-text="selectedRecursos.length + ' recurso' + (selectedRecursos.length > 1 ? 's' : '')"></span>
+      <span x-show="diasSeleccionados() > 0 && !running" class="text-[10px] text-gray-400 bg-surface-100 px-2.5 py-1 rounded-full"
+            x-text="diasSeleccionados() + ' dias'"></span>
+    </div>
+  </div>
+
+  <!-- ── Formulario ──────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+
+    <!-- Fechas -->
+    <div class="p-5 border-b border-surface-100">
+      <div class="flex items-center gap-2 mb-4">
+        <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Rango de fechas</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Desde</label>
+          <input type="date" x-model="fechaInicio" class="input-inline font-mono">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Hasta</label>
+          <input type="date" x-model="fechaFin" :min="fechaInicio" class="input-inline font-mono">
+        </div>
+      </div>
+    </div>
+
+    <!-- Recursos -->
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Recursos</span>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <button @click="selectAll(true)" class="text-brand-600 hover:underline font-medium">Todos</button>
+          <span class="text-gray-300">|</span>
+          <button @click="selectAll(false)" class="text-gray-400 hover:underline">Ninguno</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {% for r in recursos %}
+        <label class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-all duration-150"
+               :class="selectedRecursos.includes('{{ r.nombre }}')
+                 ? 'border-brand-300 bg-brand-50 shadow-sm shadow-brand-100'
+                 : 'border-surface-200 hover:border-surface-300 hover:bg-surface-50'">
+          <input type="checkbox" value="{{ r.nombre }}" x-model="selectedRecursos"
+                 class="w-3.5 h-3.5 rounded border-surface-300 text-brand-600 focus:ring-brand-400">
+          <div class="min-w-0">
+            <span class="font-mono text-sm font-semibold text-brand-800 block truncate">{{ r.nombre }}</span>
+            <span class="text-[9px] font-medium"
+                  style="color: {{ 'rgb(37,99,235)' if r.seccion == 'LINEAS' else 'rgb(217,119,6)' if r.seccion == 'TALLADORAS' else 'rgb(156,163,175)' }}">{{ r.seccion }}</span>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Boton ejecutar ──────────────────────────────────────────────── -->
+  <button @click="extraer()" class="btn-primary w-full sm:w-auto"
+          :disabled="running || !fechaInicio || !fechaFin || selectedRecursos.length === 0">
+    <span x-show="running" class="spinner border-white w-4 h-4"></span>
+    <svg x-show="!running" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+    <span x-text="running ? 'Extrayendo...' : 'Extraer y calcular'"></span>
+  </button>
+
+  <!-- ── Progreso SSE ────────────────────────────────────────────────── -->
+  <div x-show="logLines.length > 0" x-transition class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-surface-100 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-2.5 h-2.5 rounded-full shadow-sm"
+             :class="running ? 'bg-amber-500 animate-pulse shadow-amber-500/50' : done ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 shadow-red-500/50'"></div>
+        <span class="text-xs font-bold text-gray-500 uppercase tracking-wider" x-text="running ? 'Extrayendo...' : done ? 'Completado' : 'Error'"></span>
+      </div>
+      <span x-show="done" class="text-[10px] text-gray-400 bg-green-50 text-green-600 px-2.5 py-0.5 rounded-full font-medium" x-text="resultado"></span>
+    </div>
+    <div class="bg-gray-900 text-green-300 font-mono text-[11px] p-4 max-h-64 overflow-y-auto" x-ref="logBox">
+      <template x-for="(line, i) in logLines" :key="i">
+        <div x-text="line" class="py-0.5"></div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── Info: tablas destino ────────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-surface-100 flex items-center gap-2">
+      <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
+      <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tablas que se rellenan en ecs_mobility</span>
+    </div>
+    <div class="p-5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="flex items-start gap-3 p-3 rounded-xl bg-surface-50 border border-surface-100">
+          <div class="w-7 h-7 rounded-lg bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-3.5 h-3.5 text-brand-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M10.875 12c-.621 0-1.125.504-1.125 1.125M12 10.875c-.621 0-1.125.504-1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125m0 1.5c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-2.25 0c-.621 0-1.125.504-1.125 1.125"/></svg>
+          </div>
+          <div>
+            <span class="font-mono text-xs font-semibold text-brand-800">datos_produccion</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">Fichajes: horas, proceso, piezas, incidencias</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 p-3 rounded-xl bg-surface-50 border border-surface-100">
+          <div class="w-7 h-7 rounded-lg bg-sky-50 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-3.5 h-3.5 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+          </div>
+          <div>
+            <span class="font-mono text-xs font-semibold text-brand-800">metricas_oee</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">OEE diario por maquina y turno</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 p-3 rounded-xl bg-surface-50 border border-surface-100">
+          <div class="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"/></svg>
+          </div>
+          <div>
+            <span class="font-mono text-xs font-semibold text-brand-800">referencias_stats</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">Ciclo real vs ideal por referencia</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 p-3 rounded-xl bg-surface-50 border border-surface-100">
+          <div class="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+          </div>
+          <div>
+            <span class="font-mono text-xs font-semibold text-brand-800">incidencias_resumen</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">Paros agrupados por tipo</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 p-3 rounded-xl bg-surface-50 border border-surface-100">
+          <div class="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div>
+            <span class="font-mono text-xs font-semibold text-brand-800">ejecuciones</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">Log de cada extraccion</p>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-2 text-[10px] text-gray-400 bg-surface-50 rounded-lg px-3 py-2 border border-surface-100">
+        <svg class="w-3.5 h-3.5 text-gray-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-1.135a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364l1.757 1.757"/></svg>
+        Conecta Power BI a <span class="font-mono font-semibold text-brand-700">192.168.0.4 &rarr; ecs_mobility</span> y usa estas tablas como fuente de datos.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function datosPage() {
+  return {
+    fechaInicio: '2025-01-01',
+    fechaFin: new Date().toISOString().slice(0, 10),
+    selectedRecursos: [{% for r in recursos %}'{{ r.nombre }}',{% endfor %}],
+    running: false,
+    done: false,
+    logLines: [],
+    resultado: '',
+
+    diasSeleccionados() {
+      if (!this.fechaInicio || !this.fechaFin) return 0;
+      const d1 = new Date(this.fechaInicio), d2 = new Date(this.fechaFin);
+      return Math.max(0, Math.round((d2 - d1) / 86400000) + 1);
+    },
+
+    selectAll(state) {
+      this.selectedRecursos = state
+        ? [{% for r in recursos %}'{{ r.nombre }}',{% endfor %}]
+        : [];
+    },
+
+    async extraer() {
+      if (this.running) return;
+      this.running = true;
+      this.done = false;
+      this.logLines = [];
+      this.resultado = '';
+
+      try {
+        const res = await fetch('/api/datos/extraer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fecha_inicio: this.fechaInicio,
+            fecha_fin: this.fechaFin,
+            recursos: this.selectedRecursos,
+          }),
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const msg = line.slice(6);
+              if (msg.startsWith('DONE:')) {
+                const parts = msg.split(':');
+                const ejecId = parts[1];
+                this.resultado = `Ejecucion #${ejecId} completada`;
+                this.logLines.push('--- Completado ---');
+                this.done = true;
+              } else {
+                this.logLines.push(msg);
+              }
+              this.$nextTick(() => {
+                if (this.$refs.logBox) this.$refs.logBox.scrollTop = this.$refs.logBox.scrollHeight;
+              });
+            }
+          }
+        }
+        if (!this.done) {
+          this.done = true;
+          this.resultado = 'Finalizado';
+        }
+      } catch (err) {
+        this.logLines.push('ERROR: ' + err.message);
+      }
+      this.running = false;
+      if (this.done) showToast('Extraccion completada');
+    },
+  };
+}
+</script>
+{% endblock %}

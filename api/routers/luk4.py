@@ -1,0 +1,160 @@
+"""API del panel Pabellon 5 — datos LUK4 + fmesmic."""
+from __future__ import annotations
+
+import logging
+from datetime import datetime
+
+from fastapi import APIRouter
+from sqlalchemy import text
+
+from api.database import engine
+
+router = APIRouter(prefix="/luk4", tags=["luk4"])
+log = logging.getLogger(__name__)
+
+
+@router.get("/status")
+def luk4_status():
+    """Estado en tiempo real de LUK4 y zonas del pabellon."""
+    telemetria = {}
+    luk4_status_str = "stopped"
+    alarma = None
+
+    try:
+        with engine.connect() as conn:
+            # ── LUK4 estado + alarma activa ─────────────────────────────
+            est = conn.execute(text("""
+                SELECT TOP 1 e.timestamp, e.estado_global, e.codigo_error,
+                       e.porcentaje_manual, e.porcentaje_auto, e.porcentaje_error,
+                       a.componente, a.mensaje
+                FROM luk4_estado e
+                LEFT JOIN alarmas_luk4 a ON a.codigo = e.codigo_error
+                ORDER BY e.idcelula_estado DESC
+            """)).fetchone()
+
+            if est:
+                estado_global = int(est[1]) if est[1] is not None else 0
+                codigo_error = int(est[2]) if est[2] is not None else 0
+                telemetria["estado_global"] = estado_global
+                telemetria["codigo_error"] = codigo_error
+                telemetria["pct_auto"] = round(float(est[4]) / 100, 1) if est[4] else None
+                telemetria["pct_error"] = round(float(est[5]) / 100, 1) if est[5] else None
+                telemetria["estado_ts"] = est[0].strftime("%H:%M:%S") if est[0] else None
+
+                if est[6] and est[7]:
+                    alarma = {"componente": est[6], "mensaje": est[7], "codigo": codigo_error}
+                    telemetria["alarma_componente"] = est[6]
+                    telemetria["alarma_mensaje"] = est[7]
+
+                # Color de LUK4: error activo = rojo, auto sin error = verde, resto gris
+                if estado_global == 3 or codigo_error > 0:
+                    luk4_status_str = "incidence"
+                elif estado_global == 1:
+                    luk4_status_str = "producing"
+                else:
+                    luk4_status_str = "stopped"
+
+            # ── LUK4 tiempos de ciclo ───────────────────────────────────
+            tc = conn.execute(text("""
+                SELECT TOP 1 timestamp, tiempo_ciclo_total, tiempo_ciclo_temple,
+                       tiempo_ciclo_revenido, tiempo_ciclo_torno
+                FROM luk4_tiempos_ciclo ORDER BY idtiempos_ciclo DESC
+            """)).fetchone()
+            if tc:
+                ct = tc[1] / 1000 if tc[1] else 0
+                telemetria["ciclo_total"] = round(ct, 1) if ct else None
+                telemetria["ciclo_temple"] = round(tc[2] / 1000, 1) if tc[2] else None
+                telemetria["ciclo_revenido"] = round(tc[3] / 1000, 1) if tc[3] else None
+                telemetria["ciclo_torno"] = round(tc[4] / 1000, 1) if tc[4] else None
+                telemetria["pph_total"] = round(3600 / ct) if ct > 0 else None
+                telemetria["pph_temple"] = round(3600 / (tc[2] / 1000)) if tc[2] and tc[2] > 0 else None
+                telemetria["pph_revenido"] = round(3600 / (tc[3] / 1000)) if tc[3] and tc[3] > 0 else None
+                telemetria["pph_torno"] = round(3600 / (tc[4] / 1000)) if tc[4] and tc[4] > 0 else None
+
+            # ── LUK4 piezas del dia (delta contadores) ──────────────────
+            piezas = conn.execute(text("""
+                SELECT
+                    (SELECT TOP 1 contador_piezas_buenas FROM luk4_tiempos_ciclo
+                     WHERE CONVERT(DATE, timestamp) = CONVERT(DATE, GETDATE()) AND contador_piezas_buenas IS NOT NULL
+                     ORDER BY idtiempos_ciclo ASC) AS first_buenas,
+                    (SELECT TOP 1 contador_piezas_buenas FROM luk4_tiempos_ciclo
+                     WHERE CONVERT(DATE, timestamp) = CONVERT(DATE, GETDATE()) AND contador_piezas_buenas IS NOT NULL
+                     ORDER BY idtiempos_ciclo DESC) AS last_buenas,
+                    (SELECT TOP 1 contador_piezas_malas FROM luk4_tiempos_ciclo
+                     WHERE CONVERT(DATE, timestamp) = CONVERT(DATE, GETDATE()) AND contador_piezas_malas IS NOT NULL
+                     ORDER BY idtiempos_ciclo ASC) AS first_malas,
+                    (SELECT TOP 1 contador_piezas_malas FROM luk4_tiempos_ciclo
+                     WHERE CONVERT(DATE, timestamp) = CONVERT(DATE, GETDATE()) AND contador_piezas_malas IS NOT NULL
+                     ORDER BY idtiempos_ciclo DESC) AS last_malas,
+                    (SELECT TOP 1 contador_piezas_totales FROM luk4_tiempos_ciclo
+                     WHERE CONVERT(DATE, timestamp) = CONVERT(DATE, GETDATE()) AND contador_piezas_totales IS NOT NULL
+                     ORDER BY idtiempos_ciclo DESC) AS last_totales
+            """)).fetchone()
+            if piezas and piezas[0] is not None:
+                telemetria["piezas_buenas_hoy"] = int(piezas[1] - piezas[0])
+                telemetria["piezas_malas_hoy"] = int(piezas[3] - piezas[2])
+            else:
+                telemetria["piezas_buenas_hoy"] = 0
+                telemetria["piezas_malas_hoy"] = 0
+
+    except Exception as exc:
+        log.warning("LUK4: error: %s", exc)
+
+    # ── Timeline pz/h por proceso (cada 5 min) ────────────────────
+    timeline = []
+    top_alarmas = []
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT DATEPART(HOUR, timestamp) as h,
+                       (DATEPART(MINUTE, timestamp) / 5) * 5 as m5,
+                       AVG(tiempo_ciclo_total) as tc_total,
+                       AVG(tiempo_ciclo_temple) as tc_temple,
+                       AVG(tiempo_ciclo_revenido) as tc_rev,
+                       AVG(tiempo_ciclo_torno) as tc_torno
+                FROM luk4_tiempos_ciclo
+                WHERE CONVERT(DATE, timestamp) = CONVERT(DATE, GETDATE())
+                  AND tiempo_ciclo_total IS NOT NULL
+                GROUP BY DATEPART(HOUR, timestamp), (DATEPART(MINUTE, timestamp) / 5) * 5
+                ORDER BY h, m5
+            """)).fetchall()
+            for r in rows:
+                def pph(ms): return round(3600 / (ms / 1000), 0) if ms and ms > 0 else 0
+                timeline.append({
+                    "t": f"{int(r[0]):02d}:{int(r[1]):02d}",
+                    "total": pph(r[2]),
+                    "temple": pph(r[3]),
+                    "revenido": pph(r[4]),
+                    "torno": pph(r[5]),
+                })
+
+            # Top alarmas del dia
+            rows = conn.execute(text("""
+                SELECT TOP 5 e.codigo_error, a.componente, a.mensaje, COUNT(*) as n,
+                       MAX(e.timestamp) as ultimo
+                FROM luk4_estado e
+                LEFT JOIN alarmas_luk4 a ON a.codigo = e.codigo_error
+                WHERE CONVERT(DATE, e.timestamp) = CONVERT(DATE, GETDATE())
+                  AND e.codigo_error > 0
+                GROUP BY e.codigo_error, a.componente, a.mensaje
+                ORDER BY n DESC
+            """)).fetchall()
+            for r in rows:
+                top_alarmas.append({
+                    "codigo": int(r[0]),
+                    "componente": r[1] or "SISTEMA",
+                    "mensaje": r[2] or f"Error {r[0]}",
+                    "count": int(r[3]),
+                    "ultimo": r[4].strftime("%H:%M") if r[4] else None,
+                })
+    except Exception as exc:
+        log.warning("LUK4 timeline: %s", exc)
+
+    return {
+        "luk4_status": luk4_status_str,
+        "alarma": alarma,
+        "telemetria": telemetria,
+        "timeline": timeline,
+        "top_alarmas": top_alarmas,
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+    }

@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="OEE Planta - Informes",
+    title="ECS Mobility — Centro de Mando",
     version="2.0.0",
     docs_url="/api/docs",
     redoc_url=None,
@@ -63,9 +63,10 @@ app.mount("/static", StaticFiles(directory=str(settings.project_root / "static")
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 
-from api.routers import pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios  # noqa: E402
+from api.routers import pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios, centro_mando, bbdd, datos, luk4  # noqa: E402
 
 app.include_router(health.router, prefix="/api")
+app.include_router(centro_mando.router, prefix="/api")
 app.include_router(pages.router)
 app.include_router(conexion.router, prefix="/api")
 app.include_router(recursos.router, prefix="/api")
@@ -75,3 +76,6 @@ app.include_router(ciclos.router, prefix="/api")
 app.include_router(historial.router, prefix="/api")
 app.include_router(email.router, prefix="/api")
 app.include_router(operarios.router, prefix="/api")
+app.include_router(bbdd.router, prefix="/api")
+app.include_router(datos.router, prefix="/api")
+app.include_router(luk4.router, prefix="/api")

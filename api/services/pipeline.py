@@ -258,9 +258,17 @@ def run_pipeline(
 
         # Guardar metricas OEE en tablas para Power BI
         try:
+            msg = "Calculando metricas OEE..."
+            _log(msg)
+            yield msg
             _save_metrics_to_db(db, ejec_id)
+            msg = "Metricas guardadas en metricas_oee, referencias_stats, incidencias_resumen."
+            _log(msg)
+            yield msg
         except Exception as exc:
-            _log(f"WARN metricas: {exc}")
+            msg = f"WARN metricas: {exc}"
+            _log(msg)
+            yield msg
 
         db.close()
 

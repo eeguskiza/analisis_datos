@@ -1,4 +1,4 @@
-"""Motor SQLAlchemy, sesion y modelos ORM — conecta a SQL Server (oee_ecs)."""
+"""Motor SQLAlchemy, sesion y modelos ORM — conecta a SQL Server (ecs_mobility)."""
 from __future__ import annotations
 
 import csv
@@ -22,7 +22,7 @@ def _mssql_creator():
     return pyodbc.connect(
         "DRIVER={ODBC Driver 18 for SQL Server};"
         "SERVER=192.168.0.4,1433;"
-        "DATABASE=oee_ecs;"
+        "DATABASE=ecs_mobility;"
         "UID=sa;"
         "PWD=AdmS1552+;"
         "TrustServerCertificate=yes;"
@@ -223,18 +223,21 @@ def _import_ciclos_csv(session: Session) -> None:
 
 
 def _import_recursos_json(session: Session) -> None:
-    """Importa recursos desde db_config.json si la tabla esta vacia."""
+    """Importa recursos desde db_config.json + ciclos.csv si la tabla esta vacia."""
     if session.query(Recurso).count() > 0:
         return
 
+    nombres_añadidos: set[str] = set()
+
+    # 1) Desde db_config.json (tienen centro_trabajo real)
     try:
         from OEE.db.connector import load_config
         cfg = load_config()
     except Exception:
-        return
+        cfg = {}
     for r in cfg.get("recursos", []):
         nombre = r.get("nombre", "").strip()
-        if not nombre:
+        if not nombre or nombre in nombres_añadidos:
             continue
         seccion = SECTION_MAP.get(nombre.lower(), "GENERAL")
         session.add(Recurso(
@@ -243,6 +246,26 @@ def _import_recursos_json(session: Session) -> None:
             seccion=seccion,
             activo=r.get("activo", True),
         ))
+        nombres_añadidos.add(nombre)
+
+    # 2) Maquinas que aparecen en ciclos.csv pero no en db_config
+    csv_path = settings.ciclos_path
+    if csv_path.exists():
+        with open(csv_path, encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                nombre = (row.get("maquina") or "").strip()
+                if not nombre or nombre in nombres_añadidos:
+                    continue
+                seccion = SECTION_MAP.get(nombre.lower(), "GENERAL")
+                session.add(Recurso(
+                    centro_trabajo=0,
+                    nombre=nombre,
+                    seccion=seccion,
+                    activo=True,
+                ))
+                nombres_añadidos.add(nombre)
+
     session.commit()
 
 

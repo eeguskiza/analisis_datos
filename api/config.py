@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
     database_url: str = (
-        "mssql+pyodbc://sa:AdmS1552%2B@192.168.0.4:1433/oee_ecs"
+        "mssql+pyodbc://sa:AdmS1552%2B@192.168.0.4:1433/ecs_mobility"
         "?driver=ODBC+Driver+18+for+SQL+Server"
         "&TrustServerCertificate=yes"
         "&Encrypt=yes"

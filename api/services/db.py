@@ -8,6 +8,7 @@ from typing import Dict, List
 from api.config import settings
 
 from OEE.db.connector import (
+    calcular_ciclos_reales,
     datos_a_csvs,
     detectar_recursos,
     explorar_columnas_fmesdtc,
@@ -58,6 +59,12 @@ def extract_data(
             if r.get("nombre") in recursos
         ]}
     return extraer_datos(cfg, fecha_inicio, fecha_fin)
+
+
+def compute_real_cycles(centro_trabajo: int, dias_atras: int = 30) -> List[dict]:
+    """Calcula ciclos reales desde contadores de IZARO."""
+    cfg = get_config()
+    return calcular_ciclos_reales(cfg, centro_trabajo, dias_atras)
 
 
 def write_csvs(rows: List[dict], recursos_dir: Path | None = None) -> Dict[str, Path]:

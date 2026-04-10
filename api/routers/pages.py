@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from api.deps import templates
@@ -28,7 +29,7 @@ def _render(name: str, ctx: dict):
 @router.get("/")
 def index(request: Request):
     ctx = _common_ctx(request, "dashboard")
-    return _render("dashboard.html", ctx)
+    return _render("luk4.html", ctx)
 
 
 @router.get("/pipeline")
@@ -43,9 +44,9 @@ def pipeline_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/informes")
-def informes_page(request: Request):
-    ctx = _common_ctx(request, "informes")
-    return _render("informes.html", ctx)
+def informes_page():
+    """Redirige a historial (fusionado)."""
+    return RedirectResponse("/historial", status_code=301)
 
 
 @router.get("/recursos")
@@ -66,10 +67,38 @@ def historial_page(request: Request):
     return _render("historial.html", ctx)
 
 
+@router.get("/ciclos-calc")
+def ciclos_calc_page(request: Request, db: Session = Depends(get_db)):
+    ctx = _common_ctx(request, "recursos")
+    recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
+    ctx["recursos"] = [
+        {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
+        for r in recursos
+    ]
+    return _render("ciclos_calc.html", ctx)
+
+
 @router.get("/operarios")
 def operarios_page(request: Request):
     ctx = _common_ctx(request, "operarios")
     return _render("operarios.html", ctx)
+
+
+@router.get("/datos")
+def datos_page(request: Request, db: Session = Depends(get_db)):
+    ctx = _common_ctx(request, "datos")
+    recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
+    ctx["recursos"] = [
+        {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
+        for r in recursos
+    ]
+    return _render("datos.html", ctx)
+
+
+@router.get("/bbdd")
+def bbdd_page(request: Request):
+    ctx = _common_ctx(request, "bbdd")
+    return _render("bbdd.html", ctx)
 
 
 @router.get("/ajustes")

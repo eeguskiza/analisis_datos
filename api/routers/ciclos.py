@@ -1,11 +1,12 @@
 """CRUD para ciclos (tiempos de ciclo ideales) — desde BBDD."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from api.database import Ciclo, SECTION_MAP, get_db
+from api.database import Ciclo, Recurso, SECTION_MAP, get_db
 from api.models import CicloRow, CiclosPayload
+from api.services import db as mes_service
 
 router = APIRouter(prefix="/ciclos", tags=["ciclos"])
 
@@ -98,3 +99,32 @@ def sync_to_csv(db: Session = Depends(get_db)):
             writer.writerow({"maquina": r.maquina, "referencia": r.referencia, "tiempo_ciclo": r.tiempo_ciclo})
 
     return {"ok": True, "count": len(rows), "path": str(path)}
+
+
+@router.get("/calcular/{nombre_recurso}")
+def calcular_ciclos(
+    nombre_recurso: str,
+    dias: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    """
+    Calcula ciclos reales desde contadores de IZARO para un recurso.
+
+    Analiza los contadores de piezas y cruza con la referencia en fabricacion.
+    Devuelve por referencia: ciclo mediano (seg), piezas/hora, n muestras.
+    """
+    recurso = db.query(Recurso).filter_by(nombre=nombre_recurso).first()
+    if not recurso:
+        raise HTTPException(404, f"Recurso '{nombre_recurso}' no encontrado")
+
+    try:
+        result = mes_service.compute_real_cycles(recurso.centro_trabajo, dias)
+    except Exception as exc:
+        raise HTTPException(502, f"Error consultando IZARO: {exc}")
+
+    return {
+        "recurso": nombre_recurso,
+        "centro_trabajo": recurso.centro_trabajo,
+        "dias": dias,
+        "referencias": result,
+    }

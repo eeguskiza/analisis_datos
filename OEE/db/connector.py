@@ -411,6 +411,295 @@ def datos_a_csvs(rows: List[dict], recursos_dir: Path) -> Dict[str, Path]:
     return generated
 
 
+def calcular_ciclos_reales(
+    cfg: dict,
+    centro_trabajo: int,
+    dias_atras: int = 30,
+) -> List[dict]:
+    """
+    Calcula ciclos reales por referencia a partir de contadores de IZARO.
+
+    Lee los contadores (zmeshva) y cruza con la referencia que se fabricaba
+    en ese momento (fmesdtc/fprolof). Filtra ruido y calcula:
+      - ciclo mediano en segundos
+      - piezas/hora equivalente
+
+    Devuelve lista de dicts:
+      {referencia, ciclo_seg, piezas_hora, n_muestras, fecha_min, fecha_max}
+    """
+    if not PYODBC_AVAILABLE:
+        raise RuntimeError("pyodbc no está instalado")
+
+    conn = pyodbc.connect(_build_connection_string(cfg), timeout=30)
+    cursor = conn.cursor()
+    ct = str(centro_trabajo)
+
+    try:
+        # 1) Contadores: valor acumulado en cada instante
+        cursor.execute("""
+            SELECT
+                CONVERT(DATE, z.hv080) AS fecha,
+                z.hv090               AS hora,
+                CAST(z.hv040 AS FLOAT) AS valor
+            FROM admuser.zmeshva z
+            WHERE z.hv010 LIKE ?
+              AND z.hv030 LIKE '%Contador%'
+              AND z.hv030 NOT LIKE '%Ultimo%'
+              AND z.hv080 >= DATEADD(DAY, ?, GETDATE())
+            ORDER BY z.hv080, z.hv090
+        """, (f'%{ct}%', -dias_atras))
+        contadores = cursor.fetchall()
+
+        if not contadores:
+            conn.close()
+            return []
+
+        # 2) Referencia activa por CT+fecha+hora (produccion en fmesdtc)
+        cursor.execute("""
+            SELECT
+                CONVERT(DATE, dtc.dt060) AS fecha,
+                dtc.dt080 AS h_ini,
+                dtc.dt085 AS h_fin,
+                COALESCE(RTRIM(lof.lo030), '') AS referencia
+            FROM admuser.fmesdtc dtc
+            LEFT JOIN admuser.fprolof lof
+                ON RTRIM(lof.lo010) = RTRIM(dtc.dt020)
+                AND lof.lo020 = dtc.dt030
+            WHERE RTRIM(CAST(dtc.dt150 AS NVARCHAR(50))) = ?
+              AND dtc.dt110 = '0'
+              AND dtc.dt060 >= DATEADD(DAY, ?, GETDATE())
+              AND COALESCE(RTRIM(lof.lo030), '') <> ''
+            ORDER BY dtc.dt060, dtc.dt080
+        """, (ct, -dias_atras))
+        tramos = cursor.fetchall()
+    finally:
+        conn.close()
+
+    # 3) Construir mapa fecha+hora → referencia
+    ref_map = []
+    for t in tramos:
+        ref_map.append({
+            "fecha": t[0],
+            "h_ini": int(t[1] or 0),
+            "h_fin": int(t[2] or 0),
+            "referencia": t[3],
+        })
+
+    def _find_ref(fecha, hora_str):
+        """Busca la referencia activa en un momento dado."""
+        try:
+            hhmm = int(hora_str.replace(":", "").replace(".", "")[:4])
+        except (ValueError, TypeError, AttributeError):
+            return ""
+        for tr in ref_map:
+            if tr["fecha"] == fecha and tr["h_ini"] <= hhmm <= (tr["h_fin"] or 2359):
+                return tr["referencia"]
+        return ""
+
+    # 4) Calcular deltas entre contadores consecutivos
+    import math
+    import statistics
+    from collections import defaultdict
+    from datetime import datetime as _dt
+
+    samples: dict[str, list[float]] = defaultdict(list)
+    daily: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+
+    prev_val = None
+    prev_time = None
+    prev_fecha = None
+
+    for row in contadores:
+        fecha, hora, valor = row[0], row[1], row[2]
+        if valor is None or valor == 0:
+            prev_val = None
+            continue
+
+        if prev_val is not None and prev_fecha == fecha:
+            delta_piezas = valor - prev_val
+            try:
+                t1 = _dt.combine(fecha, _dt.strptime(str(prev_time), "%H:%M:%S").time()) if isinstance(prev_time, str) else _dt.combine(fecha, prev_time) if hasattr(prev_time, 'hour') else None
+                t2 = _dt.combine(fecha, _dt.strptime(str(hora), "%H:%M:%S").time()) if isinstance(hora, str) else _dt.combine(fecha, hora) if hasattr(hora, 'hour') else None
+                delta_seg = (t2 - t1).total_seconds() if t1 and t2 and t2 > t1 else None
+            except Exception:
+                delta_seg = None
+
+            if delta_seg and delta_piezas > 0 and delta_seg > 0:
+                ciclo = delta_seg / delta_piezas
+                if 1 <= ciclo <= 600:
+                    ref = _find_ref(fecha, str(hora))
+                    if ref:
+                        samples[ref].append(ciclo)
+                        daily[ref][fecha.isoformat()].append(ciclo)
+
+        prev_val = valor
+        prev_time = hora
+        prev_fecha = fecha
+
+    # ── Funciones de estimacion robusta ──────────────────────────────
+
+    def _iqr_filter(data: list[float]) -> list[float]:
+        """Filtra outliers usando IQR (rango intercuartilico)."""
+        if len(data) < 4:
+            return data
+        s = sorted(data)
+        n = len(s)
+        q1 = s[n // 4]
+        q3 = s[3 * n // 4]
+        iqr = q3 - q1
+        lo = q1 - 1.5 * iqr
+        hi = q3 + 1.5 * iqr
+        return [x for x in data if lo <= x <= hi]
+
+    def _kde_mode(data: list[float]) -> float:
+        """
+        Estima la moda usando KDE (Kernel Density Estimation) ligero.
+
+        Encuentra el valor mas probable de la distribucion, que es el
+        ciclo en regimen estable (ignora arranques, paros, cambios).
+        Usa un kernel gaussiano con ancho de banda de Silverman.
+        """
+        if len(data) < 5:
+            return statistics.median(data)
+
+        n = len(data)
+        std = statistics.stdev(data)
+        if std == 0:
+            return data[0]
+
+        # Ancho de banda de Silverman
+        bw = 0.9 * min(std, (statistics.median(sorted(
+            [abs(x - statistics.median(data)) for x in data]
+        )) * 1.4826)) * n ** (-0.2)
+        if bw <= 0:
+            bw = std * 0.5
+
+        # Evaluar densidad en una rejilla
+        lo = min(data)
+        hi = max(data)
+        n_bins = min(200, max(50, n))
+        step = (hi - lo) / n_bins if hi > lo else 1
+        best_x, best_density = lo, 0
+
+        for i in range(n_bins + 1):
+            x = lo + i * step
+            density = sum(
+                math.exp(-0.5 * ((x - xi) / bw) ** 2) for xi in data
+            ) / (n * bw)
+            if density > best_density:
+                best_density = density
+                best_x = x
+
+        return best_x
+
+    def _confidence(data: list[float], filtered: list[float]) -> int:
+        """
+        Score de confianza 0-100.
+
+        Factores:
+        - n muestras (mas = mejor, satura en ~100)
+        - CV bajo (coeficiente de variacion, menos dispersion = mejor)
+        - Ratio de datos no-outlier (mas datos utiles = mejor)
+        """
+        n = len(filtered)
+        if n < 3:
+            return 0
+
+        # Factor muestras: log scale, 10→50%, 50→80%, 200→95%
+        f_n = min(1.0, math.log(n + 1) / math.log(200))
+
+        # Factor CV: cv=0→100%, cv=0.3→50%, cv=1→10%
+        mean = statistics.mean(filtered)
+        cv = (statistics.stdev(filtered) / mean) if mean > 0 and n > 1 else 1.0
+        f_cv = max(0, 1.0 - cv * 1.5)
+
+        # Factor retención: qué % de datos sobrevive al filtro IQR
+        f_ret = len(filtered) / len(data) if data else 0
+
+        score = (f_n * 0.35 + f_cv * 0.45 + f_ret * 0.20) * 100
+        return min(100, max(0, round(score)))
+
+    def _histogram(data: list[float], n_bins: int = 20) -> list[dict]:
+        """Genera histograma para visualización."""
+        if len(data) < 3:
+            return []
+        lo, hi = min(data), max(data)
+        if lo == hi:
+            return [{"x": round(lo, 1), "y": len(data)}]
+        step = (hi - lo) / n_bins
+        bins = [0] * n_bins
+        for v in data:
+            idx = min(int((v - lo) / step), n_bins - 1)
+            bins[idx] += 1
+        return [
+            {"x": round(lo + (i + 0.5) * step, 1), "y": bins[i]}
+            for i in range(n_bins) if bins[i] > 0
+        ]
+
+    def _agg(ciclos_raw: list[float]) -> dict:
+        """Agrega ciclos: IQR filter → KDE mode → confianza."""
+        filtered = _iqr_filter(ciclos_raw)
+        if not filtered:
+            filtered = ciclos_raw
+
+        modo = _kde_mode(filtered)
+        mediana = statistics.median(filtered)
+        ciclo = round(modo, 1)
+        ph = round(3600 / ciclo, 1) if ciclo > 0 else 0
+        conf = _confidence(ciclos_raw, filtered)
+
+        return {
+            "ciclo_seg": ciclo,
+            "piezas_hora": ph,
+            "n_muestras": len(filtered),
+            "n_descartados": len(ciclos_raw) - len(filtered),
+            "confianza": conf,
+            "mediana": round(mediana, 1),
+            "metodo": "kde_mode",
+        }
+
+    # ── Agregar por referencia ───────────────────────────────────────
+
+    result = []
+    for ref, ciclos_raw in sorted(samples.items()):
+        if len(ciclos_raw) < 3:
+            continue
+
+        agg = _agg(ciclos_raw)
+        fechas = sorted(daily[ref].keys())
+
+        por_dia = []
+        for f in fechas:
+            day_raw = daily[ref][f]
+            if len(day_raw) >= 2:
+                d = _agg(day_raw)
+                por_dia.append({
+                    "fecha": f,
+                    "ciclo_seg": d["ciclo_seg"],
+                    "piezas_hora": d["piezas_hora"],
+                    "n_muestras": d["n_muestras"],
+                })
+
+        histo = _histogram(_iqr_filter(ciclos_raw))
+
+        result.append({
+            "referencia": ref,
+            "ciclo_seg": agg["ciclo_seg"],
+            "piezas_hora": agg["piezas_hora"],
+            "n_muestras": agg["n_muestras"],
+            "n_descartados": agg["n_descartados"],
+            "confianza": agg["confianza"],
+            "mediana_seg": agg["mediana"],
+            "fecha_min": fechas[0] if fechas else None,
+            "fecha_max": fechas[-1] if fechas else None,
+            "por_dia": por_dia,
+            "histograma": histo,
+        })
+
+    result.sort(key=lambda x: -x["n_muestras"])
+    return result
+
+
 def extraer_y_guardar_csv(
     cfg: dict,
     fecha_inicio: date,

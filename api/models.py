@@ -21,6 +21,7 @@ class ConnectionStatus(BaseModel):
 class Recurso(BaseModel):
     centro_trabajo: int
     nombre: str
+    seccion: str = "GENERAL"
     activo: bool = True
 
 

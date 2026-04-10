@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+{% block title %}Calcular Ciclos — ECS Mobility{% endblock %}
+{% block page_title %}Calcular Ciclos Reales{% endblock %}
+
+{% block content %}
+<div x-data="ciclosCalc()" class="space-y-6">
+
+  <!-- ── Buscador centrado ───────────────────────────────────────────── -->
+  <div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-6">
+      <div class="text-center mb-5">
+        <h2 class="text-lg font-bold text-brand-800">Analizar ciclos reales</h2>
+        <p class="text-xs text-gray-400 mt-1">Calcula piezas/hora por referencia desde los contadores de IZARO</p>
+      </div>
+      <div class="flex items-end justify-center gap-4 flex-wrap">
+        <div class="w-52">
+          <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Maquina</label>
+          <select x-model="selectedRecurso" class="w-full px-3 py-2.5 text-sm font-mono border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 bg-surface-50 focus:bg-white transition-colors">
+            <option value="">Seleccionar...</option>
+            {% for r in recursos %}
+            <option value="{{ r.nombre }}">{{ r.nombre }} ({{ r.seccion }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="w-36">
+          <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Periodo</label>
+          <select x-model.number="dias" class="w-full px-3 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 bg-surface-50 focus:bg-white transition-colors">
+            <option value="7">7 dias</option>
+            <option value="14">14 dias</option>
+            <option value="30">30 dias</option>
+            <option value="60">60 dias</option>
+            <option value="90">90 dias</option>
+            <option value="180">6 meses</option>
+            <option value="365">1 ano</option>
+          </select>
+        </div>
+        <button @click="calcular()" class="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-40"
+                :class="selectedRecurso ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-surface-200 text-gray-400 cursor-not-allowed'"
+                :disabled="!selectedRecurso || loading">
+          <span x-show="loading" class="spinner border-white w-4 h-4 mr-1"></span>
+          <svg x-show="!loading" class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <span x-text="loading ? 'Analizando...' : 'Analizar'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Error ───────────────────────────────────────────────────────── -->
+  <div x-show="error" x-transition class="max-w-2xl mx-auto bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700" x-text="error"></div>
+
+  <!-- ── Header resultado + acciones ─────────────────────────────────── -->
+  <div x-show="result?.referencias?.length > 0" x-transition class="flex items-center justify-between">
+    <div>
+      <h3 class="font-bold text-gray-800">
+        <span class="font-mono text-brand-800" x-text="result?.recurso"></span>
+        <span class="text-gray-400 font-normal text-sm" x-text="'— ' + result?.referencias?.length + ' referencias, ' + totalMuestras().toLocaleString('es-ES') + ' muestras'"></span>
+      </h3>
+    </div>
+    <div class="flex items-center gap-2">
+      <button @click="exportCSV()" class="btn-ghost btn-sm" title="Exportar CSV">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Exportar
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Chart: piezas/hora por referencia ────────────────────────────── -->
+  <div x-show="result?.referencias?.length > 0" x-transition class="bg-white rounded-xl border border-surface-200 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold text-gray-700">Piezas/hora por referencia</h3>
+      <div class="text-[10px] text-gray-400" x-text="'Ultimos ' + result?.dias + ' dias'"></div>
+    </div>
+    <div style="position:relative; height:280px;">
+      <canvas id="chartRefs"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Tabla interactiva ───────────────────────────────────────────── -->
+  <div x-show="result?.referencias?.length > 0" x-transition>
+    <div class="flex items-center gap-2 mb-3">
+      <h3 class="text-xs font-bold uppercase tracking-widest text-gray-500">Detalle por referencia</h3>
+      <div class="flex-1 h-px bg-surface-200"></div>
+      <span class="text-[10px] text-gray-400">Click para expandir</span>
+    </div>
+    <div class="space-y-2">
+      <template x-for="(r, idx) in result.referencias" :key="r.referencia">
+        <div class="bg-white rounded-xl border border-surface-200 overflow-hidden transition-shadow"
+             :class="expanded === idx ? 'shadow-lg ring-1 ring-brand-200' : 'shadow-sm hover:shadow-md'">
+
+          <!-- Row principal -->
+          <div @click="toggleExpand(idx)" class="flex items-center gap-4 px-5 py-3.5 cursor-pointer hover:bg-surface-50/50 transition-colors">
+            <svg class="w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform" :class="expanded === idx && 'rotate-90'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+
+            <!-- Referencia -->
+            <div class="w-28 shrink-0">
+              <div class="font-mono font-bold text-brand-800" x-text="r.referencia"></div>
+            </div>
+
+            <!-- Calculado -->
+            <div class="flex items-baseline gap-1">
+              <span class="font-mono font-bold text-xl text-brand-700" x-text="r.piezas_hora"></span>
+              <span class="text-[10px] text-gray-400">pzas/h</span>
+              <span class="text-xs text-gray-300 ml-1" x-text="'(' + r.ciclo_seg + 's)'"></span>
+            </div>
+
+            <!-- Guardado (si existe) -->
+            <div x-show="r._saved !== null" class="flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-lg bg-green-50 border border-green-200">
+              <svg class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              <span class="text-xs font-mono font-semibold text-green-700" x-text="r._saved"></span>
+              <span class="text-[10px] text-green-500">guardado</span>
+            </div>
+
+            <div class="flex-1"></div>
+
+            <!-- Confianza -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <div class="w-10 h-1.5 rounded-full bg-surface-100 overflow-hidden">
+                <div class="h-full rounded-full transition-all"
+                     :class="r.confianza >= 70 ? 'bg-green-500' : r.confianza >= 40 ? 'bg-amber-400' : 'bg-red-400'"
+                     :style="'width:' + r.confianza + '%'"></div>
+              </div>
+              <span class="text-[10px] font-mono w-8 text-right" :class="r.confianza >= 70 ? 'text-green-600' : r.confianza >= 40 ? 'text-amber-600' : 'text-red-500'"
+                    x-text="r.confianza + '%'"></span>
+            </div>
+
+            <!-- Muestras -->
+            <div class="text-xs text-gray-400 w-20 text-right shrink-0">
+              <span x-text="r.n_muestras"></span> muestras
+            </div>
+
+            <!-- Boton guardar -->
+            <div class="shrink-0" @click.stop>
+              <button @click="openSaveDialog(r)"
+                      class="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                      :class="r._applied
+                        ? 'bg-green-100 text-green-700 ring-1 ring-green-200'
+                        : 'bg-brand-50 text-brand-600 hover:bg-brand-100'">
+                <span x-text="r._applied ? 'Actualizado' : (r._saved !== null ? 'Actualizar' : 'Guardar')"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Detalle expandido -->
+          <div x-show="expanded === idx" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+               class="border-t border-surface-100 bg-surface-50/30 p-5 space-y-5">
+
+            <!-- Badges metodo -->
+            <div class="flex items-center gap-4 flex-wrap">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-violet-100 text-violet-700">KDE Moda</span>
+                <span class="text-sm font-mono font-bold text-brand-800" x-text="r.ciclo_seg + 's → ' + r.piezas_hora + ' pzas/h'"></span>
+              </div>
+              <div class="flex items-center gap-2 text-gray-400">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-surface-100 text-gray-500">Mediana</span>
+                <span class="text-sm font-mono" x-text="r.mediana_seg + 's → ' + (r.mediana_seg > 0 ? Math.round(3600/r.mediana_seg*10)/10 : 0) + ' pzas/h'"></span>
+              </div>
+              <div x-show="r._saved !== null" class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-100 text-green-700">Guardado</span>
+                <span class="text-sm font-mono font-semibold text-green-700" x-text="r._saved + ' pzas/h'"></span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[10px] text-amber-600" x-show="r.n_descartados > 0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span x-text="r.n_descartados + ' outliers descartados (IQR)'"></span>
+              </div>
+            </div>
+
+            <!-- Graficos lado a lado -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div class="bg-white rounded-xl border border-surface-200 p-4">
+                <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Distribucion de ciclos</div>
+                <div x-show="r.histograma?.length > 1" style="position:relative; height:200px;">
+                  <canvas :id="'chartHist_' + idx"></canvas>
+                </div>
+                <div x-show="!r.histograma?.length || r.histograma?.length <= 1" class="text-center py-10 text-gray-300 text-xs">Datos insuficientes</div>
+              </div>
+              <div class="bg-white rounded-xl border border-surface-200 p-4">
+                <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Evolucion diaria</div>
+                <div x-show="r.por_dia?.length > 1" style="position:relative; height:200px;">
+                  <canvas :id="'chartDay_' + idx"></canvas>
+                </div>
+                <div x-show="!r.por_dia?.length || r.por_dia?.length <= 1" class="text-center py-10 text-gray-300 text-xs">Se necesitan al menos 2 dias</div>
+              </div>
+            </div>
+
+            <!-- Tabla diaria -->
+            <div x-show="r.por_dia?.length > 0">
+              <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Detalle por dia</div>
+              <div class="max-h-44 overflow-y-auto bg-white rounded-xl border border-surface-200">
+                <table class="w-full text-xs">
+                  <thead class="sticky top-0 bg-surface-50">
+                    <tr class="text-gray-400">
+                      <th class="text-left px-3 py-1.5 font-semibold">Fecha</th>
+                      <th class="text-right px-3 py-1.5 font-semibold">Ciclo</th>
+                      <th class="text-right px-3 py-1.5 font-semibold">Piezas/h</th>
+                      <th class="text-right px-3 py-1.5 font-semibold">Muestras</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="d in r.por_dia" :key="d.fecha">
+                      <tr class="border-t border-surface-100 hover:bg-surface-50">
+                        <td class="px-3 py-1.5 font-mono text-gray-600" x-text="d.fecha"></td>
+                        <td class="px-3 py-1.5 text-right font-mono" x-text="d.ciclo_seg + 's'"></td>
+                        <td class="px-3 py-1.5 text-right font-mono font-semibold" x-text="d.piezas_hora"></td>
+                        <td class="px-3 py-1.5 text-right text-gray-400" x-text="d.n_muestras"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── Empty / Initial ─────────────────────────────────────────────── -->
+  <div x-show="result && result?.referencias?.length === 0" x-transition class="text-center py-16 text-gray-400">
+    <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    <p class="text-sm font-medium">No se encontraron datos de contadores</p>
+    <p class="text-xs mt-1">Verifica que la maquina tiene contadores configurados en IZARO</p>
+  </div>
+  <div x-show="!result && !loading && !error" class="text-center py-12 text-gray-300">
+    <svg class="w-14 h-14 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+    <p class="text-sm">Selecciona una maquina y pulsa <strong>Analizar</strong></p>
+  </div>
+
+  <!-- ── Modal guardar: elegir valor ─────────────────────────────────── -->
+  <div x-show="saveDialog" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+       class="fixed inset-0 z-50 flex items-center justify-center" @keydown.escape.window="saveDialog = null">
+    <div class="absolute inset-0 bg-black/20 backdrop-blur-sm" @click="saveDialog = null"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm"
+         x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+      <h3 class="font-bold text-gray-800 mb-1">Guardar piezas/hora</h3>
+      <p class="text-xs text-gray-400 mb-4">
+        <span class="font-mono text-brand-700" x-text="saveDialog?.referencia"></span>
+        en <span class="font-mono" x-text="selectedRecurso"></span>
+      </p>
+
+      <div class="space-y-2.5">
+        <!-- Opcion: calculado -->
+        <label class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all"
+               :class="saveChoice === 'calc' ? 'border-brand-500 bg-brand-50' : 'border-surface-200 hover:border-surface-300'">
+          <input type="radio" x-model="saveChoice" value="calc" class="text-brand-600 focus:ring-brand-400">
+          <div class="flex-1">
+            <div class="text-sm font-semibold text-gray-800">Calculado (KDE)</div>
+            <div class="text-xs text-gray-400 mt-0.5">
+              <span class="font-mono font-bold text-brand-700" x-text="saveDialog?.piezas_hora"></span> pzas/h
+              <span class="text-gray-300 ml-1" x-text="'(' + saveDialog?.ciclo_seg + 's)'"></span>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-violet-100 text-violet-700">KDE</span>
+        </label>
+
+        <!-- Opcion: guardado actual (solo si existe) -->
+        <label x-show="saveDialog?._saved !== null"
+               class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all"
+               :class="saveChoice === 'saved' ? 'border-green-500 bg-green-50' : 'border-surface-200 hover:border-surface-300'">
+          <input type="radio" x-model="saveChoice" value="saved" class="text-green-600 focus:ring-green-400">
+          <div class="flex-1">
+            <div class="text-sm font-semibold text-gray-800">Mantener actual</div>
+            <div class="text-xs text-gray-400 mt-0.5">
+              <span class="font-mono font-bold text-green-700" x-text="saveDialog?._saved"></span> pzas/h
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700">Actual</span>
+        </label>
+
+        <!-- Opcion: personalizado -->
+        <label class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all"
+               :class="saveChoice === 'custom' ? 'border-amber-500 bg-amber-50' : 'border-surface-200 hover:border-surface-300'"
+               @click="saveChoice = 'custom'">
+          <input type="radio" x-model="saveChoice" value="custom" class="text-amber-600 focus:ring-amber-400">
+          <div class="flex-1">
+            <div class="text-sm font-semibold text-gray-800">Personalizado</div>
+            <div class="mt-1">
+              <input type="number" x-model.number="saveCustom" min="0" step="0.1"
+                     @focus="saveChoice = 'custom'"
+                     class="w-28 px-2.5 py-1.5 text-sm font-mono border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                     placeholder="pzas/h">
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-surface-100">
+        <button @click="saveDialog = null" class="btn-ghost btn-sm">Cancelar</button>
+        <button @click="confirmSave()" class="btn-primary btn-sm">Aplicar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function ciclosCalc() {
+  let _chartRefs = null;
+  let _chartDay = null;
+  let _chartHist = null;
+
+  return {
+    selectedRecurso: new URLSearchParams(location.search).get('m') || '',
+    dias: 30,
+    loading: false,
+    error: '',
+    result: null,
+    expanded: null,
+    savedCiclos: [],       // existing ciclos from DB
+    saveDialog: null,      // ref being saved
+    saveChoice: 'calc',
+    saveCustom: 0,
+
+    totalMuestras() {
+      return (this.result?.referencias || []).reduce((s, r) => s + r.n_muestras, 0);
+    },
+
+    // ── Main action ─────────────────────────────────────────────────
+    async calcular() {
+      if (!this.selectedRecurso) return;
+      this.loading = true;
+      this.error = '';
+      this.result = null;
+      this.expanded = null;
+      this.destroyCharts();
+
+      try {
+        // Fetch calculated + existing in parallel
+        const [calcRes, ciclosRes] = await Promise.all([
+          fetch(`/api/ciclos/calcular/${encodeURIComponent(this.selectedRecurso)}?dias=${this.dias}`),
+          fetch('/api/ciclos'),
+        ]);
+        if (!calcRes.ok) {
+          const err = await calcRes.json().catch(() => ({}));
+          throw new Error(err.detail || 'Error ' + calcRes.status);
+        }
+        const data = await calcRes.json();
+        const ciclosData = await ciclosRes.json();
+        this.savedCiclos = (ciclosData.rows || []).filter(c => c.maquina === this.selectedRecurso);
+
+        // Merge: add _saved and _savedId to each ref
+        data.referencias = (data.referencias || []).map(r => {
+          const saved = this.savedCiclos.find(c => c.referencia === r.referencia);
+          return {
+            ...r,
+            _applied: false,
+            _saved: saved ? saved.tiempo_ciclo : null,
+            _savedId: saved ? saved.id : null,
+          };
+        });
+        this.result = data;
+        this.$nextTick(() => this.renderRefChart());
+      } catch (err) {
+        this.error = err.message;
+      }
+      this.loading = false;
+    },
+
+    // ── Save dialog ─────────────────────────────────────────────────
+    openSaveDialog(ref) {
+      this.saveDialog = ref;
+      this.saveChoice = 'calc';
+      this.saveCustom = ref._saved !== null ? ref._saved : ref.piezas_hora;
+    },
+
+    async confirmSave() {
+      if (!this.saveDialog) return;
+      const ref = this.saveDialog;
+      let value;
+      if (this.saveChoice === 'calc') value = ref.piezas_hora;
+      else if (this.saveChoice === 'saved') value = ref._saved;
+      else value = this.saveCustom;
+
+      if (value === null || value === undefined || value <= 0) {
+        showToast('Valor no valido', 'error');
+        return;
+      }
+
+      const body = { maquina: this.selectedRecurso, referencia: ref.referencia, tiempo_ciclo: value };
+      try {
+        let res;
+        if (ref._savedId) {
+          res = await fetch(`/api/ciclos/row/${ref._savedId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+        } else {
+          res = await fetch('/api/ciclos/row', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+        }
+        if (res.ok) {
+          ref._applied = true;
+          ref._saved = value;
+          showToast(`${ref.referencia}: ${value} pzas/h`);
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast(err.detail || 'Error', 'error');
+        }
+      } catch { showToast('Error guardando', 'error'); }
+      this.saveDialog = null;
+    },
+
+    // ── Charts ──────────────────────────────────────────────────────
+    destroyCharts() {
+      if (_chartRefs) { _chartRefs.destroy(); _chartRefs = null; }
+      if (_chartDay) { _chartDay.destroy(); _chartDay = null; }
+      if (_chartHist) { _chartHist.destroy(); _chartHist = null; }
+    },
+
+    renderRefChart() {
+      if (_chartRefs) _chartRefs.destroy();
+      const refs = this.result?.referencias || [];
+      if (!refs.length) return;
+      const sorted = [...refs].sort((a, b) => b.piezas_hora - a.piezas_hora);
+      const canvas = document.getElementById('chartRefs');
+      if (!canvas) return;
+
+      const datasets = [{
+        label: 'Calculado',
+        data: sorted.map(r => r.piezas_hora),
+        backgroundColor: '#336dff66',
+        borderColor: '#336dff',
+        borderWidth: 1.5,
+        borderRadius: 6,
+        barPercentage: 0.6,
+      }];
+
+      // Add saved values as second dataset if any exist
+      if (sorted.some(r => r._saved !== null)) {
+        datasets.push({
+          label: 'Guardado',
+          data: sorted.map(r => r._saved),
+          backgroundColor: '#22c55e44',
+          borderColor: '#22c55e',
+          borderWidth: 1.5,
+          borderRadius: 6,
+          barPercentage: 0.6,
+        });
+      }
+
+      _chartRefs = new Chart(canvas, {
+        type: 'bar',
+        data: { labels: sorted.map(r => r.referencia), datasets },
+        options: {
+          indexAxis: refs.length > 8 ? 'y' : 'x',
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: datasets.length > 1, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const r = sorted[ctx.dataIndex];
+                  if (ctx.datasetIndex === 1) return `Guardado: ${r._saved} pzas/h`;
+                  return `Calculado: ${r.piezas_hora} pzas/h  (${r.ciclo_seg}s, ${r.n_muestras} muestras)`;
+                }
+              }
+            },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { family: 'monospace', size: 11 } } },
+            y: { grid: { color: '#f1f5f9' }, ticks: { font: { family: 'monospace', size: 11 } } },
+          },
+        },
+      });
+    },
+
+    toggleExpand(idx) {
+      if (this.expanded === idx) { this.expanded = null; return; }
+      this.expanded = idx;
+      this.$nextTick(() => { this.renderDayChart(idx); this.renderHistChart(idx); });
+    },
+
+    renderDayChart(idx) {
+      if (_chartDay) _chartDay.destroy();
+      const ref = this.result?.referencias?.[idx];
+      if (!ref?.por_dia?.length || ref.por_dia.length <= 1) return;
+      const canvas = document.getElementById('chartDay_' + idx);
+      if (!canvas) return;
+      const days = ref.por_dia;
+
+      const datasets = [{
+        label: 'Piezas/hora',
+        data: days.map(d => d.piezas_hora),
+        borderColor: '#336dff', backgroundColor: '#336dff20',
+        borderWidth: 2.5, tension: 0.3, fill: true,
+        pointRadius: 4, pointHoverRadius: 7,
+        pointBackgroundColor: '#fff', pointBorderColor: '#336dff', pointBorderWidth: 2,
+      }, {
+        label: 'KDE',
+        data: days.map(() => ref.piezas_hora),
+        borderColor: '#8b5cf6', borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, fill: false,
+      }];
+
+      if (ref._saved !== null) {
+        datasets.push({
+          label: 'Guardado',
+          data: days.map(() => ref._saved),
+          borderColor: '#22c55e', borderWidth: 1.5, borderDash: [3, 3], pointRadius: 0, fill: false,
+        });
+      }
+
+      _chartDay = new Chart(canvas, {
+        type: 'line', data: {
+          labels: days.map(d => { const dt = new Date(d.fecha + 'T00:00:00'); return dt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }).replace('.', ''); }),
+          datasets,
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 10 } } } },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { grid: { color: '#f1f5f9' }, ticks: { font: { family: 'monospace', size: 11 }, callback: v => v + '/h' } },
+          },
+        },
+      });
+    },
+
+    renderHistChart(idx) {
+      if (_chartHist) _chartHist.destroy();
+      const ref = this.result?.referencias?.[idx];
+      if (!ref?.histograma?.length || ref.histograma.length <= 1) return;
+      const canvas = document.getElementById('chartHist_' + idx);
+      if (!canvas) return;
+      const data = ref.histograma;
+      const modeVal = ref.ciclo_seg;
+      const binW = data.length > 1 ? Math.abs(data[1].x - data[0].x) : 5;
+
+      _chartHist = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.map(d => d.x + 's'),
+          datasets: [{
+            data: data.map(d => d.y),
+            backgroundColor: data.map(d => Math.abs(d.x - modeVal) < binW ? '#8b5cf688' : '#336dff33'),
+            borderColor: data.map(d => Math.abs(d.x - modeVal) < binW ? '#8b5cf6' : '#336dff66'),
+            borderWidth: 1, borderRadius: 3,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.raw + ' muestras' } } },
+          scales: {
+            x: { grid: { display: false }, title: { display: true, text: 'seg/pieza', font: { size: 10 }, color: '#9ca3af' }, ticks: { font: { size: 9, family: 'monospace' }, maxRotation: 45 } },
+            y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+          },
+        },
+      });
+    },
+
+    // ── Export ───────────────────────────────────────────────────────
+    exportCSV() {
+      if (!this.result?.referencias?.length) return;
+      const rows = [['maquina', 'referencia', 'calculado_pzas_h', 'guardado_pzas_h', 'ciclo_seg', 'mediana_seg', 'muestras', 'descartados', 'confianza', 'fecha_min', 'fecha_max']];
+      for (const r of this.result.referencias) {
+        rows.push([this.result.recurso, r.referencia, r.piezas_hora, r._saved ?? '', r.ciclo_seg, r.mediana_seg, r.n_muestras, r.n_descartados || 0, r.confianza, r.fecha_min, r.fecha_max]);
+      }
+      const csv = rows.map(r => r.join(';')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `ciclos_${this.result.recurso}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click(); URL.revokeObjectURL(url);
+      showToast('CSV exportado');
+    },
+  };
+}
+</script>
+{% endblock %}
