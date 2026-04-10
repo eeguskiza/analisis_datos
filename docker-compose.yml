@@ -3,16 +3,16 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: oee
-      POSTGRES_PASSWORD: oee
-      POSTGRES_DB: oee_planta
+      POSTGRES_USER: ${OEE_PG_USER:-oee}
+      POSTGRES_PASSWORD: ${OEE_PG_PASSWORD:-oee}
+      POSTGRES_DB: ${OEE_PG_DB:-oee_planta}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U oee -d oee_planta"]
+      test: ["CMD-SHELL", "pg_isready -U ${OEE_PG_USER:-oee} -d ${OEE_PG_DB:-oee_planta}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -30,7 +30,7 @@ services:
     environment:
       - OEE_DATA_DIR=/app/data
       - OEE_INFORMES_DIR=/app/informes
-      - OEE_DATABASE_URL=postgresql://oee:oee@db:5432/oee_planta
+      - OEE_DATABASE_URL=postgresql://${OEE_PG_USER:-oee}:${OEE_PG_PASSWORD:-oee}@db:5432/${OEE_PG_DB:-oee_planta}
     depends_on:
       db:
         condition: service_healthy

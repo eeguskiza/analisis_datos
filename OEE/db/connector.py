@@ -82,10 +82,24 @@ RESOURCE_SECTION_MAP: Dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 def load_config() -> dict:
+    import os
+    cfg = DEFAULT_CONFIG.copy()
     if CONFIG_FILE.exists():
         stored = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        return {**DEFAULT_CONFIG, **stored}
-    return DEFAULT_CONFIG.copy()
+        cfg.update(stored)
+    # Variables de entorno sobreescriben JSON (credenciales desde .env)
+    env_map = {
+        "OEE_DB_SERVER": "server",
+        "OEE_DB_PORT": "port",
+        "OEE_DB_USER": "user",
+        "OEE_DB_PASSWORD": "password",
+        "OEE_IZARO_DB": "database",
+    }
+    for env_key, cfg_key in env_map.items():
+        val = os.environ.get(env_key)
+        if val:
+            cfg[cfg_key] = val
+    return cfg
 
 
 def save_config(cfg: dict) -> None:

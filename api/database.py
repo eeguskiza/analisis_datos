@@ -20,13 +20,13 @@ def _mssql_creator():
     """Crea conexion pyodbc directa (más fiable que URL de SQLAlchemy)."""
     import pyodbc
     return pyodbc.connect(
-        "DRIVER={ODBC Driver 18 for SQL Server};"
-        "SERVER=192.168.0.4,1433;"
-        "DATABASE=ecs_mobility;"
-        "UID=sa;"
-        "PWD=AdmS1552+;"
-        "TrustServerCertificate=yes;"
-        "Encrypt=yes;",
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={settings.db_server},{settings.db_port};"
+        f"DATABASE={settings.db_name};"
+        f"UID={settings.db_user};"
+        f"PWD={settings.db_password};"
+        f"TrustServerCertificate=yes;"
+        f"Encrypt=yes;",
         timeout=10,
     )
 

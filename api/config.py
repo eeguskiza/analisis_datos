@@ -17,13 +17,35 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
-    database_url: str = (
-        "mssql+pyodbc://sa:AdmS1552%2B@192.168.0.4:1433/ecs_mobility"
-        "?driver=ODBC+Driver+18+for+SQL+Server"
-        "&TrustServerCertificate=yes"
-        "&Encrypt=yes"
-    )
-    # Fallback local: f"sqlite:///{_PROJECT_ROOT / 'data' / 'oee.db'}"
+
+    # SQL Server — ecs_mobility (app)
+    db_server: str = "192.168.0.4"
+    db_port: int = 1433
+    db_name: str = "ecs_mobility"
+    db_user: str = ""
+    db_password: str = ""
+
+    # IZARO (MES)
+    izaro_db: str = "dbizaro"
+
+    # PostgreSQL (Docker)
+    pg_user: str = "oee"
+    pg_password: str = "oee"
+    pg_db: str = "oee_planta"
+
+    # database_url se construye dinamicamente o se sobreescribe via env
+    database_url: str = ""
+
+    @property
+    def effective_database_url(self) -> str:
+        """URL para SQLAlchemy. Si database_url esta definida, la usa. Si no, construye desde campos."""
+        if self.database_url:
+            return self.database_url
+        pwd = self.db_password.replace("+", "%2B")
+        return (
+            f"mssql+pyodbc://{self.db_user}:{pwd}@{self.db_server}:{self.db_port}/{self.db_name}"
+            "?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Encrypt=yes"
+        )
 
     @property
     def logo_path(self) -> Path | None:

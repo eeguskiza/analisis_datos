@@ -20,7 +20,20 @@ from OEE.db.connector import (
 
 
 def get_config() -> dict:
-    return load_config()
+    from api.config import settings
+    cfg = load_config()
+    # Inyectar credenciales desde settings (.env) si no vienen del JSON
+    if not cfg.get("server") or cfg["server"] == "":
+        cfg["server"] = settings.db_server
+    if not cfg.get("port") or cfg["port"] == "":
+        cfg["port"] = str(settings.db_port)
+    if not cfg.get("user") or cfg["user"] == "":
+        cfg["user"] = settings.db_user
+    if not cfg.get("password") or cfg["password"] == "":
+        cfg["password"] = settings.db_password
+    if not cfg.get("database") or cfg["database"] == "":
+        cfg["database"] = settings.izaro_db
+    return cfg
 
 
 def update_config(cfg: dict) -> None:
