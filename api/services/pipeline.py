@@ -262,7 +262,7 @@ def run_pipeline(
             _log(msg)
             yield msg
             _save_metrics_to_db(db, ejec_id)
-            msg = "Metricas guardadas en metricas_oee, referencias_stats, incidencias_resumen."
+            msg = "Metricas guardadas en oee.metricas, oee.referencias, oee.incidencias."
             _log(msg)
             yield msg
         except Exception as exc:

@@ -482,6 +482,13 @@ def leer_maquina(csv_path: Path, ciclos: Dict[str, Dict[str, float]]) -> Machine
 
         total_seg_hours = sum(h for _, _, h in segmentos) or 1.0
 
+        # Evitar doble descuento cuando incidencias solapan entre si
+        total_inc = tiempo_indisp_solapado + tiempo_paros_solapado
+        if total_inc > reg.horas and reg.horas > 0:
+            scale = reg.horas / total_inc
+            tiempo_indisp_solapado *= scale
+            tiempo_paros_solapado *= scale
+
         # Factores de reducción
         factor_indisp = tiempo_indisp_solapado / reg.horas if reg.horas > 0 else 0.0
         factor_paros = tiempo_paros_solapado / reg.horas if reg.horas > 0 else 0.0

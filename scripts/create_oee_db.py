@@ -1,19 +1,58 @@
-"""Crea la base de datos ecs_mobility y sus tablas en SQL Server."""
+"""Crea la base de datos ecs_mobility con esquemas cfg/oee/luk4."""
+import sys
+from pathlib import Path
+
 import pyodbc
 
-CONN_STR = (
-    "DRIVER={{ODBC Driver 18 for SQL Server}};"
-    "SERVER=192.168.0.4,1433;"
-    "DATABASE={db};"
-    "UID=sa;"
-    "PWD=AdmS1552+;"
-    "TrustServerCertificate=yes;"
-    "Encrypt=yes;"
-)
+# Cargar configuracion del .env (misma que usa la app)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from api.config import settings
+
+def _conn_str(db: str) -> str:
+    return (
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"SERVER={settings.db_server},{settings.db_port};"
+        f"DATABASE={db};"
+        f"UID={settings.db_user};"
+        f"PWD={settings.db_password};"
+        "TrustServerCertificate=yes;"
+        "Encrypt=yes;"
+    )
+
+SCHEMAS = ["cfg", "oee", "luk4"]
 
 TABLES = [
-    ("ejecuciones", """
-        CREATE TABLE ejecuciones (
+    # ── cfg ──────────────────────────────────────────────────────────
+    ("cfg.ciclos", """
+        CREATE TABLE cfg.ciclos (
+            id              INT IDENTITY(1,1) PRIMARY KEY,
+            maquina         NVARCHAR(50) NOT NULL,
+            referencia      NVARCHAR(50) NOT NULL,
+            tiempo_ciclo    FLOAT DEFAULT 0,
+            updated_at      DATETIME2 DEFAULT GETDATE(),
+            CONSTRAINT uq_ciclos UNIQUE (maquina, referencia)
+        )
+    """),
+    ("cfg.recursos", """
+        CREATE TABLE cfg.recursos (
+            id              INT IDENTITY(1,1) PRIMARY KEY,
+            centro_trabajo  INT NOT NULL,
+            nombre          NVARCHAR(50) NOT NULL UNIQUE,
+            seccion         NVARCHAR(50) DEFAULT 'GENERAL',
+            activo          BIT DEFAULT 1
+        )
+    """),
+    ("cfg.contactos", """
+        CREATE TABLE cfg.contactos (
+            id              INT IDENTITY(1,1) PRIMARY KEY,
+            nombre          NVARCHAR(100) NOT NULL,
+            email           NVARCHAR(200) NOT NULL UNIQUE
+        )
+    """),
+
+    # ── oee (ejecuciones primero por FKs) ────────────────────────────
+    ("oee.ejecuciones", """
+        CREATE TABLE oee.ejecuciones (
             id              INT IDENTITY(1,1) PRIMARY KEY,
             fecha_inicio    DATE NOT NULL,
             fecha_fin       DATE NOT NULL,
@@ -25,10 +64,10 @@ TABLES = [
             created_at      DATETIME2 DEFAULT GETDATE()
         )
     """),
-    ("datos_produccion", """
-        CREATE TABLE datos_produccion (
+    ("oee.datos", """
+        CREATE TABLE oee.datos (
             id              INT IDENTITY(1,1) PRIMARY KEY,
-            ejecucion_id    INT NOT NULL REFERENCES ejecuciones(id),
+            ejecucion_id    INT NOT NULL REFERENCES oee.ejecuciones(id),
             recurso         NVARCHAR(50),
             seccion         NVARCHAR(50),
             fecha           DATE,
@@ -43,10 +82,10 @@ TABLES = [
             referencia      NVARCHAR(50)
         )
     """),
-    ("metricas_oee", """
-        CREATE TABLE metricas_oee (
+    ("oee.metricas", """
+        CREATE TABLE oee.metricas (
             id                      INT IDENTITY(1,1) PRIMARY KEY,
-            ejecucion_id            INT NOT NULL REFERENCES ejecuciones(id),
+            ejecucion_id            INT NOT NULL REFERENCES oee.ejecuciones(id),
             seccion                 NVARCHAR(50),
             recurso                 NVARCHAR(50),
             fecha                   DATE,
@@ -69,19 +108,10 @@ TABLES = [
             oee_pct                 FLOAT DEFAULT 0
         )
     """),
-    ("ciclos", """
-        CREATE TABLE ciclos (
+    ("oee.referencias", """
+        CREATE TABLE oee.referencias (
             id              INT IDENTITY(1,1) PRIMARY KEY,
-            maquina         NVARCHAR(50) NOT NULL,
-            referencia      NVARCHAR(50) NOT NULL,
-            tiempo_ciclo    FLOAT DEFAULT 0,
-            CONSTRAINT uq_ciclos UNIQUE (maquina, referencia)
-        )
-    """),
-    ("referencias_stats", """
-        CREATE TABLE referencias_stats (
-            id              INT IDENTITY(1,1) PRIMARY KEY,
-            ejecucion_id    INT NOT NULL REFERENCES ejecuciones(id),
+            ejecucion_id    INT NOT NULL REFERENCES oee.ejecuciones(id),
             recurso         NVARCHAR(50),
             referencia      NVARCHAR(50),
             ciclo_ideal     FLOAT,
@@ -90,32 +120,96 @@ TABLES = [
             horas           FLOAT DEFAULT 0
         )
     """),
-    ("incidencias_resumen", """
-        CREATE TABLE incidencias_resumen (
+    ("oee.incidencias", """
+        CREATE TABLE oee.incidencias (
             id              INT IDENTITY(1,1) PRIMARY KEY,
-            ejecucion_id    INT NOT NULL REFERENCES ejecuciones(id),
+            ejecucion_id    INT NOT NULL REFERENCES oee.ejecuciones(id),
             recurso         NVARCHAR(50),
             nombre          NVARCHAR(200),
             tipo            NVARCHAR(20),
             horas           FLOAT DEFAULT 0
         )
     """),
+    ("oee.informes", """
+        CREATE TABLE oee.informes (
+            id              INT IDENTITY(1,1) PRIMARY KEY,
+            ejecucion_id    INT,
+            fecha           NVARCHAR(10) NOT NULL,
+            seccion         NVARCHAR(50) NOT NULL,
+            maquina         NVARCHAR(50) DEFAULT '',
+            modulo          NVARCHAR(50) DEFAULT '',
+            pdf_path        NVARCHAR(500) NOT NULL,
+            created_at      DATETIME2 DEFAULT GETDATE()
+        )
+    """),
+
+    # ── luk4 ─────────────────────────────────────────────────────────
+    ("luk4.estado", """
+        CREATE TABLE luk4.estado (
+            idcelula_estado INT IDENTITY(1,1) PRIMARY KEY,
+            timestamp       DATETIME2,
+            estado_global   INT DEFAULT 0,
+            codigo_error    INT DEFAULT 0,
+            porcentaje_manual FLOAT DEFAULT 0,
+            porcentaje_auto   FLOAT DEFAULT 0,
+            porcentaje_error  FLOAT DEFAULT 0
+        )
+    """),
+    ("luk4.tiempos_ciclo", """
+        CREATE TABLE luk4.tiempos_ciclo (
+            idtiempos_ciclo INT IDENTITY(1,1) PRIMARY KEY,
+            timestamp       DATETIME2,
+            tiempo_ciclo_total    FLOAT,
+            tiempo_ciclo_temple   FLOAT,
+            tiempo_ciclo_revenido FLOAT,
+            tiempo_ciclo_torno    FLOAT,
+            contador_piezas_buenas  INT,
+            contador_piezas_malas   INT,
+            contador_piezas_totales INT
+        )
+    """),
+    ("luk4.alarmas", """
+        CREATE TABLE luk4.alarmas (
+            codigo      INT PRIMARY KEY,
+            componente  NVARCHAR(100),
+            mensaje     NVARCHAR(500)
+        )
+    """),
+    ("luk4.plano_zonas", """
+        CREATE TABLE luk4.plano_zonas (
+            id          NVARCHAR(50) PRIMARY KEY,
+            label       NVARCHAR(100),
+            left_pct    FLOAT,
+            top_pct     FLOAT,
+            width_pct   FLOAT,
+            height_pct  FLOAT,
+            source      NVARCHAR(20) DEFAULT 'none'
+        )
+    """),
 ]
 
 INDEXES = [
-    "CREATE INDEX ix_datos_ejec ON datos_produccion(ejecucion_id)",
-    "CREATE INDEX ix_datos_recurso ON datos_produccion(recurso, fecha)",
-    "CREATE INDEX ix_metricas_ejec ON metricas_oee(ejecucion_id)",
-    "CREATE INDEX ix_metricas_recurso ON metricas_oee(recurso, fecha)",
-    "CREATE INDEX ix_metricas_seccion ON metricas_oee(seccion)",
-    "CREATE INDEX ix_refs_ejec ON referencias_stats(ejecucion_id)",
-    "CREATE INDEX ix_inc_ejec ON incidencias_resumen(ejecucion_id)",
+    "CREATE INDEX ix_datos_ejec ON oee.datos(ejecucion_id)",
+    "CREATE INDEX ix_datos_recurso ON oee.datos(recurso, fecha)",
+    "CREATE INDEX ix_metricas_ejec ON oee.metricas(ejecucion_id)",
+    "CREATE INDEX ix_metricas_recurso ON oee.metricas(recurso, fecha)",
+    "CREATE INDEX ix_metricas_seccion ON oee.metricas(seccion)",
+    "CREATE INDEX ix_refs_ejec ON oee.referencias(ejecucion_id)",
+    "CREATE INDEX ix_inc_ejec ON oee.incidencias(ejecucion_id)",
+]
+
+# Sinonimos en dbo para tunel IoT (escriben con los nombres viejos)
+SYNONYMS = [
+    ("luk4_estado", "luk4.estado"),
+    ("luk4_tiempos_ciclo", "luk4.tiempos_ciclo"),
+    ("alarmas_luk4", "luk4.alarmas"),
+    ("plano_zonas", "luk4.plano_zonas"),
 ]
 
 
 def main():
     # Crear BD
-    conn = pyodbc.connect(CONN_STR.format(db="master"), timeout=10, autocommit=True)
+    conn = pyodbc.connect(_conn_str("master"), timeout=10, autocommit=True)
     cursor = conn.cursor()
     cursor.execute(
         "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'ecs_mobility') "
@@ -124,37 +218,47 @@ def main():
     print("Base de datos ecs_mobility: OK")
     conn.close()
 
-    # Crear tablas
-    conn = pyodbc.connect(CONN_STR.format(db="ecs_mobility"), timeout=10, autocommit=True)
+    # Crear esquemas + tablas
+    conn = pyodbc.connect(_conn_str(settings.db_name), timeout=10, autocommit=True)
     cursor = conn.cursor()
 
-    for name, ddl in TABLES:
+    for schema in SCHEMAS:
         cursor.execute(
-            f"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '{name}') "
-            + ddl
+            f"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = '{schema}') "
+            f"EXEC('CREATE SCHEMA {schema}')"
         )
-        print(f"  Tabla {name}: OK")
+        print(f"  Esquema {schema}: OK")
+
+    for full_name, ddl in TABLES:
+        cursor.execute(
+            f"IF OBJECT_ID('{full_name}', 'U') IS NULL " + ddl
+        )
+        print(f"  Tabla {full_name}: OK")
 
     for idx_sql in INDEXES:
         idx_name = idx_sql.split("INDEX ")[1].split(" ON")[0]
         cursor.execute(
-            f"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = '{idx_name}') "
+            f"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '{idx_name}') "
             + idx_sql
         )
     print("  Indices: OK")
 
+    for syn_name, target in SYNONYMS:
+        cursor.execute(
+            f"IF NOT EXISTS (SELECT 1 FROM sys.synonyms WHERE name = '{syn_name}' "
+            f"AND schema_id = SCHEMA_ID('dbo')) "
+            f"CREATE SYNONYM dbo.{syn_name} FOR {target}"
+        )
+    print("  Sinonimos IoT: OK")
+
     # Verificar
     print("\n=== TABLAS EN ecs_mobility ===")
-    cursor.execute("SELECT name FROM sys.tables ORDER BY name")
-    for row in cursor.fetchall():
-        print(f"  {row[0]}")
-    conn.close()
-
-    # Listar BDs
-    conn = pyodbc.connect(CONN_STR.format(db="master"), timeout=10)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sys.databases ORDER BY name")
-    print("\n=== TODAS LAS BBDD ===")
+    cursor.execute("""
+        SELECT s.name + '.' + t.name
+        FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE s.name IN ('cfg', 'oee', 'luk4', 'calidad')
+        ORDER BY s.name, t.name
+    """)
     for row in cursor.fetchall():
         print(f"  {row[0]}")
     conn.close()

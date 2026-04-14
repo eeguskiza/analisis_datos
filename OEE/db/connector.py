@@ -465,7 +465,6 @@ def calcular_ciclos_reales(
         contadores = cursor.fetchall()
 
         if not contadores:
-            conn.close()
             return []
 
         # 2) Referencia activa por CT+fecha+hora (produccion en fmesdtc)

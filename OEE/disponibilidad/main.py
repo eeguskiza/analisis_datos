@@ -310,6 +310,13 @@ def leer_metricas(csv_path: Path) -> DisponibilidadMetrics:
             for _, _, _, s_i, e_i in inc_paros_recs
             if s_i and e_i
         )
+        # Evitar doble descuento cuando incidencias solapan entre si
+        total_inc = indisp + paros
+        if total_inc > hours_r and hours_r > 0:
+            scale = hours_r / total_inc
+            indisp *= scale
+            paros *= scale
+
         total_indisponibilidad += indisp
         total_paros_overlap += paros
 

@@ -58,11 +58,13 @@ class Ciclo(Base):
 
     __table_args__ = (
         UniqueConstraint("maquina", "referencia", name="uq_ciclos"),
+        {"schema": "cfg"},
     )
 
 
 class Recurso(Base):
     __tablename__ = "recursos"
+    __table_args__ = {"schema": "cfg"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     centro_trabajo = Column(Integer, nullable=False)
@@ -73,6 +75,7 @@ class Recurso(Base):
 
 class Ejecucion(Base):
     __tablename__ = "ejecuciones"
+    __table_args__ = {"schema": "oee"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     fecha_inicio = Column(String(10), nullable=False)
@@ -86,7 +89,8 @@ class Ejecucion(Base):
 
 
 class InformeMeta(Base):
-    __tablename__ = "informes_meta"
+    __tablename__ = "informes"
+    __table_args__ = {"schema": "oee"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     ejecucion_id = Column(Integer, nullable=True)
@@ -100,10 +104,11 @@ class InformeMeta(Base):
 
 class DatosProduccion(Base):
     """Datos extraidos de IZARO, almacenados por extraccion."""
-    __tablename__ = "datos_produccion"
+    __tablename__ = "datos"
+    __table_args__ = {"schema": "oee"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id"), nullable=False)
+    ejecucion_id = Column(Integer, ForeignKey("oee.ejecuciones.id"), nullable=False)
     recurso = Column(String(50), nullable=False)
     seccion = Column(String(50), nullable=False)
     fecha = Column(Date, nullable=False)
@@ -121,6 +126,7 @@ class DatosProduccion(Base):
 class Contacto(Base):
     """Lista de contactos para envio de informes."""
     __tablename__ = "contactos"
+    __table_args__ = {"schema": "cfg"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), nullable=False)
@@ -131,10 +137,11 @@ class Contacto(Base):
 
 class MetricaOEE(Base):
     """Metricas OEE calculadas — tabla principal para Power BI."""
-    __tablename__ = "metricas_oee"
+    __tablename__ = "metricas"
+    __table_args__ = {"schema": "oee"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id"), nullable=False)
+    ejecucion_id = Column(Integer, ForeignKey("oee.ejecuciones.id"), nullable=False)
     seccion = Column(String(50))
     recurso = Column(String(50))
     fecha = Column(Date)
@@ -158,10 +165,11 @@ class MetricaOEE(Base):
 
 
 class ReferenciaStats(Base):
-    __tablename__ = "referencias_stats"
+    __tablename__ = "referencias"
+    __table_args__ = {"schema": "oee"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id"), nullable=False)
+    ejecucion_id = Column(Integer, ForeignKey("oee.ejecuciones.id"), nullable=False)
     recurso = Column(String(50))
     referencia = Column(String(50))
     ciclo_ideal = Column(Float)
@@ -171,10 +179,11 @@ class ReferenciaStats(Base):
 
 
 class IncidenciaResumen(Base):
-    __tablename__ = "incidencias_resumen"
+    __tablename__ = "incidencias"
+    __table_args__ = {"schema": "oee"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("ejecuciones.id"), nullable=False)
+    ejecucion_id = Column(Integer, ForeignKey("oee.ejecuciones.id"), nullable=False)
     recurso = Column(String(50))
     nombre = Column(String(200))
     tipo = Column(String(20))

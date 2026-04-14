@@ -154,6 +154,13 @@ def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, floa
             segmentos = [(turno_def, day_def, reg["horas"])]
 
         total_seg_h = sum(h for _, _, h in segmentos) or 1.0
+        # Evitar doble descuento cuando incidencias solapan entre si:
+        # la suma de indisponibilidad + paros no puede superar la duracion del registro
+        total_inc = t_indisp + t_paros
+        if total_inc > reg["horas"] and reg["horas"] > 0:
+            scale = reg["horas"] / total_inc
+            t_indisp *= scale
+            t_paros *= scale
         f_indisp = t_indisp / reg["horas"] if reg["horas"] > 0 else 0.0
         f_paros = t_paros / reg["horas"] if reg["horas"] > 0 else 0.0
 
@@ -179,17 +186,15 @@ def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, floa
 
             # Ref stats
             if reg["proceso"] == "produccion" and (pzas > 0 or h_bruto > 0):
-                h_neto = reg["tiempo"] * peso
                 entry = ref_stats.setdefault(reg["referencia"], {
                     "ciclo_ideal": ciclo if ciclo and ciclo > 0 else None,
                     "dias": {},
                 })
                 if ciclo and ciclo > 0:
                     entry["ciclo_ideal"] = ciclo
-                d = entry["dias"].setdefault(day, {"piezas": 0.0, "horas_brutas": 0.0, "horas_netas": 0.0})
+                d = entry["dias"].setdefault(day, {"piezas": 0.0, "horas_brutas": 0.0})
                 d["piezas"] += pzas
                 d["horas_brutas"] += h_bruto
-                d["horas_netas"] += h_neto
 
     # Totales de la maquina = suma de todos los turnos
     total_raw = _sum_raw(list(shift_raw.values()))
@@ -213,12 +218,8 @@ def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, floa
     for ref, data in sorted(ref_stats.items()):
         total_pzas = sum(d["piezas"] for d in data["dias"].values())
         total_h = sum(d["horas_brutas"] for d in data["dias"].values())
-        # Ciclo real = piezas / (horas - paros solapados con esa ref)
-        # Simplificacion: usar horas_netas si disponible, sino horas_brutas
-        total_h_neto = sum(d["horas_netas"] for d in data["dias"].values())
-        ciclo_real = total_pzas / total_h_neto if total_h_neto > 0 else (
-            total_pzas / total_h if total_h > 0 else 0
-        )
+        # Ciclo real = piezas / horas_brutas (misma base de tiempo que el OEE)
+        ciclo_real = total_pzas / total_h if total_h > 0 else 0
         ref_json.append({
             "referencia": ref,
             "ciclo_ideal": data["ciclo_ideal"],

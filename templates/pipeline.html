@@ -116,8 +116,15 @@
       </div>
       {% for seccion, recs in recursos | groupby('seccion') %}
       <div>
-        <div class="text-xs font-bold uppercase tracking-wider mb-2"
-             style="{{ 'color: #2563eb' if seccion == 'LINEAS' else 'color: #d97706' if seccion == 'TALLADORAS' else 'color: #6b7280' }}">{{ seccion }}</div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-bold uppercase tracking-wider"
+               style="{{ 'color: #2563eb' if seccion == 'LINEAS' else 'color: #d97706' if seccion == 'TALLADORAS' else 'color: #6b7280' }}">{{ seccion }}</div>
+          <button @click="toggleSection('{{ seccion }}')"
+                  class="text-[10px] font-medium px-2 py-0.5 rounded-lg transition-colors"
+                  :class="sectionAllSelected('{{ seccion }}') ? 'text-red-500 hover:bg-red-50' : 'text-brand-600 hover:bg-brand-50'"
+                  x-text="sectionAllSelected('{{ seccion }}') ? 'Quitar seccion' : 'Toda la seccion'">
+          </button>
+        </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {% for r in recs %}
           <button @click="toggleResource('{{ r.nombre }}')"
@@ -227,6 +234,7 @@
 <script>
 function pipelineWizard() {
   const allResources = [{% for r in recursos %}'{{ r.nombre }}'{% if not loop.last %},{% endif %}{% endfor %}];
+  const sectionResources = { {% for seccion, recs in recursos | groupby('seccion') %}'{{ seccion }}': [{% for r in recs %}'{{ r.nombre }}'{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %},{% endif %}{% endfor %} };
   return {
     step: 1,
     stepLabels: ['Origen', 'Fechas', 'Recursos', 'Modulos'],
@@ -242,7 +250,7 @@ function pipelineWizard() {
     fechaFin: '{{ today }}',
     singleDay: true,
 
-    selectedResources: [...allResources],
+    selectedResources: [],
 
     modules: [
       { key: 'disponibilidad',  label: 'Disponibilidad',  desc: 'Tiempo productivo vs paradas', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',                                activeColor: 'bg-blue-100 text-blue-600' },
@@ -253,12 +261,26 @@ function pipelineWizard() {
     selectedModules: ['disponibilidad', 'rendimiento', 'calidad', 'oee_secciones'],
 
     toggleResource(name) {
-      const i = this.selectedResources.indexOf(name);
-      i >= 0 ? this.selectedResources.splice(i, 1) : this.selectedResources.push(name);
+      if (this.selectedResources.includes(name)) {
+        this.selectedResources = this.selectedResources.filter(r => r !== name);
+      } else {
+        this.selectedResources = [...this.selectedResources, name];
+      }
     },
     allResourcesSelected() { return this.selectedResources.length === allResources.length; },
     toggleAllResources() {
       this.selectedResources = this.allResourcesSelected() ? [] : [...allResources];
+    },
+    sectionAllSelected(sec) {
+      return sectionResources[sec]?.every(r => this.selectedResources.includes(r));
+    },
+    toggleSection(sec) {
+      const recs = sectionResources[sec] || [];
+      if (this.sectionAllSelected(sec)) {
+        this.selectedResources = this.selectedResources.filter(r => !recs.includes(r));
+      } else {
+        this.selectedResources = [...new Set([...this.selectedResources, ...recs])];
+      }
     },
     toggleModule(key) {
       const i = this.selectedModules.indexOf(key);

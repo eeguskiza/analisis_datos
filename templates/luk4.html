@@ -1,45 +1,56 @@
 {% extends "base.html" %}
-{% block title %}Pabellon 5 — ECS Mobility{% endblock %}
-{% block page_title %}Pabellon 5{% endblock %}
+{% block title %}Centro de Mando — ECS Mobility{% endblock %}
+{% block topbar %}
+<header class="flex items-center justify-end px-6 py-1.5 bg-white border-b border-surface-200 shrink-0">
+  <div id="conn-badge"
+       hx-get="/api/conexion/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
+       class="text-xs px-3 py-1 rounded-full bg-surface-100 text-gray-500">
+    Comprobando...
+  </div>
+</header>
+{% endblock %}
 
 {% block content %}
-<style>[x-cloak]{display:none!important}</style>
-<div x-data="luk4Page()" x-init="init()" x-cloak class="flex flex-col h-[calc(100vh-130px)]">
+<style>[x-cloak]{display:none!important} .centro-mando-main { padding: 0.5rem !important; }</style>
+<script>document.querySelector('main')?.classList.add('centro-mando-main')</script>
+<div x-data="{ pabellon: 'p5' }" x-cloak class="flex flex-col" style="height:calc(100vh - 3.5rem)">
 
-  <!-- ── Header ──────────────────────────────────────────────────────── -->
-  <div class="shrink-0 flex items-center justify-between pb-3">
+  <!-- ── Selector de pabellon (siempre visible) ────────────────────── -->
+  <div class="shrink-0 flex items-center gap-1 p-0.5 sm:p-1 bg-surface-100 rounded-lg sm:rounded-xl w-fit mb-1 sm:mb-2">
+    <template x-for="p in [{k:'p5',l:'Pab 5'},{k:'p4',l:'Pab 4'},{k:'p3',l:'Pab 3'},{k:'p2',l:'Pab 2'}]" :key="p.k">
+      <button @click="pabellon = p.k"
+              class="px-2 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-medium transition-all"
+              :class="pabellon === p.k ? 'bg-white shadow-sm text-brand-700 font-semibold' : 'text-gray-500 hover:text-gray-700'"
+              x-text="p.l"></button>
+    </template>
+  </div>
+
+  <!-- ══════════════ PABELLON 5 ══════════════════════════════════════ -->
+  <div x-show="pabellon === 'p5'" x-data="luk4Page()" x-init="init()" class="flex flex-col flex-1 min-h-0">
+
+  <!-- ── Controles P5 ────────────────────────────────────────────── -->
+  <div class="shrink-0 flex items-center justify-between pb-0.5 sm:pb-1">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-           :class="editMode ? 'bg-violet-100' : 'bg-brand-50'">
-        <svg class="w-5 h-5" :class="editMode ? 'text-violet-600' : 'text-brand-600'" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5"/></svg>
-      </div>
-      <div>
-        <span class="text-sm font-bold" :class="editMode ? 'text-violet-800' : 'text-brand-800'" x-text="editMode ? 'Editor de zonas' : 'Pabellon 5 — ECS Mobility'"></span>
-        <div class="flex items-center gap-2 mt-0.5">
-          <span x-show="loading" class="spinner border-gray-400 w-3 h-3"></span>
-          <span x-show="!editMode" class="text-[10px] text-gray-400" x-text="timestamp ? 'IZARO ' + timestamp : ''"></span>
-          <span x-show="editMode" class="text-[10px] text-violet-500">Mueve y redimensiona las zonas con los controles</span>
-        </div>
-      </div>
+      <span x-show="!editMode" class="text-[10px] text-gray-400" x-text="timestamp ? 'IZARO ' + timestamp + (turnoActual ? ' · ' + turnoActual : '') : ''"></span>
+      <span x-show="editMode" class="text-[10px] text-violet-500">Editor de zonas — mueve y redimensiona</span>
+      <span x-show="loading" class="spinner border-gray-400 w-3 h-3"></span>
     </div>
     <div class="flex items-center gap-2">
-      <!-- Modo normal: leyenda + botones -->
       <template x-if="!editMode">
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-4 text-[10px] text-gray-400">
-            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-500"></span>Produciendo</span>
-            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Incidencia</span>
-            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-gray-400"></span>Parada</span>
+          <div class="flex items-center gap-3 text-[10px] text-gray-400">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span>Prod</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Incid</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-400"></span>Parada</span>
           </div>
-          <button @click="openEditor()" class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-surface-100 transition-all shrink-0" title="Editar zonas">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+          <button @click="openEditor()" class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-surface-100 transition-all shrink-0" title="Editar zonas">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
           </button>
-          <button @click="refresh()" class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-surface-100 transition-all shrink-0">
-            <svg class="w-4 h-4" :class="loading && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <button @click="refresh()" class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-surface-100 transition-all shrink-0">
+            <svg class="w-3.5 h-3.5" :class="loading && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           </button>
         </div>
       </template>
-      <!-- Modo editor: acciones -->
       <template x-if="editMode">
         <div class="flex items-center gap-2">
           <button @click="editorAdd()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 flex items-center gap-1">
@@ -53,12 +64,13 @@
   </div>
 
   <!-- ══════════════ PLANO con capa de zonas ═══════════════════════ -->
-  <div x-show="!editMode" class="flex-1 min-h-0 overflow-hidden bg-white rounded-2xl border border-surface-200 shadow-sm" x-ref="planWrap">
-    <div class="relative w-full h-full">
-      <img src="/static/img/luk4_plano.jpg" class="w-full h-full object-contain" @load="onImgLoad($event)" x-ref="planImg">
-      <!-- Capa transparente con zonas -->
+  <div x-show="!editMode" class="flex-1 min-h-0 overflow-hidden bg-white rounded-2xl border border-surface-200 shadow-sm flex items-center justify-center" x-ref="planWrap">
+    <div class="relative">
+      <img src="/static/img/luk4_plano.jpg" class="block" x-ref="planImg" @load="onImgLoad($event)"
+           :style="`max-width:${imgW}px;max-height:${imgH}px`">
       <template x-for="hs in hotspots" :key="hs.id">
-        <div @click="openZone(hs.id)" class="absolute rounded cursor-pointer hover:opacity-80 border-2 transition-all flex items-center justify-center" :class="zoneClass(hs)" :style="hsStyle(hs)">
+        <div @click="openZone(hs.id)" class="absolute rounded cursor-pointer hover:opacity-80 border-2 transition-all flex items-center justify-center" :class="zoneClass(hs)"
+             :style="`left:${hs.left}%;top:${hs.top}%;width:${hs.width}%;height:${hs.height}%`">
           <div class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/95 border shadow-sm pointer-events-none" :class="zoneBadgeBorder(hs)">
             <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="zoneDotClass(hs)"></span>
             <span class="text-sm font-mono font-black text-gray-900" x-text="hs.label"></span>
@@ -68,21 +80,9 @@
     </div>
   </div>
 
-  <!-- ══════════════ EDITOR: canvas separado (sin plano) ═════════ -->
-  <div x-show="editMode" class="flex-1 min-h-0 flex gap-4">
-    <div class="w-48 shrink-0 bg-white rounded-2xl border border-surface-200 shadow-sm flex flex-col overflow-hidden">
-      <div class="px-3 py-2 border-b border-surface-100 text-[10px] font-bold text-gray-400 uppercase">Zonas</div>
-      <div class="flex-1 overflow-y-auto p-1.5 space-y-1">
-        <template x-for="(z, idx) in editorZones" :key="z.id">
-          <button @click="editorSel = idx" class="w-full text-left px-3 py-2 rounded-lg text-xs font-mono font-bold transition-all"
-                  :class="editorSel === idx ? 'bg-violet-100 text-violet-700 border border-violet-300' : 'hover:bg-surface-50 text-gray-600 border border-transparent'"
-                  x-text="z.label"></button>
-        </template>
-        <div x-show="editorZones.length === 0" class="text-center py-8 text-[10px] text-gray-300">Pulsa "Nueva"</div>
-      </div>
-    </div>
-    <div class="flex-1 flex flex-col min-w-0 gap-3">
-      <div x-show="editorSel !== null && editorZones[editorSel]" class="shrink-0 bg-white rounded-xl border border-surface-200 shadow-sm px-4 py-2.5 flex items-center gap-3 flex-wrap">
+  <!-- ══════════════ EDITOR ═════════════════════════════════════════ -->
+  <div x-show="editMode" class="flex-1 min-h-0 flex flex-col gap-2">
+      <div x-show="editorSel !== null && editorZones[editorSel]" class="shrink-0 bg-white rounded-xl border border-surface-200 shadow-sm px-4 py-2 flex items-center gap-3 flex-wrap">
         <span class="text-[9px] text-gray-400 font-bold">NOMBRE</span>
         <input type="text" :value="editorZones[editorSel]?.label || ''" @input="editorZones[editorSel].label = $event.target.value.toUpperCase()"
                class="w-32 px-2 py-1 text-xs font-mono font-bold border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
@@ -115,17 +115,19 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
-      <div class="flex-1 min-h-0 bg-white rounded-2xl border-2 border-dashed border-violet-200 relative overflow-hidden">
-        <div class="absolute inset-0 opacity-20" style="background-image:linear-gradient(#e2e8f0 1px,transparent 1px),linear-gradient(90deg,#e2e8f0 1px,transparent 1px);background-size:10% 10%"></div>
-        <template x-for="(z, idx) in editorZones" :key="z.id">
-          <div @click="editorSel = idx" class="absolute rounded-lg flex items-center justify-center transition-all duration-100 border-2 cursor-pointer"
-               :class="editorSel === idx ? 'border-violet-500 bg-violet-100 shadow-lg z-10' : 'border-violet-300 bg-violet-50 hover:bg-violet-100'"
-               :style="`left:${z.left}%;top:${z.top}%;width:${z.w}%;height:${z.h}%`">
-            <span class="font-mono font-bold text-violet-700 text-center leading-tight pointer-events-none text-xs" x-text="z.label"></span>
-          </div>
-        </template>
+      <div class="flex-1 min-h-0 overflow-hidden rounded-2xl border-2 border-dashed border-violet-200 bg-surface-50 flex items-center justify-center">
+        <div class="relative">
+          <img src="/static/img/luk4_plano.jpg" class="block opacity-30"
+               :style="`max-width:${imgW}px;max-height:${imgH}px`">
+          <template x-for="(z, idx) in editorZones" :key="z.id">
+            <div @click="editorSel = idx" class="absolute rounded-lg flex items-center justify-center transition-all duration-100 border-2 cursor-pointer"
+                 :class="editorSel === idx ? 'border-violet-500 bg-violet-200/80 shadow-lg z-10' : 'border-violet-300 bg-violet-50/70 hover:bg-violet-100/80'"
+                 :style="`left:${z.left}%;top:${z.top}%;width:${z.w}%;height:${z.h}%`">
+              <span class="font-mono font-bold text-violet-700 text-center leading-tight pointer-events-none text-xs" x-text="z.label"></span>
+            </div>
+          </template>
+        </div>
       </div>
-    </div>
   </div>
 
   <!-- ══════════════ Panel detalle expandido ════════════════════════ -->
@@ -255,17 +257,46 @@
       </div>
     </div>
   </div>
-</div>
+  </div><!-- /pabellon 5 -->
+
+  <!-- ══════════════ PABELLON 4 ══════════════════════════════════════ -->
+  <div x-show="pabellon === 'p4'" class="flex flex-col flex-1 min-h-0 items-center justify-center">
+    <div class="text-center text-gray-300">
+      <svg class="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21"/></svg>
+      <p class="text-sm font-medium text-gray-400">Pabellon 4</p>
+      <p class="text-xs text-gray-300 mt-1">Pendiente de configurar — sube el plano para empezar</p>
+    </div>
+  </div>
+
+  <!-- ══════════════ PABELLON 3 ══════════════════════════════════════ -->
+  <div x-show="pabellon === 'p3'" class="flex flex-col flex-1 min-h-0 items-center justify-center">
+    <div class="text-center text-gray-300">
+      <svg class="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21"/></svg>
+      <p class="text-sm font-medium text-gray-400">Pabellon 3</p>
+      <p class="text-xs text-gray-300 mt-1">Pendiente de configurar — sube el plano para empezar</p>
+    </div>
+  </div>
+
+  <!-- ══════════════ PABELLON 2 ══════════════════════════════════════ -->
+  <div x-show="pabellon === 'p2'" class="flex flex-col flex-1 min-h-0 items-center justify-center">
+    <div class="text-center text-gray-300">
+      <svg class="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21"/></svg>
+      <p class="text-sm font-medium text-gray-400">Pabellon 2</p>
+      <p class="text-xs text-gray-300 mt-1">Pendiente de configurar — sube el plano para empezar</p>
+    </div>
+  </div>
+
+</div><!-- /centro de mando -->
 
 <script>
 function luk4Page() {
   return {
     // Estado API
-    luk4Status: 'stopped', alarma: null, telemetria: {}, timestamp: '', loading: false,
+    luk4Status: 'stopped', alarma: null, telemetria: {}, timestamp: '', loading: false, turnoActual: '',
     selectedZone: null, timeline: [], topAlarmas: [], _chart: null,
     // Hotspots (modo normal) — se cargan del servidor en init()
     hotspots: [],
-    imgNatW: 0, imgNatH: 0, imgOx: 0, imgOy: 0, imgW: 0, imgH: 0,
+    imgNatW: 0, imgNatH: 0, imgW: 0, imgH: 0,
     // Editor
     editMode: false,
     editorZones: [],
@@ -279,22 +310,10 @@ function luk4Page() {
       new ResizeObserver(() => this.calcImg()).observe(this.$refs.planWrap);
     },
     calcImg() {
-      const img = this.$refs.planImg;
-      if (!img || !this.imgNatW) return;
-      const cW = img.clientWidth, cH = img.clientHeight, r = this.imgNatW / this.imgNatH;
-      let w, h;
-      if (cW / cH > r) { h = cH; w = h * r; } else { w = cW; h = w / r; }
-      this.imgOx = (cW - w) / 2; this.imgOy = (cH - h) / 2; this.imgW = w; this.imgH = h;
-    },
-    hsStyle(hs) {
-      const w = this.imgW, h = this.imgH;
-      if (!w || !h) return 'display:none';
-      return `left:${this.imgOx+hs.left/100*w}px;top:${this.imgOy+hs.top/100*h}px;width:${hs.width/100*w}px;height:${hs.height/100*h}px`;
-    },
-    editorHsStyle(z) {
-      const w = this.imgW, h = this.imgH;
-      if (!w || !h) return 'display:none';
-      return `left:${this.imgOx+z.left/100*w}px;top:${this.imgOy+z.top/100*h}px;width:${z.w/100*w}px;height:${z.h/100*h}px`;
+      const wrap = this.$refs.planWrap;
+      if (!wrap) return;
+      const w = wrap.clientWidth, h = wrap.clientHeight;
+      if (w > 0 && h > 0) { this.imgW = w; this.imgH = h; }
     },
 
     // ── Zonas: styling (color basado en estado global LUK4) ────────
@@ -309,8 +328,66 @@ function luk4Page() {
       if (!canvas) return;
       if (this._chart) this._chart.destroy();
       const labels = this.timeline.map(t => t.t);
+      const turnos = this.timeline.map(t => t.turno || 'T1');
+
+      // Indices donde cambia el turno
+      const boundaries = [];
+      for (let i = 1; i < turnos.length; i++) {
+        if (turnos[i] !== turnos[i - 1]) boundaries.push({ idx: i, label: turnos[i] });
+      }
+      if (turnos.length > 0) boundaries.unshift({ idx: 0, label: turnos[0], isFirst: true });
+
+      const shiftPlugin = {
+        id: 'shiftLines',
+        beforeDraw(chart) {
+          if (turnos.length < 2) return;
+          const ctx = chart.ctx, xS = chart.scales.x, yS = chart.scales.y;
+          const colors = { T1: 'rgba(59,130,246,0.06)', T2: 'rgba(245,158,11,0.06)', T3: 'rgba(139,92,246,0.06)' };
+          let segs = [], cur = turnos[0], s0 = 0;
+          for (let i = 1; i <= turnos.length; i++) {
+            if (i === turnos.length || turnos[i] !== cur) {
+              segs.push({ t: cur, f: s0, to: i - 1 });
+              if (i < turnos.length) { cur = turnos[i]; s0 = i; }
+            }
+          }
+          const half = turnos.length > 1 ? (xS.getPixelForValue(1) - xS.getPixelForValue(0)) / 2 : 0;
+          segs.forEach(s => {
+            const x1 = Math.max(xS.getPixelForValue(s.f) - half, xS.left);
+            const x2 = Math.min(xS.getPixelForValue(s.to) + half, xS.right);
+            ctx.save();
+            ctx.fillStyle = colors[s.t] || 'transparent';
+            ctx.fillRect(x1, yS.top, x2 - x1, yS.bottom - yS.top);
+            ctx.restore();
+          });
+        },
+        afterDraw(chart) {
+          const ctx = chart.ctx, xS = chart.scales.x, yS = chart.scales.y;
+          boundaries.forEach(b => {
+            const x = xS.getPixelForValue(b.idx);
+            if (!b.isFirst) {
+              ctx.save();
+              ctx.beginPath();
+              ctx.strokeStyle = 'rgba(107,114,128,0.35)';
+              ctx.lineWidth = 1.5;
+              ctx.setLineDash([6, 3]);
+              ctx.moveTo(x, yS.top);
+              ctx.lineTo(x, yS.bottom);
+              ctx.stroke();
+              ctx.restore();
+            }
+            ctx.save();
+            ctx.fillStyle = 'rgba(107,114,128,0.65)';
+            ctx.font = 'bold 9px monospace';
+            ctx.textAlign = b.isFirst ? 'left' : 'center';
+            ctx.fillText(b.label, b.isFirst ? x + 4 : x, yS.top + 12);
+            ctx.restore();
+          });
+        }
+      };
+
       this._chart = new Chart(canvas, {
         type: 'line',
+        plugins: [shiftPlugin],
         data: {
           labels,
           datasets: [
@@ -328,7 +405,7 @@ function luk4Page() {
             tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + ' pz/h' } },
           },
           scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 9, family: 'monospace' }, maxRotation: 0 } },
+            x: { grid: { display: false }, ticks: { font: { size: 9, family: 'monospace' }, maxRotation: 0, autoSkip: true, maxTicksLimit: 14 } },
             y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10, family: 'monospace' }, callback: v => v + ' pz/h' } },
           },
         },
@@ -423,8 +500,8 @@ function luk4Page() {
         if (img && img.complete && img.naturalWidth > 0) {
           this.imgNatW = img.naturalWidth;
           this.imgNatH = img.naturalHeight;
-          this.calcImg();
         }
+        this.calcImg();
       });
     },
     async refresh() {
@@ -433,7 +510,7 @@ function luk4Page() {
         const r=await fetch('/api/luk4/status'); if(!r.ok)throw 0; const d=await r.json();
         this.luk4Status=d.luk4_status||'stopped'; this.alarma=d.alarma;
         this.telemetria=d.telemetria||{}; this.timestamp=d.timestamp||'';
-        this.timeline=d.timeline||[]; this.topAlarmas=d.top_alarmas||[];
+        this.timeline=d.timeline||[]; this.topAlarmas=d.top_alarmas||[]; this.turnoActual=d.turno_actual||'';
       } catch{}
       this.loading = false;
     },
