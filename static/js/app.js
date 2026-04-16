@@ -187,7 +187,10 @@ function renderOeeDashboard(container, ejecIdOrData, pdfs) {
       return;
     }
     container.innerHTML = '';
-    Object.entries(data.secciones).forEach(([secName, sec]) => _renderSection(container, secName, sec, pdfs || [], data));
+    const entries = Object.entries(data.secciones);
+    const isMulti = entries.length > 1;
+    container.classList.toggle('space-y-6', isMulti);
+    entries.forEach(([secName, sec]) => _renderSection(container, secName, sec, pdfs || [], data, isMulti));
   };
 
   if (typeof ejecIdOrData === 'object') {
@@ -199,10 +202,23 @@ function renderOeeDashboard(container, ejecIdOrData, pdfs) {
   }
 }
 
-function _renderSection(container, secName, sec, pdfs, data) {
+function _renderSection(container, secName, sec, pdfs, data, isMulti = false) {
   const t = sec.totales;
   const wrapper = document.createElement('div');
-  wrapper.className = 'h-full flex flex-col gap-3';
+  wrapper.className = isMulti ? 'flex flex-col gap-3' : 'h-full flex flex-col gap-3';
+  if (isMulti) wrapper.style.minHeight = '560px';
+
+  if (isMulti) {
+    const secHeader = document.createElement('div');
+    secHeader.className = 'flex items-center gap-2 shrink-0';
+    const accent = secName === 'LINEAS' ? 'bg-blue-500' : secName === 'TALLADORAS' ? 'bg-amber-500' : 'bg-gray-400';
+    secHeader.innerHTML = `
+      <span class="inline-block w-1 h-4 rounded ${accent}"></span>
+      <span class="text-sm font-bold text-gray-700 uppercase tracking-wider">${secName}</span>
+      <span class="text-[10px] text-gray-400">${sec.maquinas.length} maquina(s) · OEE ${t.oee_pct.toFixed(1)}%</span>
+      <span class="flex-1 border-t border-surface-200"></span>`;
+    wrapper.appendChild(secHeader);
+  }
 
   // ── ROW 1: KPI cards ──
   const kpiRow = document.createElement('div');

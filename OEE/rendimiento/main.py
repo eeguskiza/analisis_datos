@@ -319,9 +319,13 @@ def render_rendimiento_day(
     header_ax.set_xlim(0, 1)
     header_ax.set_ylim(0, 1)
     if logo_image is not None:
-        imagebox = OffsetImage(logo_image, zoom=0.18)
+        imagebox = OffsetImage(logo_image, zoom=0.10)
         ab = AnnotationBbox(
-            imagebox, (0.08, 0.5), frameon=False, xycoords="axes fraction"
+            imagebox,
+            (0.02, 0.55),
+            frameon=False,
+            xycoords="axes fraction",
+            box_alignment=(0, 0.5),
         )
         header_ax.add_artist(ab)
 
@@ -472,9 +476,13 @@ def render_rendimiento(metrics: RendimientoMetrics, logo_image) -> plt.Figure:
     header_ax.set_xlim(0, 1)
     header_ax.set_ylim(0, 1)
     if logo_image is not None:
-        imagebox = OffsetImage(logo_image, zoom=0.18)
+        imagebox = OffsetImage(logo_image, zoom=0.10)
         ab = AnnotationBbox(
-            imagebox, (0.08, 0.5), frameon=False, xycoords="axes fraction"
+            imagebox,
+            (0.02, 0.55),
+            frameon=False,
+            xycoords="axes fraction",
+            box_alignment=(0, 0.5),
         )
         header_ax.add_artist(ab)
 

@@ -26,376 +26,43 @@
   </div>
 
   <!-- ══════════════ PABELLON 5 ══════════════════════════════════════ -->
-  <div x-show="pabellon === 'p5'" x-data="luk4Page()" x-init="init()" class="flex flex-col flex-1 min-h-0">
-
-  <!-- ── Controles P5 ────────────────────────────────────────────── -->
-  <div class="shrink-0 flex items-center justify-between pb-0.5 sm:pb-1">
-    <div class="flex items-center gap-3">
-      <span x-show="!editMode" class="text-[10px] text-gray-400" x-text="timestamp ? 'IZARO ' + timestamp + (turnoActual ? ' · ' + turnoActual : '') : ''"></span>
-      <span x-show="editMode" class="text-[10px] text-violet-500">Editor de zonas — mueve y redimensiona</span>
-      <span x-show="loading" class="spinner border-gray-400 w-3 h-3"></span>
-    </div>
-    <div class="flex items-center gap-2">
-      <template x-if="!editMode">
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-3 text-[10px] text-gray-400">
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span>Prod</span>
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Incid</span>
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-400"></span>Parada</span>
-          </div>
-          <button @click="openEditor()" class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-surface-100 transition-all shrink-0" title="Editar zonas">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
-          </button>
-          <button @click="refresh()" class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-surface-100 transition-all shrink-0">
-            <svg class="w-3.5 h-3.5" :class="loading && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          </button>
-        </div>
-      </template>
-      <template x-if="editMode">
-        <div class="flex items-center gap-2">
-          <button @click="editorAdd()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg> Nueva
-          </button>
-          <button @click="editorSave()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white hover:bg-violet-700">Guardar</button>
-          <button @click="editorCancel()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-surface-100 text-gray-500 hover:bg-surface-200">Cancelar</button>
-        </div>
-      </template>
-    </div>
+  <div x-show="pabellon === 'p5'"
+       x-data="pabPage({pab:'p5', img:'/static/img/luk4_plano.jpg', hasTelemetry:true})"
+       x-init="init()" class="flex flex-col flex-1 min-h-0">
+    {% include '_partials/mapa_pabellon.html' %}
   </div>
-
-  <!-- ══════════════ PLANO con capa de zonas ═══════════════════════ -->
-  <div x-show="!editMode" class="flex-1 min-h-0 overflow-hidden bg-white rounded-2xl border border-surface-200 shadow-sm flex items-center justify-center" x-ref="planWrap">
-    <div class="relative">
-      <img src="/static/img/luk4_plano.jpg" class="block" x-ref="planImg" @load="onImgLoad($event)"
-           :style="`max-width:${imgW}px;max-height:${imgH}px`">
-      <template x-for="hs in hotspots" :key="hs.id">
-        <div @click="openZone(hs.id)" class="absolute rounded cursor-pointer hover:opacity-80 border-2 transition-all flex items-center justify-center" :class="zoneClass(hs)"
-             :style="`left:${hs.left}%;top:${hs.top}%;width:${hs.width}%;height:${hs.height}%`">
-          <div class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/95 border shadow-sm pointer-events-none" :class="zoneBadgeBorder(hs)">
-            <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="zoneDotClass(hs)"></span>
-            <span class="text-sm font-mono font-black text-gray-900" x-text="hs.label"></span>
-          </div>
-        </div>
-      </template>
-    </div>
-  </div>
-
-  <!-- ══════════════ EDITOR ═════════════════════════════════════════ -->
-  <div x-show="editMode" class="flex-1 min-h-0 flex flex-col gap-2">
-      <div x-show="editorSel !== null && editorZones[editorSel]" class="shrink-0 bg-white rounded-xl border border-surface-200 shadow-sm px-4 py-2 flex items-center gap-3 flex-wrap">
-        <span class="text-[9px] text-gray-400 font-bold">NOMBRE</span>
-        <input type="text" :value="editorZones[editorSel]?.label || ''" @input="editorZones[editorSel].label = $event.target.value.toUpperCase()"
-               class="w-32 px-2 py-1 text-xs font-mono font-bold border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
-        <div class="w-px h-6 bg-surface-200"></div>
-        <span class="text-[9px] text-gray-400 font-bold">FUENTE</span>
-        <select :value="editorZones[editorSel]?.source || 'none'" @change="editorZones[editorSel].source = $event.target.value"
-                class="px-2 py-1 text-[10px] font-mono border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
-          <option value="none">Sin asignar</option>
-          <option value="luk4">LUK4</option>
-          <option value="lc300">LC300</option>
-          <option value="t48">T48</option>
-        </select>
-        <div class="w-px h-6 bg-surface-200"></div>
-        <span class="text-[9px] text-violet-600 font-bold">POSICION</span>
-        <button @click="editorZones[editorSel].left = Math.max(0, editorZones[editorSel].left - 2)" class="w-8 h-8 rounded-lg bg-surface-50 border border-surface-200 hover:bg-surface-100 flex items-center justify-center text-lg active:bg-violet-100">&larr;</button>
-        <button @click="editorZones[editorSel].left = Math.min(85, editorZones[editorSel].left + 2)" class="w-8 h-8 rounded-lg bg-surface-50 border border-surface-200 hover:bg-surface-100 flex items-center justify-center text-lg active:bg-violet-100">&rarr;</button>
-        <button @click="editorZones[editorSel].top = Math.max(0, editorZones[editorSel].top - 2)" class="w-8 h-8 rounded-lg bg-surface-50 border border-surface-200 hover:bg-surface-100 flex items-center justify-center text-lg active:bg-violet-100">&uarr;</button>
-        <button @click="editorZones[editorSel].top = Math.min(85, editorZones[editorSel].top + 2)" class="w-8 h-8 rounded-lg bg-surface-50 border border-surface-200 hover:bg-surface-100 flex items-center justify-center text-lg active:bg-violet-100">&darr;</button>
-        <div class="w-px h-6 bg-surface-200"></div>
-        <span class="text-[9px] text-blue-600 font-bold">ANCHO</span>
-        <button @click="editorZones[editorSel].w = Math.max(3, editorZones[editorSel].w - 2)" class="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 flex items-center justify-center text-blue-600 font-bold active:bg-blue-200">&minus;</button>
-        <button @click="editorZones[editorSel].w = Math.min(60, editorZones[editorSel].w + 2)" class="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 flex items-center justify-center text-blue-600 font-bold active:bg-blue-200">&plus;</button>
-        <span class="text-[9px] text-blue-600 font-bold">ALTO</span>
-        <button @click="editorZones[editorSel].h = Math.max(3, editorZones[editorSel].h - 2)" class="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 flex items-center justify-center text-blue-600 font-bold active:bg-blue-200">&minus;</button>
-        <button @click="editorZones[editorSel].h = Math.min(60, editorZones[editorSel].h + 2)" class="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 flex items-center justify-center text-blue-600 font-bold active:bg-blue-200">&plus;</button>
-        <div class="w-px h-6 bg-surface-200"></div>
-        <span class="text-[9px] font-mono text-gray-400" x-text="editorZones[editorSel]?.left?.toFixed(0)+','+editorZones[editorSel]?.top?.toFixed(0)+' '+editorZones[editorSel]?.w?.toFixed(0)+'x'+editorZones[editorSel]?.h?.toFixed(0)+'%'"></span>
-        <div class="flex-1"></div>
-        <button @click="editorDelete()" class="w-8 h-8 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 flex items-center justify-center text-red-500 active:bg-red-200">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-        </button>
-      </div>
-      <div class="flex-1 min-h-0 overflow-hidden rounded-2xl border-2 border-dashed border-violet-200 bg-surface-50 flex items-center justify-center">
-        <div class="relative">
-          <img src="/static/img/luk4_plano.jpg" class="block opacity-30"
-               :style="`max-width:${imgW}px;max-height:${imgH}px`">
-          <template x-for="(z, idx) in editorZones" :key="z.id">
-            <div @click="editorSel = idx" class="absolute rounded-lg flex items-center justify-center transition-all duration-100 border-2 cursor-pointer"
-                 :class="editorSel === idx ? 'border-violet-500 bg-violet-200/80 shadow-lg z-10' : 'border-violet-300 bg-violet-50/70 hover:bg-violet-100/80'"
-                 :style="`left:${z.left}%;top:${z.top}%;width:${z.w}%;height:${z.h}%`">
-              <span class="font-mono font-bold text-violet-700 text-center leading-tight pointer-events-none text-xs" x-text="z.label"></span>
-            </div>
-          </template>
-        </div>
-      </div>
-  </div>
-
-  <!-- ══════════════ Panel detalle expandido ════════════════════════ -->
-  <div x-show="selectedZone" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
-       x-transition:leave="transition ease-in duration-150" x-transition:leave-end="opacity-0"
-       class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeZone()" @keydown.escape.window="closeZone()">
-    <div class="absolute inset-0 bg-black/40" @click="closeZone()"></div>
-    <div x-show="selectedZone" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-         x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
-         class="relative bg-white rounded-2xl shadow-2xl border border-surface-200 w-full max-w-6xl max-h-[90vh] flex flex-col">
-
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-surface-100 shrink-0">
-        <div>
-          <div class="text-lg font-bold text-brand-800" x-text="selHs?.label || ''"></div>
-          <div class="text-[10px] text-gray-400 font-mono mt-0.5">
-            <span x-text="(selHs?.source || 'luk4').toUpperCase()"></span>
-            <template x-if="zoneHasData(selHs || {})">
-              <span>· Ultimo dato: <span x-text="telemetria.estado_ts || timestamp"></span>
-              · <span :class="zoneStatus(selHs || {}) === 'producing' ? 'text-green-600' : zoneStatus(selHs || {}) === 'incidence' ? 'text-red-600' : 'text-gray-500'"
-                     x-text="zoneStatus(selHs || {}) === 'producing' ? 'Produciendo' : zoneStatus(selHs || {}) === 'incidence' ? 'Incidencia' : 'Parada'"></span></span>
-            </template>
-            <template x-if="!zoneHasData(selHs || {})">
-              <span>· Sin datos — pendiente de conexion</span>
-            </template>
-          </div>
-        </div>
-        <button @click="closeZone()" class="text-gray-400 hover:text-gray-600 p-1">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-
-      <!-- Sin datos -->
-      <template x-if="!zoneHasData(selHs || {})">
-        <div class="text-center py-16 text-gray-300">
-          <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-          <p class="text-sm">Sin datos disponibles</p>
-          <p class="text-xs mt-1 text-gray-400">Las tablas de telemetria de <span class="font-mono font-bold" x-text="(selHs?.source || '').toUpperCase()"></span> aun no estan conectadas</p>
-        </div>
-      </template>
-
-      <!-- Contenido 2 columnas -->
-      <template x-if="zoneHasData(selHs || {})">
-        <div class="flex flex-1 min-h-0 overflow-hidden">
-
-          <!-- ── COL IZQUIERDA: Estado + Produccion ──────────────────── -->
-          <div class="flex-1 min-w-0 overflow-y-auto px-6 py-5 space-y-4">
-
-            <!-- Alarma activa -->
-            <template x-if="alarma">
-              <div class="flex items-start gap-3 p-3 bg-red-50 rounded-xl border border-red-200">
-                <span class="w-3 h-3 rounded-full bg-red-500 shrink-0 mt-0.5 animate-pulse"></span>
-                <div>
-                  <span class="text-xs font-bold text-red-600" x-text="alarma.componente"></span>
-                  <span class="text-[10px] text-red-400 ml-2">Error <span x-text="alarma.codigo"></span></span>
-                  <p class="text-sm text-red-700 mt-1 font-medium" x-text="alarma.mensaje"></p>
-                </div>
-              </div>
-            </template>
-
-            <!-- KPIs -->
-            <div class="grid grid-cols-3 gap-3">
-              <div class="bg-brand-50 rounded-xl p-3 text-center">
-                <div class="text-2xl font-black text-brand-800 font-mono" x-text="telemetria.pph_total ?? '—'"></div>
-                <div class="text-[9px] text-brand-600 font-bold uppercase mt-1">pz/h linea</div>
-              </div>
-              <div class="bg-green-50 rounded-xl p-3 text-center">
-                <div class="text-2xl font-black text-green-700 font-mono" x-text="telemetria.piezas_buenas_hoy ?? '—'"></div>
-                <div class="text-[9px] text-green-600 font-bold uppercase mt-1">Buenas hoy</div>
-              </div>
-              <div class="bg-red-50 rounded-xl p-3 text-center">
-                <div class="text-2xl font-black text-red-600 font-mono" x-text="telemetria.piezas_malas_hoy ?? '—'"></div>
-                <div class="text-[9px] text-red-500 font-bold uppercase mt-1">Malas hoy</div>
-              </div>
-            </div>
-
-            <!-- Procesos -->
-            <div>
-              <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Procesos</div>
-              <div class="grid grid-cols-4 gap-2">
-                <div class="bg-surface-50 rounded-lg px-3 py-2.5 text-center">
-                  <div class="font-mono font-black text-lg text-brand-800" x-text="(telemetria.pph_total??'—')"></div>
-                  <div class="text-[9px] text-gray-400 mt-0.5">Total <span class="font-mono" x-text="(telemetria.ciclo_total??'—')+'s'"></span></div>
-                </div>
-                <div class="bg-surface-50 rounded-lg px-3 py-2.5 text-center">
-                  <div class="font-mono font-black text-lg text-amber-700" x-text="(telemetria.pph_torno??'—')"></div>
-                  <div class="text-[9px] text-gray-400 mt-0.5">Torno <span class="font-mono" x-text="(telemetria.ciclo_torno??'—')+'s'"></span></div>
-                </div>
-                <div class="bg-surface-50 rounded-lg px-3 py-2.5 text-center">
-                  <div class="font-mono font-black text-lg text-red-600" x-text="(telemetria.pph_temple??'—')"></div>
-                  <div class="text-[9px] text-gray-400 mt-0.5">Temple <span class="font-mono" x-text="(telemetria.ciclo_temple??'—')+'s'"></span></div>
-                </div>
-                <div class="bg-surface-50 rounded-lg px-3 py-2.5 text-center">
-                  <div class="font-mono font-black text-lg text-violet-700" x-text="(telemetria.pph_revenido??'—')"></div>
-                  <div class="text-[9px] text-gray-400 mt-0.5">Revenido <span class="font-mono" x-text="(telemetria.ciclo_revenido??'—')+'s'"></span></div>
-                </div>
-              </div>
-              <div class="text-[9px] text-gray-300 text-right mt-1">pz/h por proceso · % auto: <span class="font-mono font-bold text-gray-500" x-text="(telemetria.pct_auto??'—')+'%'"></span></div>
-            </div>
-
-            <!-- Barras disponibilidad por turno -->
-            <div>
-              <div class="text-[10px] font-bold text-gray-400 uppercase mb-3">Disponibilidad por turno</div>
-              <div class="space-y-3">
-                <template x-for="tb in turnoBreakdown" :key="tb.turno">
-                  <div class="relative rounded-xl p-3 transition-all"
-                       :class="tb.is_current ? 'bg-white border border-surface-200 shadow-sm' : tb.is_future ? 'bg-surface-50/50 border border-dashed border-surface-200' : 'bg-white border border-surface-100'">
-                    <!-- Label + horario + % -->
-                    <div class="flex items-center justify-between mb-2">
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs font-black font-mono px-1.5 py-0.5 rounded"
-                              :class="tb.is_current ? 'bg-brand-100 text-brand-700' : tb.is_future ? 'bg-surface-100 text-gray-300' : 'bg-surface-100 text-gray-500'"
-                              x-text="tb.turno"></span>
-                        <span class="text-[10px] text-gray-400 font-mono" x-text="tb.start + ' — ' + tb.end"></span>
-                        <template x-if="tb.is_current">
-                          <span class="flex items-center gap-1 text-[9px] text-brand-500 font-bold"><span class="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse"></span>EN CURSO</span>
-                        </template>
-                      </div>
-                      <span class="text-sm font-black font-mono"
-                            :class="tb.is_future ? 'text-gray-200' : tb.availability_pct >= 70 ? 'text-green-600' : tb.availability_pct >= 40 ? 'text-amber-600' : 'text-red-600'"
-                            x-text="tb.total_records > 0 ? tb.availability_pct.toFixed(0) + '%' : '—'"></span>
-                    </div>
-                    <!-- Barra -->
-                    <div class="h-3 bg-surface-100 rounded-full overflow-hidden relative">
-                      <div class="absolute inset-y-0 left-0 flex rounded-full overflow-hidden transition-all duration-700"
-                           :style="'width:' + (tb.elapsed_pct || 0) + '%'">
-                        <div class="h-full bg-gradient-to-b from-green-400 to-green-500 transition-all duration-500"
-                             :style="'width:' + (tb.total_records > 0 ? (tb.producing/tb.total_records*100) : 0) + '%'"></div>
-                        <div class="h-full bg-gradient-to-b from-red-400 to-red-500 transition-all duration-500"
-                             :style="'width:' + (tb.total_records > 0 ? (tb.incidence/tb.total_records*100) : 0) + '%'"></div>
-                        <div class="h-full bg-gradient-to-b from-amber-300 to-amber-400 transition-all duration-500"
-                             :style="'width:' + (tb.total_records > 0 ? (tb.other/tb.total_records*100) : 0) + '%'"></div>
-                        <div class="h-full bg-gradient-to-b from-gray-200 to-gray-300 transition-all duration-500"
-                             :style="'width:' + (tb.total_records > 0 ? (tb.off/tb.total_records*100) : 0) + '%'"></div>
-                      </div>
-                    </div>
-                    <!-- Piezas del turno -->
-                    <div class="flex items-center gap-3 mt-1.5 text-[9px]" x-show="!tb.is_future">
-                      <span class="text-gray-400">Piezas:</span>
-                      <span class="font-mono font-bold text-gray-600" x-text="tb.pz_totales || 0"></span>
-                      <span class="text-green-600 font-mono" x-text="(tb.pz_buenas || 0) + ' ok'"></span>
-                      <span class="text-red-500 font-mono" x-text="(tb.pz_malas || 0) + ' nok'"></span>
-                    </div>
-                  </div>
-                </template>
-              </div>
-              <div class="flex items-center gap-4 mt-3 text-[9px] text-gray-400 justify-center">
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-green-500"></span>Produciendo</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-red-500"></span>Incidencia</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-amber-400"></span>Otros</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-gray-300"></span>Apagada</span>
-              </div>
-            </div>
-
-            <!-- Grafico evolucion -->
-            <div x-show="timeline.length > 0">
-              <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Evolucion pz/h hoy</div>
-              <div class="bg-surface-50 rounded-xl p-3 border border-surface-200">
-                <canvas x-ref="chartCanvas" class="w-full" style="height:160px"></canvas>
-              </div>
-            </div>
-
-          </div><!-- /col izquierda -->
-
-          <!-- ── COL DERECHA: Alarmas del turno ──────────────────────── -->
-          <div class="w-80 shrink-0 overflow-y-auto border-l border-surface-200 px-5 py-5 space-y-4 bg-surface-50/50">
-
-            <div class="text-[10px] font-bold text-gray-400 uppercase">Alarmas turno <span class="text-brand-700" x-text="turnoActual"></span></div>
-
-            <!-- Resumen -->
-            <div class="rounded-xl p-4 border"
-                 :class="alarmasTurnoSummary.total_count > 0 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'">
-              <template x-if="alarmasTurnoSummary.estimated_stop_minutes > 0">
-                <div>
-                  <div class="text-3xl font-black font-mono text-red-700">
-                    ~<span x-text="alarmasTurnoSummary.estimated_stop_minutes >= 60
-                      ? Math.floor(alarmasTurnoSummary.estimated_stop_minutes/60) + 'h ' + Math.round(alarmasTurnoSummary.estimated_stop_minutes%60) + 'm'
-                      : Math.round(alarmasTurnoSummary.estimated_stop_minutes) + ' min'"></span>
-                  </div>
-                  <div class="text-[9px] font-bold uppercase mt-1 text-red-500">Parada estimada</div>
-                  <div class="text-[10px] text-red-400 mt-2">
-                    <span class="font-mono font-bold" x-text="alarmasTurnoSummary.total_count"></span> registros
-                    · <span class="font-mono" x-text="alarmasTurnoSummary.distinct_codes"></span> codigos
-                  </div>
-                </div>
-              </template>
-              <template x-if="!alarmasTurnoSummary.estimated_stop_minutes || alarmasTurnoSummary.estimated_stop_minutes === 0">
-                <div>
-                  <div class="text-3xl font-black font-mono text-green-700">0</div>
-                  <div class="text-[9px] font-bold uppercase mt-1 text-green-500">Sin alarmas</div>
-                </div>
-              </template>
-            </div>
-
-            <!-- Lista alarmas -->
-            <template x-if="alarmasTurno.length > 0">
-              <div class="space-y-1.5">
-                <template x-for="a in alarmasTurno" :key="a.codigo">
-                  <div class="bg-white rounded-lg border border-surface-200 px-3 py-2.5">
-                    <div class="flex items-center justify-between mb-1">
-                      <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-red-500" x-text="a.componente"></span>
-                      <span class="text-[10px] font-mono font-bold text-red-500" x-text="'x' + a.count"></span>
-                    </div>
-                    <div class="text-xs text-gray-700 leading-snug" x-text="a.mensaje"></div>
-                    <div class="flex items-center justify-between mt-1.5 text-[9px] text-gray-400">
-                      <span>Cod. <span class="font-mono" x-text="a.codigo"></span></span>
-                      <span x-show="a.first_seen">desde <span class="font-mono font-bold" x-text="a.first_seen"></span></span>
-                      <span>~<span class="font-mono" x-text="a.estimated_minutes"></span> min</span>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </template>
-
-            <!-- Sin alarmas -->
-            <template x-if="alarmasTurno.length === 0 && alarmasTurnoSummary.total_count === 0">
-              <div class="text-center py-6">
-                <svg class="w-10 h-10 mx-auto mb-2 text-green-300" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p class="text-sm text-green-500 font-medium">Turno limpio</p>
-                <p class="text-[10px] text-gray-400 mt-1">Sin incidencias en este turno</p>
-              </div>
-            </template>
-
-          </div><!-- /col derecha -->
-
-        </div><!-- /flex 2 columnas -->
-      </template>
-
-    </div>
-  </div>
-  </div><!-- /pabellon 5 -->
 
   <!-- ══════════════ PABELLON 4 ══════════════════════════════════════ -->
-  <div x-show="pabellon === 'p4'" class="flex flex-col flex-1 min-h-0">
-    <div class="shrink-0 flex items-center justify-between pb-0.5 sm:pb-1">
-      <span class="text-[10px] text-gray-400">Pabellon 4 — Plano</span>
-    </div>
-    <div class="flex-1 min-h-0 overflow-hidden bg-white rounded-2xl border border-surface-200 shadow-sm flex items-center justify-center">
-      <img src="/static/img/pab4_plano.jpg" class="block max-w-full max-h-full object-contain">
-    </div>
+  <div x-show="pabellon === 'p4'"
+       x-data="pabPage({pab:'p4', img:'/static/img/pab4_plano.jpg', hasTelemetry:false})"
+       x-init="init()" class="flex flex-col flex-1 min-h-0">
+    {% include '_partials/mapa_pabellon.html' %}
   </div>
 
   <!-- ══════════════ PABELLON 3 ══════════════════════════════════════ -->
-  <div x-show="pabellon === 'p3'" class="flex flex-col flex-1 min-h-0">
-    <div class="shrink-0 flex items-center justify-between pb-0.5 sm:pb-1">
-      <span class="text-[10px] text-gray-400">Pabellon 3 — Plano</span>
-    </div>
-    <div class="flex-1 min-h-0 overflow-hidden bg-white rounded-2xl border border-surface-200 shadow-sm flex items-center justify-center">
-      <img src="/static/img/pab3_plano.jpg" class="block max-w-full max-h-full object-contain">
-    </div>
+  <div x-show="pabellon === 'p3'"
+       x-data="pabPage({pab:'p3', img:'/static/img/pab3_plano.jpg', hasTelemetry:false})"
+       x-init="init()" class="flex flex-col flex-1 min-h-0">
+    {% include '_partials/mapa_pabellon.html' %}
   </div>
 
   <!-- ══════════════ PABELLON 2 ══════════════════════════════════════ -->
-  <div x-show="pabellon === 'p2'" class="flex flex-col flex-1 min-h-0">
-    <div class="shrink-0 flex items-center justify-between pb-0.5 sm:pb-1">
-      <span class="text-[10px] text-gray-400">Pabellon 2 — Plano</span>
-    </div>
-    <div class="flex-1 min-h-0 overflow-hidden bg-white rounded-2xl border border-surface-200 shadow-sm flex items-center justify-center">
-      <img src="/static/img/pab2_plano.jpg" class="block max-w-full max-h-full object-contain">
-    </div>
+  <div x-show="pabellon === 'p2'"
+       x-data="pabPage({pab:'p2', img:'/static/img/pab2_plano.jpg', hasTelemetry:false})"
+       x-init="init()" class="flex flex-col flex-1 min-h-0">
+    {% include '_partials/mapa_pabellon.html' %}
   </div>
 
 </div><!-- /centro de mando -->
 
 <script>
-function luk4Page() {
+function pabPage(cfg) {
   return {
-    // Estado API
+    // Config del pabellon
+    pab: cfg.pab,
+    img: cfg.img,
+    hasTelemetry: !!cfg.hasTelemetry,
+    // Estado API (solo pabellones con telemetria)
     luk4Status: 'stopped', alarma: null, telemetria: {}, timestamp: '', loading: false, turnoActual: '',
     selectedZone: null, timeline: [], topAlarmas: [], _chart: null,
     // Tracking para notificaciones
@@ -428,9 +95,9 @@ function luk4Page() {
     get selHs() { return this.hotspots.find(h => h.id === this.selectedZone) || null; },
     openZone(id) {
       this.selectedZone = id;
+      if (!this.hasTelemetry) return;
       if (this.zoneHasData(this.selHs || {})) {
         this.fetchTurnoDetail();
-        // Esperar a que Alpine renderice el template con el canvas
         this.$nextTick(() => requestAnimationFrame(() => this.renderChart()));
         this._detailInterval = setInterval(() => {
           if (!document.hidden && this.selectedZone) this.fetchTurnoDetail();
@@ -563,6 +230,7 @@ function luk4Page() {
       return s === 'producing' ? 'bg-green-500 animate-pulse' : s === 'incidence' ? 'bg-red-500' : 'bg-gray-500';
     },
     zoneHasData(hs) {
+      if (!this.hasTelemetry) return false;
       const src = hs.source || 'none';
       return src === 'luk4';  // solo luk4 tiene datos ahora
     },
@@ -599,9 +267,9 @@ function luk4Page() {
         width: +z.w.toFixed(1), height: +z.h.toFixed(1),
         source: z.source || 'none',
       }));
-      // Guardar en servidor
+      // Guardar en servidor (scoped al pabellon actual)
       try {
-        await fetch('/api/luk4/zonas', {
+        await fetch('/api/luk4/zonas?pabellon=' + encodeURIComponent(this.pab), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
@@ -617,13 +285,15 @@ function luk4Page() {
 
     // ── Init + refresh ─────────────────────────────────────────────
     async init() {
-      // Cargar zonas del servidor
+      // Cargar zonas del servidor para este pabellon
       try {
-        const r = await fetch('/api/luk4/zonas');
+        const r = await fetch('/api/luk4/zonas?pabellon=' + encodeURIComponent(this.pab));
         if (r.ok) this.hotspots = await r.json();
       } catch {}
-      await this.refresh();
-      this._interval = setInterval(() => { if (!document.hidden) this.refresh(); }, 30000);
+      if (this.hasTelemetry) {
+        await this.refresh();
+        this._interval = setInterval(() => { if (!document.hidden) this.refresh(); }, 30000);
+      }
       // Si imagen ya cacheada, @load no dispara — forzar calculo
       this.$nextTick(() => {
         const img = this.$refs.planImg;

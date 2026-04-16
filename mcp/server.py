@@ -1,8 +1,11 @@
 """
 MCP Server para OEE Planta.
 
-Expone herramientas que actuan como proxy al backend FastAPI,
-permitiendo a Claude consultar datos, lanzar informes y gestionar la config.
+Expone herramientas de consulta READ-ONLY sobre la API FastAPI
+(que a su vez habla con dbizaro/SQL Server y la BD local).
+
+Diseñado para que Claude Code pueda inspeccionar datos reales
+durante el desarrollo sin modificar nada.
 """
 from __future__ import annotations
 
@@ -11,10 +14,11 @@ import os
 
 import httpx
 from mcp.server import Server
-from mcp.server.stdio import run_server
+from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-API_BASE = os.environ.get("OEE_API_URL", "http://web:8000")
+# API base: en Docker apunta a "web:8000"; en local a 127.0.0.1:8000.
+API_BASE = os.environ.get("OEE_API_URL", "http://127.0.0.1:8000")
 
 app = Server("oee-planta")
 client = httpx.Client(base_url=API_BASE, timeout=120)
@@ -25,78 +29,144 @@ client = httpx.Client(base_url=API_BASE, timeout=120)
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     return [
+        # ── Plataforma / estado ────────────────────────────────────────
         Tool(
             name="get_health",
-            description="Estado de todos los servicios de la plataforma OEE (web, db local, bd MES)",
+            description="Estado de todos los servicios (web, db local, dbizaro MES)",
             inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
-            name="list_reports",
-            description="Lista todos los informes PDF generados, organizados por fecha/seccion/maquina",
+            name="get_connection_status",
+            description="Comprueba conexion al SQL Server MES (dbizaro)",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+
+        # ── Explorador de BBDD (Bizaro / otros) ─────────────────────────
+        Tool(
+            name="bizaro_list_databases",
+            description="Lista las BBDD disponibles en el SQL Server",
             inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
-            name="list_executions",
-            description="Lista las ultimas ejecuciones del pipeline con su estado y numero de PDFs",
+            name="bizaro_list_tables",
+            description="Lista tablas (schema + nombre + nº filas) de una BBDD",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "Numero maximo de resultados", "default": 20},
+                    "database": {"type": "string", "default": "dbizaro"},
                 },
             },
         ),
         Tool(
-            name="get_execution_detail",
-            description="Obtiene el detalle de una ejecucion: log completo y lista de PDFs generados",
+            name="bizaro_columns",
+            description="Lista columnas (nombre, tipo, nullable, pk) de una tabla",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "id": {"type": "integer", "description": "ID de la ejecucion"},
+                    "database": {"type": "string", "default": "dbizaro"},
+                    "schema": {"type": "string", "default": "admuser"},
+                    "table": {"type": "string"},
                 },
-                "required": ["id"],
+                "required": ["table"],
             },
         ),
         Tool(
-            name="generate_report",
-            description="Ejecuta el pipeline OEE: extrae datos y genera informes PDF. Usa source='csv_only' si no hay conexion a BD MES.",
+            name="bizaro_preview",
+            description="Preview de las primeras filas de una tabla",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "fecha_inicio": {"type": "string", "description": "Fecha inicio YYYY-MM-DD"},
-                    "fecha_fin": {"type": "string", "description": "Fecha fin YYYY-MM-DD"},
-                    "source": {"type": "string", "enum": ["db", "excel", "csv_only"], "default": "db"},
-                    "modulos": {
-                        "type": "array",
-                        "items": {"type": "string", "enum": ["disponibilidad", "rendimiento", "calidad", "oee_secciones"]},
-                        "description": "Modulos a ejecutar (default: todos)",
+                    "database": {"type": "string", "default": "dbizaro"},
+                    "schema": {"type": "string", "default": "admuser"},
+                    "table": {"type": "string"},
+                    "limit": {"type": "integer", "default": 50, "maximum": 500},
+                },
+                "required": ["table"],
+            },
+        ),
+        Tool(
+            name="bizaro_query",
+            description=(
+                "Ejecuta una consulta SELECT read-only sobre una BBDD. "
+                "Solo se permiten SELECT/WITH. No DML/DDL. "
+                "Util para explorar datos y debuggear."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "database": {"type": "string", "default": "dbizaro"},
+                    "sql": {
+                        "type": "string",
+                        "description": "Sentencia SELECT (o WITH ... SELECT). Una unica sentencia.",
                     },
+                    "max_rows": {"type": "integer", "default": 500, "maximum": 5000},
+                },
+                "required": ["sql"],
+            },
+        ),
+        Tool(
+            name="bizaro_buscar_rutas",
+            description="Autodescubre tablas candidatas a almacenar rutas/fases",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "database": {"type": "string", "default": "dbizaro"},
+                },
+            },
+        ),
+
+        # ── Servicios de negocio ───────────────────────────────────────
+        Tool(
+            name="get_capacidad",
+            description=(
+                "Capacidad teorica vs fabricado real por referencia en un "
+                "rango de fechas. Cuenta solo piezas de la ultima fase de "
+                "la ruta (evita doble contabilidad)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "fecha_inicio": {"type": "string", "description": "YYYY-MM-DD"},
+                    "fecha_fin": {"type": "string", "description": "YYYY-MM-DD"},
                 },
                 "required": ["fecha_inicio", "fecha_fin"],
             },
         ),
         Tool(
             name="get_ciclos",
-            description="Obtiene los tiempos de ciclo ideales (piezas/hora) agrupados por seccion y maquina",
+            description="Tiempos de ciclo por seccion/maquina (solo lectura)",
             inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
-            name="update_ciclo",
-            description="Actualiza el tiempo de ciclo de una maquina/referencia",
+            name="get_recursos",
+            description="Lista de recursos (maquinas) configurados",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="list_reports",
+            description="Lista informes PDF generados",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="list_executions",
+            description="Ultimas ejecuciones del pipeline",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "id": {"type": "integer", "description": "ID del ciclo a actualizar"},
-                    "maquina": {"type": "string"},
-                    "referencia": {"type": "string"},
-                    "tiempo_ciclo": {"type": "number", "description": "Piezas por hora"},
+                    "limit": {"type": "integer", "default": 20},
                 },
-                "required": ["id", "maquina", "referencia", "tiempo_ciclo"],
             },
         ),
         Tool(
-            name="get_connection_status",
-            description="Comprueba si la conexion al SQL Server MES (dbizaro) esta activa",
-            inputSchema={"type": "object", "properties": {}},
+            name="get_execution_detail",
+            description="Detalle de una ejecucion: log y PDFs",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                },
+                "required": ["id"],
+            },
         ),
     ]
 
@@ -105,56 +175,98 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     try:
         result = _dispatch(name, arguments)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False, default=str))]
+    except httpx.HTTPStatusError as exc:
+        body = ""
+        try:
+            body = exc.response.text[:500]
+        except Exception:
+            pass
+        return [TextContent(type="text", text=f"HTTP {exc.response.status_code}: {body}")]
     except Exception as exc:
         return [TextContent(type="text", text=f"Error: {exc}")]
 
 
+def _get(path: str, **params) -> dict:
+    r = client.get(path, params={k: v for k, v in params.items() if v is not None})
+    r.raise_for_status()
+    return r.json()
+
+
+def _post(path: str, body: dict) -> dict:
+    r = client.post(path, json=body)
+    r.raise_for_status()
+    return r.json()
+
+
 def _dispatch(name: str, args: dict) -> dict:
+    # ── Estado ──────────────────────────────────────────────────────────
     if name == "get_health":
-        return client.get("/api/health").json()
+        return _get("/api/health")
+    if name == "get_connection_status":
+        return _get("/api/conexion/status")
 
-    elif name == "list_reports":
-        return client.get("/api/informes").json()
+    # ── Explorador BBDD ─────────────────────────────────────────────────
+    if name == "bizaro_list_databases":
+        return _get("/api/bbdd/databases")
+    if name == "bizaro_list_tables":
+        return _get("/api/bbdd/tables", database=args.get("database", "dbizaro"))
+    if name == "bizaro_columns":
+        return _get(
+            "/api/bbdd/columns",
+            database=args.get("database", "dbizaro"),
+            schema=args.get("schema", "admuser"),
+            table=args["table"],
+        )
+    if name == "bizaro_preview":
+        return _get(
+            "/api/bbdd/preview",
+            database=args.get("database", "dbizaro"),
+            schema=args.get("schema", "admuser"),
+            table=args["table"],
+            limit=args.get("limit", 50),
+        )
+    if name == "bizaro_query":
+        return _post("/api/bbdd/query", {
+            "database": args.get("database", "dbizaro"),
+            "sql": args["sql"],
+            "max_rows": args.get("max_rows", 500),
+        })
+    if name == "bizaro_buscar_rutas":
+        return _get("/api/bbdd/buscar-rutas", database=args.get("database", "dbizaro"))
 
-    elif name == "list_executions":
-        limit = args.get("limit", 20)
-        return client.get(f"/api/historial?limit={limit}").json()
+    # ── Negocio ────────────────────────────────────────────────────────
+    if name == "get_capacidad":
+        return _get(
+            "/api/capacidad",
+            fecha_inicio=args["fecha_inicio"],
+            fecha_fin=args["fecha_fin"],
+        )
+    if name == "get_ciclos":
+        return _get("/api/ciclos")
+    if name == "get_recursos":
+        return _get("/api/recursos")
+    if name == "list_reports":
+        return _get("/api/informes")
+    if name == "list_executions":
+        return _get("/api/historial", limit=args.get("limit", 20))
+    if name == "get_execution_detail":
+        return _get(f"/api/historial/{args['id']}")
 
-    elif name == "get_execution_detail":
-        return client.get(f"/api/historial/{args['id']}").json()
-
-    elif name == "generate_report":
-        body = {
-            "fecha_inicio": args["fecha_inicio"],
-            "fecha_fin": args["fecha_fin"],
-            "source": args.get("source", "db"),
-            "modulos": args.get("modulos", ["disponibilidad", "rendimiento", "calidad", "oee_secciones"]),
-        }
-        # The pipeline uses SSE, so we collect all events
-        lines = []
-        with client.stream("POST", "/api/pipeline/run", json=body) as resp:
-            for line in resp.iter_lines():
-                if line.startswith("data: "):
-                    lines.append(line[6:])
-        return {"log": lines}
-
-    elif name == "get_ciclos":
-        return client.get("/api/ciclos").json()
-
-    elif name == "update_ciclo":
-        body = {"maquina": args["maquina"], "referencia": args["referencia"], "tiempo_ciclo": args["tiempo_ciclo"]}
-        return client.put(f"/api/ciclos/row/{args['id']}", json=body).json()
-
-    elif name == "get_connection_status":
-        return client.get("/api/conexion/status").json()
-
-    else:
-        return {"error": f"Tool desconocido: {name}"}
+    return {"error": f"Tool desconocido: {name}"}
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
+async def _main() -> None:
+    async with stdio_server() as (read_stream, write_stream):
+        await app.run(
+            read_stream,
+            write_stream,
+            app.create_initialization_options(),
+        )
+
+
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(run_server(app))
+    asyncio.run(_main())

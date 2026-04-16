@@ -1094,8 +1094,14 @@ def build_cover_page(
     )
 
     if logo is not None:
-        image = OffsetImage(logo, zoom=0.28)
-        ab = AnnotationBbox(image, (0.2, 0.65), frameon=False, xycoords="axes fraction")
+        image = OffsetImage(logo, zoom=0.15)
+        ab = AnnotationBbox(
+            image,
+            (0.06, 0.86),
+            frameon=False,
+            xycoords="axes fraction",
+            box_alignment=(0, 0.5),
+        )
         ax.add_artist(ab)
 
     ax.text(0.55, 0.78, "Informe OEE", fontsize=30, fontweight="bold", color="#263238")
@@ -1144,7 +1150,7 @@ def build_master_table_page(
     ax.axis("off")
     title_x = 0.06 if logo_image is not None else 0.02
     if logo_image is not None:
-        image = OffsetImage(logo_image, zoom=0.08)
+        image = OffsetImage(logo_image, zoom=0.05)
         ab = AnnotationBbox(
             image,
             (-0.015, 1.04),
@@ -1327,7 +1333,7 @@ def build_reference_summary_pages(
             ax.axis("off")
             title_color = "#1B2631"
             if logo_image is not None:
-                image = OffsetImage(logo_image, zoom=0.08)
+                image = OffsetImage(logo_image, zoom=0.05)
                 ab = AnnotationBbox(
                     image, (-0.015, 1.04), frameon=False, xycoords="axes fraction", box_alignment=(0, 1)
                 )

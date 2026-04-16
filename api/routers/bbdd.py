@@ -1,7 +1,9 @@
 """Explorador de bases de datos del SQL Server."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+import re
+
+from fastapi import APIRouter, Body, HTTPException, Query
 
 router = APIRouter(prefix="/bbdd", tags=["bbdd"])
 
@@ -227,6 +229,318 @@ def full_schema(database: str = Query(...), light: bool = Query(False)):
             "tables": list(tables.values()),
             "relationships": relationships,
         }
+    except Exception as exc:
+        raise HTTPException(502, f"Error: {exc}")
+
+
+@router.get("/buscar-rutas")
+def buscar_tablas_rutas(database: str = Query("dbizaro")):
+    """
+    Descubre candidatas a tabla de rutas en la BBDD dada.
+
+    Busca en el esquema admuser tablas cuyo nombre contenga patrones tipo
+    ruta/fase/operacion/camino, y puntua cada candidata segun:
+      - si tiene columna que referencia a fprolof (referencia)
+      - si tiene columna que referencia a fmesrec (centro de trabajo)
+      - si tiene columna de secuencia/orden (para identificar ultima fase)
+
+    Devuelve lista ranqueada con columnas y una muestra de 5 filas.
+    """
+    import re
+    import pyodbc
+    if not re.match(r'^[\w]+$', database):
+        raise HTTPException(400, "Nombre de BBDD invalido")
+
+    try:
+        conn = _connect_db(database)
+        cursor = conn.cursor()
+
+        # 1) Candidatas por nombre
+        patterns = ["%rut%", "%fas%", "%ope%", "%ruf%", "%cam%", "%prc%", "%prr%", "%prf%"]
+        placeholders = " OR ".join(["TABLE_NAME LIKE ?"] * len(patterns))
+        cursor.execute(f"""
+            SELECT TABLE_SCHEMA, TABLE_NAME
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = 'admuser'
+              AND TABLE_TYPE = 'BASE TABLE'
+              AND ({placeholders})
+            ORDER BY TABLE_NAME
+        """, patterns)
+        candidatas = [(r[0], r[1]) for r in cursor.fetchall()]
+
+        resultados = []
+        for schema, table in candidatas:
+            # Columnas
+            cursor.execute("""
+                SELECT COLUMN_NAME, DATA_TYPE
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+                ORDER BY ORDINAL_POSITION
+            """, (schema, table))
+            cols = [(r[0], r[1]) for r in cursor.fetchall()]
+            col_names_lower = [c[0].lower() for c in cols]
+
+            # Conteo de filas
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM [{schema}].[{table}]")
+                n_rows = int(cursor.fetchone()[0] or 0)
+            except Exception:
+                n_rows = 0
+
+            # Score heuristico
+            score = 0
+            hints = []
+            name_lower = table.lower()
+            if "rut" in name_lower: score += 3; hints.append("nombre-ruta")
+            if "fas" in name_lower: score += 2; hints.append("nombre-fase")
+            if "ope" in name_lower: score += 1; hints.append("nombre-operacion")
+            # Referencia-like (lo030, ref, articulo)
+            if any("lo030" in c or "ref" in c or "art" in c for c in col_names_lower):
+                score += 2; hints.append("tiene-ref")
+            # CT/seccion-like
+            if any(c in col_names_lower for c in ("re010", "ct", "seccion", "centro")):
+                score += 2; hints.append("tiene-ct")
+            # Numero de orden / secuencia
+            if any("orden" in c or "secuencia" in c or "nfase" in c or "fase" in c for c in col_names_lower):
+                score += 2; hints.append("tiene-secuencia")
+
+            # Muestra
+            try:
+                cursor.execute(f"SELECT TOP 5 * FROM [{schema}].[{table}]")
+                sample_cols = [d[0] for d in cursor.description]
+                sample_rows = [
+                    [str(v) if v is not None else None for v in row]
+                    for row in cursor.fetchall()
+                ]
+            except Exception:
+                sample_cols, sample_rows = [], []
+
+            resultados.append({
+                "schema": schema,
+                "table": table,
+                "rows": n_rows,
+                "score": score,
+                "hints": hints,
+                "columns": [{"name": c[0], "type": c[1]} for c in cols],
+                "sample": {"columns": sample_cols, "rows": sample_rows},
+            })
+
+        conn.close()
+        resultados.sort(key=lambda x: (-x["score"], x["table"]))
+        return {"database": database, "candidatas": resultados}
+    except Exception as exc:
+        raise HTTPException(502, f"Error: {exc}")
+
+
+@router.get("/explorar-rutas-detalle")
+def explorar_rutas_detalle(database: str = Query("dbizaro")):
+    """
+    Devuelve muestras grandes de fprorut, fprorut_edm y fproope para
+    entender como se enlaza una fase de ruta con una operacion (CT/tiempo).
+    """
+    import re
+    if not re.match(r'^[\w]+$', database):
+        raise HTTPException(400, "Nombre de BBDD invalido")
+
+    try:
+        conn = _connect_db(database)
+        cursor = conn.cursor()
+        out = {}
+
+        # 1) Resumen de fprorut: cuantas referencias distintas, fases por ref
+        cursor.execute("""
+            SELECT COUNT(DISTINCT ru000) AS n_refs,
+                   COUNT(*) AS n_filas,
+                   MIN(ru020) AS fase_min, MAX(ru020) AS fase_max,
+                   MIN(ru030) AS ru030_min, MAX(ru030) AS ru030_max
+            FROM admuser.fprorut
+        """)
+        r = cursor.fetchone()
+        out["fprorut_resumen"] = {
+            "n_referencias": int(r[0] or 0),
+            "n_filas": int(r[1] or 0),
+            "fase_min": float(r[2]) if r[2] is not None else None,
+            "fase_max": float(r[3]) if r[3] is not None else None,
+            "ru030_min": float(r[4]) if r[4] is not None else None,
+            "ru030_max": float(r[5]) if r[5] is not None else None,
+        }
+
+        # 2) 30 filas de fprorut variadas (distintas referencias)
+        cursor.execute("""
+            SELECT TOP 30 ru999, ru000, ru010, ru020, ru030
+            FROM admuser.fprorut
+            WHERE ru000 IN (
+                SELECT TOP 6 ru000 FROM admuser.fprorut
+                GROUP BY ru000
+                ORDER BY COUNT(*) DESC
+            )
+            ORDER BY ru000, ru020
+        """)
+        rows = cursor.fetchall()
+        out["fprorut_muestra"] = {
+            "columns": ["ru999", "ru000", "ru010", "ru020", "ru030"],
+            "rows": [[str(v) if v is not None else None for v in r] for r in rows],
+        }
+
+        # 3) fprorut_edm: 30 filas variadas
+        cursor.execute("""
+            SELECT TOP 30 ru999, ru000, ru010, ru020, ru030, ru040, ru050,
+                          ru060, ru070, ru080, ru090, ru100, ru110, ru120
+            FROM admuser.fprorut_edm
+            WHERE ru000 IN (
+                SELECT TOP 6 ru000 FROM admuser.fprorut_edm
+                GROUP BY ru000
+                ORDER BY COUNT(*) DESC
+            )
+            ORDER BY ru000, ru020
+        """)
+        rows = cursor.fetchall()
+        out["fprorut_edm_muestra"] = {
+            "columns": ["ru999", "ru000", "ru010", "ru020", "ru030", "ru040",
+                        "ru050", "ru060", "ru070", "ru080", "ru090", "ru100",
+                        "ru110", "ru120"],
+            "rows": [[str(v) if v is not None else None for v in r] for r in rows],
+        }
+
+        # 4) Todas las operaciones de fproope (solo 87)
+        cursor.execute("""
+            SELECT op999, op000, op010, op020, op030, op040, op050, op055,
+                   op060, op090, op100, op110, op120
+            FROM admuser.fproope
+            ORDER BY op000
+        """)
+        rows = cursor.fetchall()
+        out["fproope_todas"] = {
+            "columns": ["op999", "op000", "op010", "op020", "op030", "op040",
+                        "op050", "op055", "op060", "op090", "op100", "op110", "op120"],
+            "rows": [[str(v) if v is not None else None for v in r] for r in rows],
+        }
+
+        # 5) Intento de JOIN — probar si fprorut.ru030 enlaza con fproope.op000
+        cursor.execute("""
+            SELECT TOP 30
+                r.ru000 AS referencia,
+                r.ru020 AS fase,
+                r.ru030 AS ru030,
+                o.op000 AS op_id,
+                o.op010 AS operacion,
+                o.op030 AS ct,
+                o.op040 AS tiempo
+            FROM admuser.fprorut r
+            LEFT JOIN admuser.fproope o ON o.op000 = r.ru030
+            WHERE r.ru000 IN (
+                SELECT TOP 5 ru000 FROM admuser.fprorut
+                GROUP BY ru000
+                ORDER BY COUNT(*) DESC
+            )
+            ORDER BY r.ru000, r.ru020
+        """)
+        rows = cursor.fetchall()
+        out["join_prueba_ru030_op000"] = {
+            "columns": ["referencia", "fase", "ru030", "op_id", "operacion", "ct", "tiempo"],
+            "rows": [[str(v) if v is not None else None for v in r] for r in rows],
+        }
+
+        # 6) Verificar distintos valores de ru030 (por si no es siempre 0)
+        cursor.execute("""
+            SELECT TOP 20 ru030, COUNT(*) AS n
+            FROM admuser.fprorut
+            GROUP BY ru030
+            ORDER BY COUNT(*) DESC
+        """)
+        rows = cursor.fetchall()
+        out["fprorut_distribucion_ru030"] = {
+            "columns": ["ru030", "n"],
+            "rows": [[str(v) if v is not None else None for v in r] for r in rows],
+        }
+
+        conn.close()
+        return out
+    except Exception as exc:
+        raise HTTPException(502, f"Error: {exc}")
+
+
+@router.post("/query")
+def query_readonly(
+    payload: dict = Body(...),
+):
+    """
+    Ejecuta una consulta SELECT de solo lectura en la BBDD indicada.
+
+    Body:
+        {
+          "database": "dbizaro",
+          "sql": "SELECT TOP 10 * FROM admuser.fprorut",
+          "max_rows": 500  // opcional, por defecto 500, tope 5000
+        }
+
+    Valida que la sentencia sea SELECT/WITH (CTE) pura. Rechaza cualquier
+    palabra reservada de DML/DDL para garantizar solo consulta.
+    """
+    database = payload.get("database") or "dbizaro"
+    sql = (payload.get("sql") or "").strip()
+    max_rows = int(payload.get("max_rows") or 500)
+    max_rows = max(1, min(max_rows, 5000))
+
+    if not re.match(r"^[\w]+$", database):
+        raise HTTPException(400, "Nombre de BBDD invalido")
+    if not sql:
+        raise HTTPException(400, "Falta el campo 'sql'")
+
+    # Validar SELECT-only
+    # 1) Debe empezar por SELECT o WITH (CTE)
+    sql_stripped = sql.lstrip(" \t\r\n;(")
+    first_word = sql_stripped.split(None, 1)[0].upper() if sql_stripped else ""
+    if first_word not in {"SELECT", "WITH"}:
+        raise HTTPException(400, "Solo se permiten SELECT/WITH")
+
+    # 2) Rechazar palabras reservadas peligrosas (busqueda por palabra entera,
+    #    insensible a mayus/minus)
+    forbidden = [
+        "INSERT", "UPDATE", "DELETE", "MERGE", "TRUNCATE", "DROP",
+        "ALTER", "CREATE", "GRANT", "REVOKE", "EXEC", "EXECUTE",
+        "SP_", "XP_", "BACKUP", "RESTORE", "SHUTDOWN", "BULK",
+        "OPENROWSET", "OPENQUERY",
+    ]
+    # Dividir en tokens tipo palabra para evitar falsos positivos
+    tokens = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", sql.upper())
+    for bad in forbidden:
+        if bad in tokens:
+            raise HTTPException(400, f"Palabra prohibida: {bad}")
+        # SP_ / XP_ son prefijos, comprobar cualquier token que empiece asi
+        if bad.endswith("_"):
+            for t in tokens:
+                if t.startswith(bad):
+                    raise HTTPException(400, f"Prefijo prohibido: {bad}")
+
+    # 3) Rechazar punto y coma internos (multi-statement)
+    #    Permitimos un ';' final, pero no en medio
+    stripped = sql.rstrip().rstrip(";").strip()
+    if ";" in stripped:
+        raise HTTPException(400, "No se permiten multiples sentencias")
+
+    try:
+        conn = _connect_db(database)
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        columns = [d[0] for d in cursor.description] if cursor.description else []
+        rows = []
+        for row in cursor.fetchmany(max_rows):
+            rows.append([
+                str(v) if v is not None else None
+                for v in row
+            ])
+        truncated = len(rows) >= max_rows
+        conn.close()
+        return {
+            "database": database,
+            "columns": columns,
+            "rows": rows,
+            "n_rows": len(rows),
+            "truncated": truncated,
+        }
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(502, f"Error: {exc}")
 

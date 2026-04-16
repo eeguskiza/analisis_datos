@@ -6,7 +6,7 @@ import traceback
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.config import settings
@@ -61,9 +61,14 @@ h1{{color:#e94560}}</style></head>
 
 app.mount("/static", StaticFiles(directory=str(settings.project_root / "static")), name="static")
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(settings.project_root / "static" / "img" / "logo.png")
+
 # ── Routers ───────────────────────────────────────────────────────────────────
 
-from api.routers import pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios, centro_mando, bbdd, datos, luk4  # noqa: E402
+from api.routers import pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios, centro_mando, bbdd, datos, luk4, capacidad  # noqa: E402
 
 app.include_router(health.router, prefix="/api")
 app.include_router(centro_mando.router, prefix="/api")
@@ -79,3 +84,4 @@ app.include_router(operarios.router, prefix="/api")
 app.include_router(bbdd.router, prefix="/api")
 app.include_router(datos.router, prefix="/api")
 app.include_router(luk4.router, prefix="/api")
+app.include_router(capacidad.router, prefix="/api")

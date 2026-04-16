@@ -111,7 +111,7 @@
 
         <!-- Dashboard Tab -->
         <div class="flex-1 min-h-0" x-show="activeTab === 'dashboard'">
-          <div x-ref="dashboardContainer" class="h-full">
+          <div x-ref="dashboardContainer" class="h-full overflow-y-auto">
             <div x-show="metricsLoading" class="flex items-center justify-center h-full">
               <span class="spinner border-brand-600 w-5 h-5"></span>
             </div>
@@ -121,29 +121,29 @@
         <!-- PDFs Tab -->
         <div class="flex-1 min-h-0" x-show="activeTab === 'pdfs'">
           <!-- Visor PDF inline -->
-          <div class="h-full" x-show="viewingPdf">
-            <div class="bg-white rounded-2xl border border-surface-200 shadow-sm h-full flex flex-col overflow-hidden">
-              <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-100 shrink-0">
-                <div class="flex items-center gap-2 min-w-0">
-                  <button @click="viewingPdf = null" class="text-gray-400 hover:text-gray-600 shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                  </button>
-                  <span class="text-sm font-medium text-gray-700 truncate" x-text="viewingPdf?.split('/').pop()"></span>
+          <template x-if="viewingPdf">
+            <div class="h-full">
+              <div class="bg-white rounded-2xl border border-surface-200 shadow-sm h-full flex flex-col overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-100 shrink-0">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <button @click="viewingPdf = null" class="text-gray-400 hover:text-gray-600 shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <span class="text-sm font-medium text-gray-700 truncate" x-text="viewingPdf?.split('/').pop()"></span>
+                  </div>
+                  <div class="flex gap-1 shrink-0">
+                    <a :href="'/api/informes/pdf/' + viewingPdf" target="_blank"
+                       class="px-2 py-1 text-[10px] text-gray-400 hover:text-brand-600 rounded-lg hover:bg-surface-50">Abrir</a>
+                    <a :href="'/api/informes/download/' + viewingPdf"
+                       class="px-2 py-1 text-[10px] text-gray-400 hover:text-brand-600 rounded-lg hover:bg-surface-50">Descargar</a>
+                  </div>
                 </div>
-                <div class="flex gap-1 shrink-0">
-                  <a :href="'/api/informes/pdf/' + viewingPdf" target="_blank"
-                     class="px-2 py-1 text-[10px] text-gray-400 hover:text-brand-600 rounded-lg hover:bg-surface-50">Abrir</a>
-                  <a :href="'/api/informes/download/' + viewingPdf"
-                     class="px-2 py-1 text-[10px] text-gray-400 hover:text-brand-600 rounded-lg hover:bg-surface-50">Descargar</a>
+                <div class="flex-1">
+                  <iframe :src="'/api/informes/pdf/' + viewingPdf" class="w-full h-full border-0" type="application/pdf"></iframe>
                 </div>
-              </div>
-              <div class="flex-1">
-                <object :data="'/api/informes/pdf/' + viewingPdf" type="application/pdf" class="w-full h-full">
-                  <iframe :src="'/api/informes/pdf/' + viewingPdf" class="w-full h-full border-0"></iframe>
-                </object>
               </div>
             </div>
-          </div>
+          </template>
 
           <!-- Grid de PDFs -->
           <div class="h-full" x-show="!viewingPdf">
@@ -262,8 +262,9 @@ function informesPage() {
     },
 
     openPdf(inf) {
-      this.viewingPdf = inf.pdf_path;
+      this.viewingPdf = null;
       this.activeTab = 'pdfs';
+      this.$nextTick(() => { this.viewingPdf = inf.pdf_path; });
     },
 
     async regenerar() {

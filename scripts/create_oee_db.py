@@ -177,13 +177,15 @@ TABLES = [
     """),
     ("luk4.plano_zonas", """
         CREATE TABLE luk4.plano_zonas (
-            id          NVARCHAR(50) PRIMARY KEY,
+            id          NVARCHAR(50) NOT NULL,
+            pabellon    NVARCHAR(10) NOT NULL CONSTRAINT DF_plano_zonas_pabellon DEFAULT 'p5',
             label       NVARCHAR(100),
             left_pct    FLOAT,
             top_pct     FLOAT,
             width_pct   FLOAT,
             height_pct  FLOAT,
-            source      NVARCHAR(20) DEFAULT 'none'
+            source      NVARCHAR(20) DEFAULT 'none',
+            CONSTRAINT PK_plano_zonas PRIMARY KEY (pabellon, id)
         )
     """),
 ]

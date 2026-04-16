@@ -256,20 +256,33 @@ def turno_detail():
                 total = producing + incidence + off + other
                 avail = round(100 * producing / total, 1) if total > 0 else 0
 
+                # Baseline = ultima lectura ANTES del turno para cerrar la cadena
+                # sin perder piezas en el hueco de muestreo de la frontera.
+                # Fallback: primera lectura dentro del turno (primer turno historico).
                 pz = conn.execute(text("""
                     SELECT
-                        (SELECT TOP 1 contador_piezas_buenas FROM luk4.tiempos_ciclo
-                         WHERE timestamp >= :t_start AND contador_piezas_buenas IS NOT NULL
-                         ORDER BY idtiempos_ciclo ASC),
+                        COALESCE(
+                            (SELECT TOP 1 contador_piezas_buenas FROM luk4.tiempos_ciclo
+                             WHERE timestamp < :t_start AND contador_piezas_buenas IS NOT NULL
+                             ORDER BY timestamp DESC),
+                            (SELECT TOP 1 contador_piezas_buenas FROM luk4.tiempos_ciclo
+                             WHERE timestamp >= :t_start AND contador_piezas_buenas IS NOT NULL
+                             ORDER BY timestamp ASC)
+                        ),
                         (SELECT TOP 1 contador_piezas_buenas FROM luk4.tiempos_ciclo
                          WHERE timestamp < :t_end AND contador_piezas_buenas IS NOT NULL
-                         ORDER BY idtiempos_ciclo DESC),
-                        (SELECT TOP 1 contador_piezas_malas FROM luk4.tiempos_ciclo
-                         WHERE timestamp >= :t_start AND contador_piezas_malas IS NOT NULL
-                         ORDER BY idtiempos_ciclo ASC),
+                         ORDER BY timestamp DESC),
+                        COALESCE(
+                            (SELECT TOP 1 contador_piezas_malas FROM luk4.tiempos_ciclo
+                             WHERE timestamp < :t_start AND contador_piezas_malas IS NOT NULL
+                             ORDER BY timestamp DESC),
+                            (SELECT TOP 1 contador_piezas_malas FROM luk4.tiempos_ciclo
+                             WHERE timestamp >= :t_start AND contador_piezas_malas IS NOT NULL
+                             ORDER BY timestamp ASC)
+                        ),
                         (SELECT TOP 1 contador_piezas_malas FROM luk4.tiempos_ciclo
                          WHERE timestamp < :t_end AND contador_piezas_malas IS NOT NULL
-                         ORDER BY idtiempos_ciclo DESC)
+                         ORDER BY timestamp DESC)
                 """), params).fetchone()
                 pz_buenas = int(pz[1] - pz[0]) if pz and pz[0] is not None and pz[1] is not None else 0
                 pz_malas = int(pz[3] - pz[2]) if pz and pz[2] is not None and pz[3] is not None else 0
@@ -344,6 +357,38 @@ def turno_detail():
 
 # ── Zonas del plano (persistidas en BBDD) ───────────────────────────────
 
+_VALID_PABELLONES = {"p2", "p3", "p4", "p5"}
+_schema_ready = False
+
+
+def _ensure_pabellon_schema() -> None:
+    """Migracion idempotente: anade columna pabellon a luk4.plano_zonas si falta."""
+    global _schema_ready
+    if _schema_ready:
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                IF COL_LENGTH('luk4.plano_zonas', 'pabellon') IS NULL
+                BEGIN
+                    ALTER TABLE luk4.plano_zonas
+                    ADD pabellon NVARCHAR(10) NOT NULL
+                    CONSTRAINT DF_plano_zonas_pabellon DEFAULT 'p5' WITH VALUES;
+                END
+            """))
+            conn.commit()
+        _schema_ready = True
+    except Exception as exc:
+        log.warning("No pude asegurar columna pabellon: %s", exc)
+
+
+def _validar_pabellon(pab: str) -> str:
+    p = (pab or "p5").lower()
+    if p not in _VALID_PABELLONES:
+        p = "p5"
+    return p
+
+
 class ZonaIn(BaseModel):
     id: str
     label: str
@@ -355,37 +400,47 @@ class ZonaIn(BaseModel):
 
 
 @router.get("/zonas")
-def get_zonas():
-    """Devuelve las zonas guardadas del plano."""
+def get_zonas(pabellon: str = "p5"):
+    """Devuelve las zonas guardadas del plano para el pabellon indicado."""
+    _ensure_pabellon_schema()
+    pab = _validar_pabellon(pabellon)
     try:
         with engine.connect() as conn:
-            rows = conn.execute(text(
-                "SELECT id, label, left_pct, top_pct, width_pct, height_pct, source FROM luk4.plano_zonas ORDER BY label"
-            )).fetchall()
+            rows = conn.execute(text("""
+                SELECT id, label, left_pct, top_pct, width_pct, height_pct, source
+                FROM luk4.plano_zonas
+                WHERE pabellon = :pab
+                ORDER BY label
+            """), {"pab": pab}).fetchall()
             return [
                 {"id": r[0], "label": r[1], "left": r[2], "top": r[3],
                  "width": r[4], "height": r[5], "source": r[6]}
                 for r in rows
             ]
     except Exception as exc:
-        log.warning("Error cargando zonas: %s", exc)
+        log.warning("Error cargando zonas (%s): %s", pab, exc)
         return []
 
 
 @router.put("/zonas")
-def save_zonas(zonas: List[ZonaIn]):
-    """Guarda las zonas del plano (reemplaza todas)."""
+def save_zonas(zonas: List[ZonaIn], pabellon: str = "p5"):
+    """Reemplaza las zonas del pabellon indicado sin tocar las de otros."""
+    _ensure_pabellon_schema()
+    pab = _validar_pabellon(pabellon)
     try:
         with engine.connect() as conn:
-            conn.execute(text("DELETE FROM luk4.plano_zonas"))
+            conn.execute(text("DELETE FROM luk4.plano_zonas WHERE pabellon = :pab"),
+                         {"pab": pab})
             for z in zonas:
                 conn.execute(text("""
-                    INSERT INTO luk4.plano_zonas (id, label, left_pct, top_pct, width_pct, height_pct, source)
-                    VALUES (:id, :label, :left, :top, :width, :height, :source)
-                """), {"id": z.id, "label": z.label, "left": z.left, "top": z.top,
+                    INSERT INTO luk4.plano_zonas
+                        (id, pabellon, label, left_pct, top_pct, width_pct, height_pct, source)
+                    VALUES (:id, :pab, :label, :left, :top, :width, :height, :source)
+                """), {"id": z.id, "pab": pab, "label": z.label,
+                       "left": z.left, "top": z.top,
                        "width": z.width, "height": z.height, "source": z.source})
             conn.commit()
-        return {"ok": True, "count": len(zonas)}
+        return {"ok": True, "count": len(zonas), "pabellon": pab}
     except Exception as exc:
-        log.warning("Error guardando zonas: %s", exc)
+        log.warning("Error guardando zonas (%s): %s", pab, exc)
         return {"ok": False, "error": str(exc)}

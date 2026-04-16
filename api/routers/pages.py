@@ -106,6 +106,12 @@ def bbdd_page(request: Request):
     return _render("bbdd.html", ctx)
 
 
+@router.get("/capacidad")
+def capacidad_page(request: Request):
+    ctx = _common_ctx(request, "capacidad")
+    return _render("capacidad.html", ctx)
+
+
 @router.get("/ajustes")
 def ajustes_page(request: Request):
     ctx = _common_ctx(request, "ajustes")

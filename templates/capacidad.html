@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Capacidad — ECS Mobility{% endblock %}
+{% block page_title %}Capacidad{% endblock %}
+
+{% block content %}
+<div x-data="capacidadPage()" x-init="initDates(); load()" class="flex flex-col gap-4">
+
+  <!-- ── Controles ─────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 flex flex-wrap gap-4 items-end">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Desde</label>
+      <input type="date" x-model="fi"
+             class="px-3 py-2 rounded-lg border border-surface-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
+      <input type="date" x-model="ff"
+             class="px-3 py-2 rounded-lg border border-surface-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
+    </div>
+    <div class="flex gap-1">
+      <button @click="setRange('hoy')" class="px-3 py-2 text-xs rounded-lg border border-surface-200 hover:bg-surface-50">Hoy</button>
+      <button @click="setRange('7d')" class="px-3 py-2 text-xs rounded-lg border border-surface-200 hover:bg-surface-50">7d</button>
+      <button @click="setRange('30d')" class="px-3 py-2 text-xs rounded-lg border border-surface-200 hover:bg-surface-50">30d</button>
+      <button @click="setRange('mes')" class="px-3 py-2 text-xs rounded-lg border border-surface-200 hover:bg-surface-50">Mes</button>
+    </div>
+    <button @click="load()" :disabled="loading"
+            class="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 flex items-center gap-2">
+      <svg class="w-4 h-4" :class="loading && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      <span x-text="loading ? 'Calculando...' : 'Calcular'"></span>
+    </button>
+    <div class="ml-auto text-xs text-gray-400 max-w-md">
+      Solo cuenta piezas en <strong>líneas de montaje final</strong> (CTs cuyo nombre empieza por "Linea"). Capacidad teórica = tiempo trabajado × 60 / ciclo P10 de 180 días.
+    </div>
+  </div>
+
+  <!-- ── Error ─────────────────────────────────────────────────────── -->
+  <div x-show="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm" x-text="error"></div>
+
+  <!-- ── Totales ───────────────────────────────────────────────────── -->
+  <div x-show="!loading && data" class="grid grid-cols-4 gap-4">
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wider">Piezas fabricadas</div>
+      <div class="text-3xl font-bold text-brand-800 mt-1" x-text="fmt(data?.totales?.piezas_reales)"></div>
+    </div>
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wider">Capacidad teórica</div>
+      <div class="text-3xl font-bold text-brand-800 mt-1" x-text="fmt(data?.totales?.piezas_teoricas)"></div>
+    </div>
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wider">Eficiencia</div>
+      <div class="text-3xl font-bold mt-1"
+           :class="effClass(data?.totales?.eficiencia_pct)"
+           x-text="data?.totales?.eficiencia_pct != null ? data.totales.eficiencia_pct + '%' : '—'"></div>
+    </div>
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wider">Referencias</div>
+      <div class="text-3xl font-bold text-brand-800 mt-1" x-text="fmt(data?.totales?.n_referencias)"></div>
+    </div>
+  </div>
+
+  <!-- ── Resumen por línea ─────────────────────────────────────────── -->
+  <div x-show="!loading && data?.por_linea?.length" class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-surface-100 text-sm font-semibold text-gray-700">
+      Resumen por línea de montaje
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface-50">
+          <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <th class="px-4 py-2">Línea</th>
+            <th class="px-4 py-2 text-right">Piezas</th>
+            <th class="px-4 py-2 text-right">Teóricas</th>
+            <th class="px-4 py-2 text-right">Efic.</th>
+            <th class="px-4 py-2 text-right">Tiempo (min)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="l in data.por_linea" :key="l.ct">
+            <tr class="border-t border-surface-100">
+              <td class="px-4 py-2">
+                <span class="font-medium" x-text="l.ct_nombre"></span>
+                <span class="text-xs text-gray-400 ml-2" x-text="'CT ' + l.ct"></span>
+              </td>
+              <td class="px-4 py-2 text-right font-semibold" x-text="fmt(l.piezas_reales)"></td>
+              <td class="px-4 py-2 text-right text-gray-600" x-text="l.piezas_teoricas ? fmt(l.piezas_teoricas) : '—'"></td>
+              <td class="px-4 py-2 text-right font-semibold"
+                  :class="effClass(l.eficiencia_pct)"
+                  x-text="l.eficiencia_pct != null ? l.eficiencia_pct + '%' : '—'"></td>
+              <td class="px-4 py-2 text-right text-gray-600" x-text="fmt(l.tiempo_min)"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Tabla ─────────────────────────────────────────────────────── -->
+  <div x-show="!loading && data" class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-surface-100 flex items-center justify-between">
+      <div class="text-sm font-semibold text-gray-700">Detalle por referencia y máquina final</div>
+      <input type="text" x-model="filter" placeholder="Filtrar..."
+             class="px-3 py-1.5 rounded-lg border border-surface-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400">
+    </div>
+    <div class="overflow-x-auto max-h-[calc(100vh-380px)] overflow-y-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface-50 sticky top-0">
+          <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <th class="px-4 py-2 cursor-pointer hover:text-brand-600" @click="sortBy('referencia')">Referencia</th>
+            <th class="px-4 py-2 cursor-pointer hover:text-brand-600" @click="sortBy('ct_nombre')">Línea</th>
+            <th class="px-4 py-2 cursor-pointer hover:text-brand-600 text-right" @click="sortBy('piezas_reales')">Piezas</th>
+            <th class="px-4 py-2 cursor-pointer hover:text-brand-600 text-right" @click="sortBy('piezas_teoricas')">Teóricas</th>
+            <th class="px-4 py-2 cursor-pointer hover:text-brand-600 text-right" @click="sortBy('eficiencia_pct')">Efic.</th>
+            <th class="px-4 py-2 cursor-pointer hover:text-brand-600 text-right" @click="sortBy('tiempo_trabajado_min')">Tiempo (min)</th>
+            <th class="px-4 py-2 cursor-pointer hover:text-brand-600 text-right" @click="sortBy('ciclo_real_seg')">Ciclo real (s)</th>
+            <th class="px-4 py-2 cursor-pointer hover:text-brand-600 text-right" @click="sortBy('ciclo_teorico_seg')">Ciclo teórico (s)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="r in filteredRows" :key="r.referencia + '|' + r.ct">
+            <tr class="border-t border-surface-100 hover:bg-surface-50">
+              <td class="px-4 py-2 font-mono text-xs" x-text="r.referencia"></td>
+              <td class="px-4 py-2" x-text="r.ct_nombre"></td>
+              <td class="px-4 py-2 text-right font-semibold" x-text="fmt(r.piezas_reales)"></td>
+              <td class="px-4 py-2 text-right text-gray-600" x-text="r.piezas_teoricas != null ? fmt(r.piezas_teoricas) : '—'"></td>
+              <td class="px-4 py-2 text-right font-semibold"
+                  :class="effClass(r.eficiencia_pct)"
+                  x-text="r.eficiencia_pct != null ? r.eficiencia_pct + '%' : '—'"></td>
+              <td class="px-4 py-2 text-right text-gray-600" x-text="fmt(Math.round(r.tiempo_trabajado_min))"></td>
+              <td class="px-4 py-2 text-right text-gray-600" x-text="r.ciclo_real_seg ?? '—'"></td>
+              <td class="px-4 py-2 text-right text-gray-600" x-text="r.ciclo_teorico_seg ?? '—'"></td>
+            </tr>
+          </template>
+          <tr x-show="filteredRows.length === 0">
+            <td colspan="8" class="px-4 py-8 text-center text-gray-400 text-sm">Sin datos en el periodo seleccionado</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div x-show="loading" class="flex items-center justify-center py-20">
+    <span class="spinner border-brand-600"></span>
+  </div>
+</div>
+
+<script>
+function capacidadPage() {
+  return {
+    fi: '', ff: '',
+    loading: false,
+    error: '',
+    data: null,
+    filter: '',
+    sortKey: 'piezas_reales',
+    sortDir: -1,
+
+    initDates() {
+      const today = new Date();
+      const d30 = new Date(today);
+      d30.setDate(d30.getDate() - 30);
+      this.fi = d30.toISOString().slice(0, 10);
+      this.ff = today.toISOString().slice(0, 10);
+    },
+
+    setRange(key) {
+      const today = new Date();
+      const iso = d => d.toISOString().slice(0, 10);
+      if (key === 'hoy') { this.fi = iso(today); this.ff = iso(today); }
+      else if (key === '7d') { const d = new Date(today); d.setDate(d.getDate() - 7); this.fi = iso(d); this.ff = iso(today); }
+      else if (key === '30d') { const d = new Date(today); d.setDate(d.getDate() - 30); this.fi = iso(d); this.ff = iso(today); }
+      else if (key === 'mes') {
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        this.fi = iso(first); this.ff = iso(today);
+      }
+      this.load();
+    },
+
+    async load() {
+      if (!this.fi || !this.ff) return;
+      this.loading = true;
+      this.error = '';
+      try {
+        const url = `/api/capacidad?fecha_inicio=${this.fi}&fecha_fin=${this.ff}`;
+        const r = await fetch(url);
+        if (!r.ok) {
+          const t = await r.text();
+          throw new Error(t || r.statusText);
+        }
+        this.data = await r.json();
+      } catch (e) {
+        this.error = 'Error: ' + e.message;
+        this.data = null;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    sortBy(key) {
+      if (this.sortKey === key) this.sortDir = -this.sortDir;
+      else { this.sortKey = key; this.sortDir = -1; }
+    },
+
+    get filteredRows() {
+      if (!this.data?.por_referencia) return [];
+      const f = (this.filter || '').toLowerCase().trim();
+      let rows = this.data.por_referencia;
+      if (f) {
+        rows = rows.filter(r =>
+          (r.referencia || '').toLowerCase().includes(f) ||
+          (r.ct || '').toLowerCase().includes(f)
+        );
+      }
+      const k = this.sortKey, d = this.sortDir;
+      return [...rows].sort((a, b) => {
+        const va = a[k], vb = b[k];
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (typeof va === 'number') return (va - vb) * d;
+        return String(va).localeCompare(String(vb)) * d;
+      });
+    },
+
+    fmt(n) {
+      if (n == null) return '—';
+      return new Intl.NumberFormat('es-ES').format(n);
+    },
+
+    effClass(pct) {
+      if (pct == null) return 'text-gray-400';
+      if (pct >= 85) return 'text-green-600';
+      if (pct >= 65) return 'text-amber-600';
+      return 'text-red-600';
+    },
+  }
+}
+</script>
+{% endblock %}
