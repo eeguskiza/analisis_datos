@@ -447,6 +447,7 @@ def calcular_ciclos_reales(
     conn = pyodbc.connect(_build_connection_string(cfg), timeout=30)
     cursor = conn.cursor()
     ct = str(centro_trabajo)
+    fuente = "contadores"
 
     try:
         # 1) Contadores: valor acumulado en cada instante
@@ -464,27 +465,50 @@ def calcular_ciclos_reales(
         """, (f'%{ct}%', -dias_atras))
         contadores = cursor.fetchall()
 
+        prod_rows = []
         if not contadores:
-            return []
+            # Fallback: calcular ciclos desde registros de produccion (fmesdtc)
+            fuente = "produccion"
+            cursor.execute("""
+                SELECT
+                    CONVERT(DATE, dtc.dt060)              AS fecha,
+                    COALESCE(CAST(dtc.dt090 AS FLOAT), 0) AS tiempo_min,
+                    COALESCE(CAST(dtc.dt130 AS FLOAT), 0) AS cantidad,
+                    COALESCE(RTRIM(lof.lo030), '')         AS referencia
+                FROM admuser.fmesdtc dtc
+                LEFT JOIN admuser.fprolof lof
+                    ON RTRIM(lof.lo010) = RTRIM(dtc.dt020)
+                    AND lof.lo020 = dtc.dt030
+                WHERE RTRIM(CAST(dtc.dt150 AS NVARCHAR(50))) = ?
+                  AND dtc.dt110 = '0'
+                  AND dtc.dt060 >= DATEADD(DAY, ?, GETDATE())
+                  AND COALESCE(CAST(dtc.dt130 AS FLOAT), 0) > 0
+                  AND COALESCE(CAST(dtc.dt090 AS FLOAT), 0) > 0
+            """, (ct, -dias_atras))
+            prod_rows = cursor.fetchall()
+            if not prod_rows:
+                return [], fuente
 
         # 2) Referencia activa por CT+fecha+hora (produccion en fmesdtc)
-        cursor.execute("""
-            SELECT
-                CONVERT(DATE, dtc.dt060) AS fecha,
-                dtc.dt080 AS h_ini,
-                dtc.dt085 AS h_fin,
-                COALESCE(RTRIM(lof.lo030), '') AS referencia
-            FROM admuser.fmesdtc dtc
-            LEFT JOIN admuser.fprolof lof
-                ON RTRIM(lof.lo010) = RTRIM(dtc.dt020)
-                AND lof.lo020 = dtc.dt030
-            WHERE RTRIM(CAST(dtc.dt150 AS NVARCHAR(50))) = ?
-              AND dtc.dt110 = '0'
-              AND dtc.dt060 >= DATEADD(DAY, ?, GETDATE())
-              AND COALESCE(RTRIM(lof.lo030), '') <> ''
-            ORDER BY dtc.dt060, dtc.dt080
-        """, (ct, -dias_atras))
-        tramos = cursor.fetchall()
+        tramos = []
+        if contadores:
+            cursor.execute("""
+                SELECT
+                    CONVERT(DATE, dtc.dt060) AS fecha,
+                    dtc.dt080 AS h_ini,
+                    dtc.dt085 AS h_fin,
+                    COALESCE(RTRIM(lof.lo030), '') AS referencia
+                FROM admuser.fmesdtc dtc
+                LEFT JOIN admuser.fprolof lof
+                    ON RTRIM(lof.lo010) = RTRIM(dtc.dt020)
+                    AND lof.lo020 = dtc.dt030
+                WHERE RTRIM(CAST(dtc.dt150 AS NVARCHAR(50))) = ?
+                  AND dtc.dt110 = '0'
+                  AND dtc.dt060 >= DATEADD(DAY, ?, GETDATE())
+                  AND COALESCE(RTRIM(lof.lo030), '') <> ''
+                ORDER BY dtc.dt060, dtc.dt080
+            """, (ct, -dias_atras))
+            tramos = cursor.fetchall()
     finally:
         conn.close()
 
@@ -509,7 +533,7 @@ def calcular_ciclos_reales(
                 return tr["referencia"]
         return ""
 
-    # 4) Calcular deltas entre contadores consecutivos
+    # 4) Calcular muestras de ciclo
     import math
     import statistics
     from collections import defaultdict
@@ -518,36 +542,48 @@ def calcular_ciclos_reales(
     samples: dict[str, list[float]] = defaultdict(list)
     daily: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
 
-    prev_val = None
-    prev_time = None
-    prev_fecha = None
+    if fuente == "contadores":
+        # Deltas entre contadores consecutivos (zmeshva)
+        prev_val = None
+        prev_time = None
+        prev_fecha = None
 
-    for row in contadores:
-        fecha, hora, valor = row[0], row[1], row[2]
-        if valor is None or valor == 0:
-            prev_val = None
-            continue
+        for row in contadores:
+            fecha, hora, valor = row[0], row[1], row[2]
+            if valor is None or valor == 0:
+                prev_val = None
+                continue
 
-        if prev_val is not None and prev_fecha == fecha:
-            delta_piezas = valor - prev_val
-            try:
-                t1 = _dt.combine(fecha, _dt.strptime(str(prev_time), "%H:%M:%S").time()) if isinstance(prev_time, str) else _dt.combine(fecha, prev_time) if hasattr(prev_time, 'hour') else None
-                t2 = _dt.combine(fecha, _dt.strptime(str(hora), "%H:%M:%S").time()) if isinstance(hora, str) else _dt.combine(fecha, hora) if hasattr(hora, 'hour') else None
-                delta_seg = (t2 - t1).total_seconds() if t1 and t2 and t2 > t1 else None
-            except Exception:
-                delta_seg = None
+            if prev_val is not None and prev_fecha == fecha:
+                delta_piezas = valor - prev_val
+                try:
+                    t1 = _dt.combine(fecha, _dt.strptime(str(prev_time), "%H:%M:%S").time()) if isinstance(prev_time, str) else _dt.combine(fecha, prev_time) if hasattr(prev_time, 'hour') else None
+                    t2 = _dt.combine(fecha, _dt.strptime(str(hora), "%H:%M:%S").time()) if isinstance(hora, str) else _dt.combine(fecha, hora) if hasattr(hora, 'hour') else None
+                    delta_seg = (t2 - t1).total_seconds() if t1 and t2 and t2 > t1 else None
+                except Exception:
+                    delta_seg = None
 
-            if delta_seg and delta_piezas > 0 and delta_seg > 0:
-                ciclo = delta_seg / delta_piezas
+                if delta_seg and delta_piezas > 0 and delta_seg > 0:
+                    ciclo = delta_seg / delta_piezas
+                    if 1 <= ciclo <= 600:
+                        ref = _find_ref(fecha, str(hora))
+                        if ref:
+                            samples[ref].append(ciclo)
+                            daily[ref][fecha.isoformat()].append(ciclo)
+
+            prev_val = valor
+            prev_time = hora
+            prev_fecha = fecha
+    else:
+        # Fallback: ciclo = (tiempo_min * 60) / cantidad desde fmesdtc
+        for row in prod_rows:
+            fecha, tiempo_min, cantidad, referencia = row[0], row[1], row[2], row[3]
+            if tiempo_min > 0 and cantidad > 0:
+                referencia = referencia or "SIN_REF"
+                ciclo = (tiempo_min * 60) / cantidad
                 if 1 <= ciclo <= 600:
-                    ref = _find_ref(fecha, str(hora))
-                    if ref:
-                        samples[ref].append(ciclo)
-                        daily[ref][fecha.isoformat()].append(ciclo)
-
-        prev_val = valor
-        prev_time = hora
-        prev_fecha = fecha
+                    samples[referencia].append(ciclo)
+                    daily[referencia][fecha.isoformat()].append(ciclo)
 
     # ── Funciones de estimacion robusta ──────────────────────────────
 
@@ -710,7 +746,7 @@ def calcular_ciclos_reales(
         })
 
     result.sort(key=lambda x: -x["n_muestras"])
-    return result
+    return result, fuente
 
 
 def extraer_y_guardar_csv(

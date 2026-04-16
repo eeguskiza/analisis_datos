@@ -48,11 +48,35 @@
   <!-- ── Error ───────────────────────────────────────────────────────── -->
   <div x-show="error" x-transition class="max-w-2xl mx-auto bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700" x-text="error"></div>
 
+  <!-- ── Aviso de metodo de calculo ─────────────────────────────────── -->
+  <div x-show="result?.referencias?.length > 0" x-transition class="max-w-2xl mx-auto">
+    <div class="flex items-start gap-3 px-4 py-3 rounded-xl border text-sm"
+         :class="result?.fuente === 'produccion'
+           ? 'bg-amber-50 border-amber-200 text-amber-800'
+           : 'bg-blue-50 border-blue-200 text-blue-700'">
+      <svg x-show="result?.fuente === 'produccion'" class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      <svg x-show="result?.fuente !== 'produccion'" class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <div>
+        <span class="font-semibold" x-text="result?.fuente === 'produccion' ? 'Estimacion desde registros de produccion' : 'Calculado desde contadores'"></span>
+        <p class="text-xs mt-0.5 opacity-75" x-text="result?.fuente === 'produccion'
+          ? 'Esta maquina no tiene contadores en IZARO. Los ciclos se estiman desde tiempo/cantidad de cada registro — menor precision que contadores.'
+          : 'Ciclos calculados a partir de los contadores de piezas (zmeshva).'"></p>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Header resultado + acciones ─────────────────────────────────── -->
   <div x-show="result?.referencias?.length > 0" x-transition class="flex items-center justify-between">
     <div>
       <h3 class="font-bold text-gray-800">
         <span class="font-mono text-brand-800" x-text="result?.recurso"></span>
+        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold align-middle ml-1"
+              :class="result?.fuente === 'produccion' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'"
+              x-text="result?.fuente === 'produccion' ? 'PRODUCCION' : 'CONTADORES'"></span>
         <span class="text-gray-400 font-normal text-sm" x-text="'— ' + result?.referencias?.length + ' referencias, ' + totalMuestras().toLocaleString('es-ES') + ' muestras'"></span>
       </h3>
     </div>
@@ -147,6 +171,9 @@
             <!-- Badges metodo -->
             <div class="flex items-center gap-4 flex-wrap">
               <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold"
+                      :class="result?.fuente === 'produccion' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'"
+                      x-text="result?.fuente === 'produccion' ? 'Produccion' : 'Contadores'"></span>
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-violet-100 text-violet-700">KDE Moda</span>
                 <span class="text-sm font-mono font-bold text-brand-800" x-text="r.ciclo_seg + 's → ' + r.piezas_hora + ' pzas/h'"></span>
               </div>
@@ -217,8 +244,9 @@
   <!-- ── Empty / Initial ─────────────────────────────────────────────── -->
   <div x-show="result && result?.referencias?.length === 0" x-transition class="text-center py-16 text-gray-400">
     <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-    <p class="text-sm font-medium">No se encontraron datos de contadores</p>
-    <p class="text-xs mt-1">Verifica que la maquina tiene contadores configurados en IZARO</p>
+    <p class="text-sm font-medium">No se encontraron datos para esta maquina</p>
+    <p class="text-xs mt-1">Se buscaron contadores (zmeshva) y registros de produccion (fmesdtc) — sin resultados en el periodo seleccionado</p>
+    <p class="text-xs mt-2 text-gray-300">Prueba a ampliar el periodo o verifica que la maquina tiene actividad en IZARO</p>
   </div>
   <div x-show="!result && !loading && !error" class="text-center py-12 text-gray-300">
     <svg class="w-14 h-14 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>

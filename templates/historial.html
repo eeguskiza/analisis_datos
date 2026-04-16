@@ -3,7 +3,18 @@
 {% block page_title %}Historial{% endblock %}
 
 {% block content %}
-<div x-data="historialPage()" x-init="load()" class="flex gap-4 h-[calc(100vh-130px)]">
+<div x-data="historialPage()" x-init="load()" class="flex flex-col" style="height:calc(100vh - 130px)">
+
+  <!-- ── Mode toggle ──────────────────────────────────────────────────── -->
+  <div class="flex items-center gap-1 p-0.5 bg-surface-100 rounded-xl w-fit mb-3 shrink-0">
+    <button @click="mode = 'ejecuciones'" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            :class="mode === 'ejecuciones' ? 'bg-white shadow-sm text-brand-700 font-semibold' : 'text-gray-500 hover:text-gray-700'">Ejecuciones</button>
+    <button @click="mode = 'tendencias'" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            :class="mode === 'tendencias' ? 'bg-white shadow-sm text-brand-700 font-semibold' : 'text-gray-500 hover:text-gray-700'">Tendencias</button>
+  </div>
+
+  <!-- ════ Ejecuciones mode ═══════════════════════════════════════════ -->
+  <div x-show="mode === 'ejecuciones'" class="flex gap-4 flex-1 min-h-0">
 
   <!-- ── Panel izquierdo: ejecuciones ────────────────────────────────── -->
   <div class="w-72 shrink-0 bg-white rounded-2xl border border-surface-200 shadow-sm flex flex-col overflow-hidden">
@@ -190,6 +201,125 @@
       </div>
     </div>
   </div>
+  </div><!-- /ejecuciones mode -->
+
+  <!-- ════ Tendencias mode ═══════════════════════════════════════════ -->
+  <div x-show="mode === 'tendencias'" class="flex flex-col flex-1 min-h-0">
+
+    <!-- Controls -->
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm px-5 py-4 shrink-0 mb-4">
+      <div class="flex items-end gap-4 flex-wrap">
+        <div class="w-52">
+          <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Recurso</label>
+          <select x-model="tendRecurso" class="w-full px-3 py-2.5 text-sm font-mono border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 bg-surface-50 focus:bg-white transition-colors">
+            <option value="">Seleccionar...</option>
+            {% for r in recursos %}
+            <option value="{{ r.nombre }}">{{ r.nombre }} ({{ r.seccion }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="w-40">
+          <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Desde</label>
+          <input type="date" x-model="tendFechaInicio" class="input-inline font-mono text-sm">
+        </div>
+        <div class="w-40">
+          <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Hasta</label>
+          <input type="date" x-model="tendFechaFin" class="input-inline font-mono text-sm">
+        </div>
+        <button @click="loadTendencias()" class="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md"
+                :class="tendRecurso ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-surface-200 text-gray-400 cursor-not-allowed'"
+                :disabled="!tendRecurso || tendLoading">
+          <span x-show="tendLoading" class="spinner border-white w-4 h-4 mr-1"></span>
+          <span x-text="tendLoading ? 'Cargando...' : 'Cargar'"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Charts + Table -->
+    <div x-show="tendData?.length > 0" x-transition class="flex-1 min-h-0 overflow-y-auto space-y-4 pb-2">
+
+      <!-- OEE Line Chart -->
+      <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-gray-700">OEE — Evolucion diaria</h3>
+          <span class="text-[10px] text-gray-400" x-text="tendRecurso.toUpperCase() + ' · ' + tendData.length + ' dias'"></span>
+        </div>
+        <div style="position:relative; height:300px;">
+          <canvas id="tendChartOee"></canvas>
+        </div>
+      </div>
+
+      <!-- Piezas Bar Chart -->
+      <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-gray-700">Produccion diaria</h3>
+          <span class="text-[10px] text-gray-400" x-text="tendData.reduce((s,d) => s + d.piezas_totales, 0).toLocaleString('es-ES') + ' piezas total'"></span>
+        </div>
+        <div style="position:relative; height:250px;">
+          <canvas id="tendChartPiezas"></canvas>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-3 border-b border-surface-100 flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Detalle diario</span>
+          <button @click="exportTendCSV()" class="btn-ghost btn-sm text-xs">Exportar CSV</button>
+        </div>
+        <div class="overflow-x-auto max-h-72">
+          <table class="w-full text-xs">
+            <thead class="bg-surface-50 sticky top-0">
+              <tr class="text-gray-400 text-left">
+                <th class="px-4 py-2.5 font-semibold">Fecha</th>
+                <th class="px-4 py-2.5 font-semibold text-right">OEE</th>
+                <th class="px-4 py-2.5 font-semibold text-right">Disp.</th>
+                <th class="px-4 py-2.5 font-semibold text-right">Rend.</th>
+                <th class="px-4 py-2.5 font-semibold text-right">Calidad</th>
+                <th class="px-4 py-2.5 font-semibold text-right">Piezas</th>
+                <th class="px-4 py-2.5 font-semibold text-right">Malas</th>
+                <th class="px-4 py-2.5 font-semibold text-right">H. Brut.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="d in tendData" :key="d.fecha">
+                <tr class="border-t border-surface-100 hover:bg-surface-50">
+                  <td class="px-4 py-2 font-mono text-gray-600" x-text="d.fecha"></td>
+                  <td class="px-4 py-2 text-right font-mono font-semibold"
+                      :class="d.oee_pct >= 65 ? 'text-green-600' : d.oee_pct >= 40 ? 'text-amber-600' : 'text-red-600'"
+                      x-text="d.oee_pct + '%'"></td>
+                  <td class="px-4 py-2 text-right font-mono" x-text="d.disponibilidad_pct + '%'"></td>
+                  <td class="px-4 py-2 text-right font-mono" x-text="d.rendimiento_pct + '%'"></td>
+                  <td class="px-4 py-2 text-right font-mono" x-text="d.calidad_pct + '%'"></td>
+                  <td class="px-4 py-2 text-right font-mono" x-text="d.piezas_totales"></td>
+                  <td class="px-4 py-2 text-right font-mono text-red-500" x-text="d.piezas_malas"></td>
+                  <td class="px-4 py-2 text-right font-mono text-gray-400" x-text="d.horas_brutas + 'h'"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div x-show="!tendData && !tendLoading" class="flex-1 flex items-center justify-center">
+      <div class="text-center text-gray-300">
+        <svg class="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="0.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+        <p class="text-sm">Selecciona un recurso y pulsa <strong>Cargar</strong></p>
+        <p class="text-xs mt-1 text-gray-300">Se mostraran las metricas OEE calculadas a lo largo del tiempo</p>
+      </div>
+    </div>
+
+    <!-- No data found -->
+    <div x-show="tendData?.length === 0" x-transition class="flex-1 flex items-center justify-center">
+      <div class="text-center text-gray-400">
+        <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <p class="text-sm font-medium">Sin metricas para este recurso</p>
+        <p class="text-xs mt-1">Ejecuta primero una extraccion desde <a href="/datos" class="text-brand-600 hover:underline">Datos</a></p>
+      </div>
+    </div>
+  </div><!-- /tendencias mode -->
+
 </div>
 
 <script>
@@ -204,6 +334,9 @@ function historialPage() {
     regenerando: false,
     metricsLoading: false,
     activeTab: 'dashboard',
+    mode: 'ejecuciones',
+    tendRecurso: '', tendFechaInicio: '2025-01-01', tendFechaFin: new Date().toISOString().slice(0, 10),
+    tendData: null, tendLoading: false, _tendChartOee: null, _tendChartPiezas: null,
 
     async load() {
       this.loading = true;
@@ -284,6 +417,103 @@ function historialPage() {
       this.informes = [];
       await this.load();
       showToast('Ejecucion borrada');
+    },
+
+    // ── Tendencias ──────────────────────────────────────────────────
+    async loadTendencias() {
+      if (!this.tendRecurso) return;
+      this.tendLoading = true;
+      this.tendData = null;
+      if (this._tendChartOee) { this._tendChartOee.destroy(); this._tendChartOee = null; }
+      if (this._tendChartPiezas) { this._tendChartPiezas.destroy(); this._tendChartPiezas = null; }
+
+      try {
+        const params = new URLSearchParams({ recurso: this.tendRecurso });
+        if (this.tendFechaInicio) params.set('fecha_inicio', this.tendFechaInicio);
+        if (this.tendFechaFin) params.set('fecha_fin', this.tendFechaFin);
+        const res = await fetch(`/api/historial/tendencias?${params}`);
+        const data = await res.json();
+        this.tendData = data.dias || [];
+        this.$nextTick(() => { this.renderTendOeeChart(); this.renderTendPiezasChart(); });
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+        this.tendData = [];
+      }
+      this.tendLoading = false;
+    },
+
+    renderTendOeeChart() {
+      if (!this.tendData?.length) return;
+      const canvas = document.getElementById('tendChartOee');
+      if (!canvas) return;
+      const labels = this.tendData.map(d => {
+        const dt = new Date(d.fecha + 'T00:00:00');
+        return dt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }).replace('.', '');
+      });
+      this._tendChartOee = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'OEE', data: this.tendData.map(d => d.oee_pct), borderColor: '#336dff', backgroundColor: '#336dff15', borderWidth: 2.5, tension: 0.3, fill: true, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: '#fff', pointBorderColor: '#336dff', pointBorderWidth: 2 },
+            { label: 'Disponibilidad', data: this.tendData.map(d => d.disponibilidad_pct), borderColor: '#22c55e', borderWidth: 1.5, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 },
+            { label: 'Rendimiento', data: this.tendData.map(d => d.rendimiento_pct), borderColor: '#f59e0b', borderWidth: 1.5, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 },
+            { label: 'Calidad', data: this.tendData.map(d => d.calidad_pct), borderColor: '#8b5cf6', borderWidth: 1.5, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw + '%' } },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+            y: { min: 0, max: 100, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'monospace', size: 11 }, callback: v => v + '%' } },
+          },
+        },
+      });
+    },
+
+    renderTendPiezasChart() {
+      if (!this.tendData?.length) return;
+      const canvas = document.getElementById('tendChartPiezas');
+      if (!canvas) return;
+      const labels = this.tendData.map(d => {
+        const dt = new Date(d.fecha + 'T00:00:00');
+        return dt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }).replace('.', '');
+      });
+      this._tendChartPiezas = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Buenas', data: this.tendData.map(d => d.buenas_finales), backgroundColor: '#22c55e88', borderColor: '#22c55e', borderWidth: 1, borderRadius: 4 },
+            { label: 'Malas', data: this.tendData.map(d => d.piezas_malas), backgroundColor: '#ef444488', borderColor: '#ef4444', borderWidth: 1, borderRadius: 4 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+            y: { stacked: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'monospace', size: 11 } } },
+          },
+        },
+      });
+    },
+
+    exportTendCSV() {
+      if (!this.tendData?.length) return;
+      const rows = [['fecha','oee_pct','disponibilidad_pct','rendimiento_pct','calidad_pct','piezas_totales','piezas_malas','buenas_finales','horas_brutas']];
+      for (const d of this.tendData) rows.push([d.fecha, d.oee_pct, d.disponibilidad_pct, d.rendimiento_pct, d.calidad_pct, d.piezas_totales, d.piezas_malas, d.buenas_finales, d.horas_brutas]);
+      const csv = rows.map(r => r.join(';')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `tendencias_${this.tendRecurso}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click(); URL.revokeObjectURL(a.href);
+      showToast('CSV exportado');
     },
   };
 }

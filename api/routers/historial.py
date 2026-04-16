@@ -1,11 +1,11 @@
 """Historial de ejecuciones del pipeline."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from api.database import DatosProduccion, Ejecucion, InformeMeta, get_db
+from api.database import DatosProduccion, Ejecucion, InformeMeta, MetricaOEE, get_db
 
 router = APIRouter(prefix="/historial", tags=["historial"])
 
@@ -39,6 +39,57 @@ def listar(limit: int = 50, db: Session = Depends(get_db)):
         }
         for e in rows
     ]}
+
+
+@router.get("/tendencias")
+def tendencias(
+    recurso: str = Query(...),
+    fecha_inicio: str = Query(None),
+    fecha_fin: str = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Metricas OEE diarias de un recurso a lo largo del tiempo."""
+    query = (
+        db.query(MetricaOEE)
+        .filter(
+            MetricaOEE.recurso.ilike(recurso),
+            MetricaOEE.fecha.isnot(None),
+            MetricaOEE.turno.is_(None),
+        )
+        .order_by(MetricaOEE.fecha)
+    )
+    if fecha_inicio:
+        query = query.filter(MetricaOEE.fecha >= fecha_inicio)
+    if fecha_fin:
+        query = query.filter(MetricaOEE.fecha <= fecha_fin)
+
+    rows = query.all()
+
+    # Deduplicar: para cada fecha, quedarse con la ejecucion mas reciente
+    by_date: dict = {}
+    for r in rows:
+        key = r.fecha.isoformat() if hasattr(r.fecha, "isoformat") else str(r.fecha)
+        if key not in by_date or r.ejecucion_id > by_date[key].ejecucion_id:
+            by_date[key] = r
+
+    data = []
+    for key in sorted(by_date):
+        r = by_date[key]
+        data.append({
+            "fecha": key,
+            "disponibilidad_pct": round(r.disponibilidad_pct or 0, 2),
+            "rendimiento_pct": round(r.rendimiento_pct or 0, 2),
+            "calidad_pct": round(r.calidad_pct or 0, 2),
+            "oee_pct": round(r.oee_pct or 0, 2),
+            "piezas_totales": r.piezas_totales or 0,
+            "piezas_malas": r.piezas_malas or 0,
+            "buenas_finales": r.buenas_finales or 0,
+            "horas_brutas": round(r.horas_brutas or 0, 2),
+            "horas_disponible": round(r.horas_disponible or 0, 2),
+            "horas_operativo": round(r.horas_operativo or 0, 2),
+        })
+
+    return {"recurso": recurso, "dias": data}
 
 
 @router.get("/{ejec_id}")

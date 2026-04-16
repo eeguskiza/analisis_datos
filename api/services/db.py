@@ -74,8 +74,8 @@ def extract_data(
     return extraer_datos(cfg, fecha_inicio, fecha_fin)
 
 
-def compute_real_cycles(centro_trabajo: int, dias_atras: int = 30) -> List[dict]:
-    """Calcula ciclos reales desde contadores de IZARO."""
+def compute_real_cycles(centro_trabajo: int, dias_atras: int = 30) -> tuple[List[dict], str]:
+    """Calcula ciclos reales desde contadores de IZARO. Devuelve (resultados, fuente)."""
     cfg = get_config()
     return calcular_ciclos_reales(cfg, centro_trabajo, dias_atras)
 

@@ -62,8 +62,13 @@ def recursos_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/historial")
-def historial_page(request: Request):
+def historial_page(request: Request, db: Session = Depends(get_db)):
     ctx = _common_ctx(request, "historial")
+    recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
+    ctx["recursos"] = [
+        {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
+        for r in recursos
+    ]
     return _render("historial.html", ctx)
 
 

@@ -118,7 +118,7 @@ def calcular_ciclos(
         raise HTTPException(404, f"Recurso '{nombre_recurso}' no encontrado")
 
     try:
-        result = mes_service.compute_real_cycles(recurso.centro_trabajo, dias)
+        result, fuente = mes_service.compute_real_cycles(recurso.centro_trabajo, dias)
     except Exception as exc:
         raise HTTPException(502, f"Error consultando IZARO: {exc}")
 
@@ -126,5 +126,6 @@ def calcular_ciclos(
         "recurso": nombre_recurso,
         "centro_trabajo": recurso.centro_trabajo,
         "dias": dias,
+        "fuente": fuente,
         "referencias": result,
     }
