@@ -2,18 +2,27 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import text
 
 from api.database import engine
+from api.services.turnos import (
+    get_jornada_start,
+    get_turno_actual,
+    get_turno_boundaries,
+    turno_from_hour,
+)
 
 router = APIRouter(prefix="/luk4", tags=["luk4"])
 log = logging.getLogger(__name__)
+
+# Registros/hora estimados en luk4.estado (~443 segun analisis)
+_EST_RECORDS_PER_HOUR = 443
 
 
 @router.get("/status")
@@ -23,19 +32,9 @@ def luk4_status():
     luk4_status_str = "stopped"
     alarma = None
 
-    # Jornada: de 6:00 a 6:00 del dia siguiente
     now = datetime.now()
-    if now.hour < 6:
-        shift_start = (now - timedelta(days=1)).replace(hour=6, minute=0, second=0, microsecond=0)
-    else:
-        shift_start = now.replace(hour=6, minute=0, second=0, microsecond=0)
-
-    if 6 <= now.hour < 14:
-        turno_actual = "T1"
-    elif 14 <= now.hour < 22:
-        turno_actual = "T2"
-    else:
-        turno_actual = "T3"
+    shift_start = get_jornada_start(now)
+    turno_actual = get_turno_actual(now)
 
     try:
         with engine.connect() as conn:
@@ -138,7 +137,7 @@ def luk4_status():
             for r in rows:
                 def pph(ms): return round(3600 / (ms / 1000), 0) if ms and ms > 0 else 0
                 h = int(r[0])
-                turno = "T1" if 6 <= h < 14 else "T2" if 14 <= h < 22 else "T3"
+                turno = turno_from_hour(h)
                 timeline.append({
                     "t": f"{h:02d}:{int(r[1]):02d}",
                     "total": pph(r[2]),
@@ -178,6 +177,168 @@ def luk4_status():
         "top_alarmas": top_alarmas,
         "turno_actual": turno_actual,
         "timestamp": datetime.now().strftime("%H:%M:%S"),
+    }
+
+
+# ── Detalle por turno (barras + alarmas) ─────────────────────────────────
+
+
+@router.get("/turno-detail")
+def turno_detail():
+    """Datos para el panel de detalle: barras de disponibilidad y alarmas por turno."""
+    now = datetime.now()
+    jornada = get_jornada_start(now)
+    turno_actual = get_turno_actual(now)
+    boundaries = get_turno_boundaries(now)
+
+    turnos_breakdown = []
+    alarmas_turno: list[dict] = []
+    alarmas_summary = {"total_count": 0, "distinct_codes": 0, "estimated_stop_minutes": 0}
+
+    def _elapsed_pct(t_start: datetime, t_end: datetime, is_future: bool) -> float:
+        """% del turno transcurrido (0-100). Turnos de 8h."""
+        if is_future:
+            return 0.0
+        elapsed = (t_end - t_start).total_seconds()
+        return min(round(elapsed / (8 * 3600) * 100, 1), 100.0)
+
+    try:
+        with engine.connect() as conn:
+            for name, t_start, t_end in boundaries:
+                is_future = t_start > now
+                ep = _elapsed_pct(t_start, t_end, is_future)
+
+                if is_future:
+                    turnos_breakdown.append({
+                        "turno": name,
+                        "start": t_start.strftime("%H:%M"),
+                        "end": t_end.strftime("%H:%M"),
+                        "is_current": False,
+                        "is_future": True,
+                        "elapsed_pct": ep,
+                        "total_records": 0,
+                        "producing": 0, "incidence": 0, "off": 0, "other": 0,
+                        "availability_pct": 0,
+                        "pz_buenas": 0, "pz_malas": 0, "pz_totales": 0,
+                    })
+                    continue
+
+                # Estado + piezas en 2 queries (directo por timestamp, sin PK intermedio)
+                params = {"t_start": t_start, "t_end": t_end}
+
+                rows = conn.execute(text("""
+                    SELECT estado_global, COUNT(*) as n
+                    FROM luk4.estado
+                    WHERE timestamp >= :t_start AND timestamp < :t_end
+                    GROUP BY estado_global
+                """), params).fetchall()
+
+                if not rows:
+                    turnos_breakdown.append({
+                        "turno": name,
+                        "start": t_start.strftime("%H:%M"),
+                        "end": t_end.strftime("%H:%M"),
+                        "is_current": name == turno_actual,
+                        "is_future": False,
+                        "elapsed_pct": ep,
+                        "total_records": 0,
+                        "producing": 0, "incidence": 0, "off": 0, "other": 0,
+                        "availability_pct": 0,
+                        "pz_buenas": 0, "pz_malas": 0, "pz_totales": 0,
+                    })
+                    continue
+
+                counts = {int(r[0]): int(r[1]) for r in rows}
+                producing = counts.get(1, 0)
+                incidence = counts.get(3, 0)
+                off = counts.get(0, 0)
+                other = sum(v for k, v in counts.items() if k not in (0, 1, 3))
+                total = producing + incidence + off + other
+                avail = round(100 * producing / total, 1) if total > 0 else 0
+
+                pz = conn.execute(text("""
+                    SELECT
+                        (SELECT TOP 1 contador_piezas_buenas FROM luk4.tiempos_ciclo
+                         WHERE timestamp >= :t_start AND contador_piezas_buenas IS NOT NULL
+                         ORDER BY idtiempos_ciclo ASC),
+                        (SELECT TOP 1 contador_piezas_buenas FROM luk4.tiempos_ciclo
+                         WHERE timestamp < :t_end AND contador_piezas_buenas IS NOT NULL
+                         ORDER BY idtiempos_ciclo DESC),
+                        (SELECT TOP 1 contador_piezas_malas FROM luk4.tiempos_ciclo
+                         WHERE timestamp >= :t_start AND contador_piezas_malas IS NOT NULL
+                         ORDER BY idtiempos_ciclo ASC),
+                        (SELECT TOP 1 contador_piezas_malas FROM luk4.tiempos_ciclo
+                         WHERE timestamp < :t_end AND contador_piezas_malas IS NOT NULL
+                         ORDER BY idtiempos_ciclo DESC)
+                """), params).fetchone()
+                pz_buenas = int(pz[1] - pz[0]) if pz and pz[0] is not None and pz[1] is not None else 0
+                pz_malas = int(pz[3] - pz[2]) if pz and pz[2] is not None and pz[3] is not None else 0
+
+                turnos_breakdown.append({
+                    "turno": name,
+                    "start": t_start.strftime("%H:%M"),
+                    "end": t_end.strftime("%H:%M"),
+                    "is_current": name == turno_actual,
+                    "is_future": False,
+                    "elapsed_pct": ep,
+                    "total_records": total,
+                    "producing": producing,
+                    "incidence": incidence,
+                    "off": off,
+                    "other": other,
+                    "availability_pct": avail,
+                    "pz_buenas": max(pz_buenas, 0),
+                    "pz_malas": max(pz_malas, 0),
+                    "pz_totales": max(pz_buenas + pz_malas, 0),
+                })
+
+                # Alarmas solo del turno actual
+                if name == turno_actual:
+                    alarm_rows = conn.execute(text("""
+                        SELECT e.codigo_error, a.componente, a.mensaje,
+                               COUNT(*) as n,
+                               MIN(e.timestamp) as first_ts,
+                               MAX(e.timestamp) as last_ts
+                        FROM luk4.estado e
+                        LEFT JOIN luk4.alarmas a ON a.codigo = e.codigo_error
+                        WHERE e.timestamp >= :t_start AND e.timestamp < :t_end
+                          AND e.codigo_error > 0
+                        GROUP BY e.codigo_error, a.componente, a.mensaje
+                        ORDER BY n DESC
+                    """), params).fetchall()
+
+                    total_alarm_records = 0
+                    for ar in alarm_rows:
+                        cnt = int(ar[3])
+                        total_alarm_records += cnt
+                        est_min = round(cnt * (3600 / _EST_RECORDS_PER_HOUR) / 60, 1)
+                        alarmas_turno.append({
+                            "codigo": int(ar[0]),
+                            "componente": ar[1] or "SISTEMA",
+                            "mensaje": ar[2] or f"Error {ar[0]}",
+                            "count": cnt,
+                            "first_seen": ar[4].strftime("%H:%M") if ar[4] else None,
+                            "estimated_minutes": est_min,
+                        })
+
+                    alarmas_summary = {
+                        "total_count": total_alarm_records,
+                        "distinct_codes": len(alarm_rows),
+                        "estimated_stop_minutes": round(
+                            total_alarm_records * (3600 / _EST_RECORDS_PER_HOUR) / 60, 0
+                        ),
+                    }
+
+    except Exception as exc:
+        log.warning("LUK4 turno-detail: %s", exc)
+
+    return {
+        "turno_actual": turno_actual,
+        "jornada": jornada.strftime("%Y-%m-%d"),
+        "turnos_breakdown": turnos_breakdown,
+        "alarmas_turno": alarmas_turno,
+        "alarmas_summary": alarmas_summary,
+        "timestamp": now.strftime("%H:%M:%S"),
     }
 
 
