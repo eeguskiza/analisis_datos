@@ -129,3 +129,31 @@ def calcular_ciclos(
         "fuente": fuente,
         "referencias": result,
     }
+
+
+@router.get("/live/{nombre_recurso}")
+def estado_live(
+    nombre_recurso: str,
+    umbral: int = Query(600, ge=30, le=3600),
+    db: Session = Depends(get_db),
+):
+    """
+    Estado en vivo de una maquina: si esta registrando contadores ahora mismo.
+
+    Devuelve ultima lectura, segundos transcurridos y estado
+    (activo/inactivo/sin_datos) usando `umbral` segundos como limite.
+    """
+    recurso = db.query(Recurso).filter_by(nombre=nombre_recurso).first()
+    if not recurso:
+        raise HTTPException(404, f"Recurso '{nombre_recurso}' no encontrado")
+
+    try:
+        estado = mes_service.live_status(recurso.centro_trabajo, umbral)
+    except Exception as exc:
+        raise HTTPException(502, f"Error consultando IZARO: {exc}")
+
+    return {
+        "recurso": nombre_recurso,
+        "centro_trabajo": recurso.centro_trabajo,
+        **estado,
+    }

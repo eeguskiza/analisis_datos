@@ -425,6 +425,91 @@ def datos_a_csvs(rows: List[dict], recursos_dir: Path) -> Dict[str, Path]:
     return generated
 
 
+def estado_maquina_live(
+    cfg: dict,
+    centro_trabajo: int,
+    umbral_activo_seg: int = 600,
+) -> dict:
+    """
+    Devuelve el estado "en vivo" de una maquina.
+
+    Consulta la ultima lectura de contador (admuser.zmeshva) para el centro de
+    trabajo y calcula si se considera activa (ultima lectura mas reciente que
+    `umbral_activo_seg` segundos).
+
+    Devuelve dict:
+      {
+        "ultima_lectura": "2026-04-17T14:32:15" | None,
+        "segundos_desde": int | None,
+        "estado": "activo" | "inactivo" | "sin_datos",
+        "ultimo_valor": float | None,
+        "umbral_seg": int,
+        "ahora": "2026-04-17T14:33:00",
+      }
+    """
+    if not PYODBC_AVAILABLE:
+        raise RuntimeError("pyodbc no esta instalado")
+
+    from datetime import datetime as _dt
+
+    conn = pyodbc.connect(_build_connection_string(cfg), timeout=15)
+    cursor = conn.cursor()
+    ct = str(centro_trabajo)
+
+    try:
+        cursor.execute("""
+            SELECT TOP 1
+                z.hv080                AS fecha,
+                z.hv090                AS hora,
+                CAST(z.hv040 AS FLOAT) AS valor,
+                GETDATE()              AS ahora
+            FROM admuser.zmeshva z
+            WHERE z.hv010 LIKE ?
+              AND z.hv030 LIKE '%Contador%'
+              AND z.hv030 NOT LIKE '%Ultimo%'
+            ORDER BY z.hv080 DESC, z.hv090 DESC
+        """, (f'%{ct}%',))
+        row = cursor.fetchone()
+    finally:
+        conn.close()
+
+    ahora = _dt.now()
+    if not row:
+        return {
+            "ultima_lectura": None,
+            "segundos_desde": None,
+            "estado": "sin_datos",
+            "ultimo_valor": None,
+            "umbral_seg": umbral_activo_seg,
+            "ahora": ahora.isoformat(timespec="seconds"),
+        }
+
+    fecha, hora, valor, ahora_db = row[0], row[1], row[2], row[3]
+    ahora_ref = ahora_db if isinstance(ahora_db, _dt) else ahora
+
+    try:
+        if hasattr(hora, "hour"):
+            ts = _dt.combine(fecha, hora)
+        else:
+            hh = _dt.strptime(str(hora), "%H:%M:%S").time()
+            ts = _dt.combine(fecha, hh)
+    except (ValueError, TypeError):
+        ts = _dt.combine(fecha, _dt.min.time())
+
+    delta = (ahora_ref - ts).total_seconds()
+    segundos = int(delta) if delta >= 0 else 0
+    estado = "activo" if segundos <= umbral_activo_seg else "inactivo"
+
+    return {
+        "ultima_lectura": ts.isoformat(timespec="seconds"),
+        "segundos_desde": segundos,
+        "estado": estado,
+        "ultimo_valor": float(valor) if valor is not None else None,
+        "umbral_seg": umbral_activo_seg,
+        "ahora": ahora_ref.isoformat(timespec="seconds"),
+    }
+
+
 def calcular_ciclos_reales(
     cfg: dict,
     centro_trabajo: int,

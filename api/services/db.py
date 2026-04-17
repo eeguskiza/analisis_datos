@@ -11,6 +11,7 @@ from OEE.db.connector import (
     calcular_ciclos_reales,
     datos_a_csvs,
     detectar_recursos,
+    estado_maquina_live,
     explorar_columnas_fmesdtc,
     extraer_datos,
     load_config,
@@ -78,6 +79,12 @@ def compute_real_cycles(centro_trabajo: int, dias_atras: int = 30) -> tuple[List
     """Calcula ciclos reales desde contadores de IZARO. Devuelve (resultados, fuente)."""
     cfg = get_config()
     return calcular_ciclos_reales(cfg, centro_trabajo, dias_atras)
+
+
+def live_status(centro_trabajo: int, umbral_activo_seg: int = 600) -> dict:
+    """Estado en vivo: ultima lectura de contador y si la maquina esta activa."""
+    cfg = get_config()
+    return estado_maquina_live(cfg, centro_trabajo, umbral_activo_seg)
 
 
 def write_csvs(rows: List[dict], recursos_dir: Path | None = None) -> Dict[str, Path]:

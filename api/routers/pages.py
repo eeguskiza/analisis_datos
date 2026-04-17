@@ -74,7 +74,7 @@ def historial_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/ciclos-calc")
 def ciclos_calc_page(request: Request, db: Session = Depends(get_db)):
-    ctx = _common_ctx(request, "recursos")
+    ctx = _common_ctx(request, "ciclos_calc")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
     ctx["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}

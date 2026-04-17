@@ -3,7 +3,7 @@
 {% block page_title %}Calcular Ciclos Reales{% endblock %}
 
 {% block content %}
-<div x-data="ciclosCalc()" class="space-y-6">
+<div x-data="ciclosCalc()" x-init="$watch('selectedRecurso', () => { stopLivePolling(); liveResult = null; }); $watch('dias', v => { if (v !== 0) { stopLivePolling(); liveResult = null; } })" class="space-y-6">
 
   <!-- ── Buscador centrado ───────────────────────────────────────────── -->
   <div class="max-w-2xl mx-auto">
@@ -25,6 +25,7 @@
         <div class="w-36">
           <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Periodo</label>
           <select x-model.number="dias" class="w-full px-3 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 bg-surface-50 focus:bg-white transition-colors">
+            <option value="0">En vivo</option>
             <option value="7">7 dias</option>
             <option value="14">14 dias</option>
             <option value="30">30 dias</option>
@@ -38,8 +39,9 @@
                 :class="selectedRecurso ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-surface-200 text-gray-400 cursor-not-allowed'"
                 :disabled="!selectedRecurso || loading">
           <span x-show="loading" class="spinner border-white w-4 h-4 mr-1"></span>
-          <svg x-show="!loading" class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          <span x-text="loading ? 'Analizando...' : 'Analizar'"></span>
+          <svg x-show="!loading && dias !== 0" class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <svg x-show="!loading && dias === 0" class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span x-text="loading ? (dias === 0 ? 'Consultando...' : 'Analizando...') : (dias === 0 ? (livePolling ? 'Parar' : 'Ver en vivo') : 'Analizar')"></span>
         </button>
       </div>
     </div>
@@ -47,6 +49,55 @@
 
   <!-- ── Error ───────────────────────────────────────────────────────── -->
   <div x-show="error" x-transition class="max-w-2xl mx-auto bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700" x-text="error"></div>
+
+  <!-- ── Panel En vivo ──────────────────────────────────────────────── -->
+  <div x-show="liveResult" x-transition class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-2xl border border-surface-200 shadow-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <span class="relative flex h-3 w-3">
+            <span x-show="liveResult?.estado === 'activo'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3"
+                  :class="liveResult?.estado === 'activo' ? 'bg-green-500' : liveResult?.estado === 'inactivo' ? 'bg-red-500' : 'bg-gray-400'"></span>
+          </span>
+          <h3 class="font-bold text-gray-800">
+            <span class="font-mono text-brand-800" x-text="liveResult?.recurso"></span>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold align-middle ml-1"
+                  :class="liveResult?.estado === 'activo' ? 'bg-green-100 text-green-700' : liveResult?.estado === 'inactivo' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'"
+                  x-text="liveResult?.estado === 'activo' ? 'ACTIVO' : liveResult?.estado === 'inactivo' ? 'INACTIVO' : 'SIN DATOS'"></span>
+          </h3>
+        </div>
+        <div class="flex items-center gap-2 text-[10px] text-gray-400">
+          <svg x-show="livePolling" class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span x-show="livePolling">Refrescando cada 20s</span>
+          <span x-show="!livePolling && liveResult">En pausa</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bg-surface-50 rounded-xl p-4 border border-surface-100">
+          <div class="text-[10px] font-bold text-gray-400 uppercase mb-1">Ultima lectura</div>
+          <div class="text-sm font-mono font-bold text-gray-800" x-text="formatTs(liveResult?.ultima_lectura) || '—'"></div>
+        </div>
+        <div class="bg-surface-50 rounded-xl p-4 border border-surface-100">
+          <div class="text-[10px] font-bold text-gray-400 uppercase mb-1">Hace</div>
+          <div class="text-sm font-mono font-bold"
+               :class="liveResult?.estado === 'activo' ? 'text-green-700' : liveResult?.estado === 'inactivo' ? 'text-red-600' : 'text-gray-500'"
+               x-text="formatDuration(liveResult?.segundos_desde)"></div>
+        </div>
+        <div class="bg-surface-50 rounded-xl p-4 border border-surface-100">
+          <div class="text-[10px] font-bold text-gray-400 uppercase mb-1">Ultimo contador</div>
+          <div class="text-sm font-mono font-bold text-brand-700" x-text="liveResult?.ultimo_valor !== null && liveResult?.ultimo_valor !== undefined ? Math.round(liveResult.ultimo_valor).toLocaleString('es-ES') : '—'"></div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-gray-400 mt-4 text-center">
+        <span x-show="liveResult?.estado === 'activo'">La maquina esta registrando contadores en IZARO.</span>
+        <span x-show="liveResult?.estado === 'inactivo'" x-text="'Sin lecturas desde hace mas de ' + Math.round((liveResult?.umbral_seg || 600) / 60) + ' min — maquina parada o contador caido.'"></span>
+        <span x-show="liveResult?.estado === 'sin_datos'">No hay contadores registrados para esta maquina.</span>
+      </p>
+    </div>
+  </div>
 
   <!-- ── Aviso de metodo de calculo ─────────────────────────────────── -->
   <div x-show="result?.referencias?.length > 0" x-transition class="max-w-2xl mx-auto">
@@ -324,6 +375,7 @@ function ciclosCalc() {
   let _chartRefs = null;
   let _chartDay = null;
   let _chartHist = null;
+  let _liveTimer = null;
 
   return {
     selectedRecurso: new URLSearchParams(location.search).get('m') || '',
@@ -336,14 +388,71 @@ function ciclosCalc() {
     saveDialog: null,      // ref being saved
     saveChoice: 'calc',
     saveCustom: 0,
+    liveResult: null,
+    livePolling: false,
 
     totalMuestras() {
       return (this.result?.referencias || []).reduce((s, r) => s + r.n_muestras, 0);
     },
 
+    formatTs(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d)) return iso;
+      return d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    },
+
+    formatDuration(seg) {
+      if (seg === null || seg === undefined) return '—';
+      if (seg < 60) return seg + ' s';
+      if (seg < 3600) return Math.floor(seg / 60) + ' min ' + (seg % 60) + ' s';
+      if (seg < 86400) return Math.floor(seg / 3600) + ' h ' + Math.floor((seg % 3600) / 60) + ' min';
+      return Math.floor(seg / 86400) + ' d ' + Math.floor((seg % 86400) / 3600) + ' h';
+    },
+
+    stopLivePolling() {
+      if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
+      this.livePolling = false;
+    },
+
+    async fetchLive() {
+      if (!this.selectedRecurso) return;
+      try {
+        const res = await fetch(`/api/ciclos/live/${encodeURIComponent(this.selectedRecurso)}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Error ' + res.status);
+        }
+        this.liveResult = await res.json();
+        this.error = '';
+      } catch (err) {
+        this.error = err.message;
+        this.stopLivePolling();
+      }
+    },
+
+    async startLive() {
+      // Toggle: si ya esta en marcha, parar
+      if (this.livePolling) { this.stopLivePolling(); return; }
+      this.loading = true;
+      this.error = '';
+      this.result = null;
+      this.expanded = null;
+      this.destroyCharts();
+      await this.fetchLive();
+      this.loading = false;
+      if (this.liveResult) {
+        this.livePolling = true;
+        _liveTimer = setInterval(() => this.fetchLive(), 20000);
+      }
+    },
+
     // ── Main action ─────────────────────────────────────────────────
     async calcular() {
       if (!this.selectedRecurso) return;
+      if (this.dias === 0) { await this.startLive(); return; }
+      this.stopLivePolling();
+      this.liveResult = null;
       this.loading = true;
       this.error = '';
       this.result = null;

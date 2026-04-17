@@ -52,7 +52,15 @@ ip: ## Muestra la IP local para compartir el enlace
 # ── Desarrollo local (sin Docker) ────────────────────────────────────────────
 
 dev: ## Arranca en modo desarrollo (sin Docker, SQLite)
-	OEE_DEBUG=true python3 -m uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+	@PORT=8000; \
+	 while ss -tln 2>/dev/null | awk '{print $$4}' | grep -qE "[:.]$$PORT$$" || \
+	       (command -v lsof >/dev/null 2>&1 && lsof -iTCP:$$PORT -sTCP:LISTEN >/dev/null 2>&1); do \
+		echo "  Puerto $$PORT en uso, probando siguiente..."; \
+		PORT=$$((PORT + 1)); \
+		if [ $$PORT -gt 8100 ]; then echo "  No se encontro puerto libre entre 8000-8100"; exit 1; fi; \
+	 done; \
+	 echo "  Arrancando en http://127.0.0.1:$$PORT"; \
+	 OEE_DEBUG=true python3 -m uvicorn api.main:app --reload --host 127.0.0.1 --port $$PORT
 
 install: ## Instala dependencias Python
 	pip install -r requirements.txt
