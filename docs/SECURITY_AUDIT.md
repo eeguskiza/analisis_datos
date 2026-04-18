@@ -145,12 +145,22 @@ Para cada hallazgo 🔴 y 🟠:
 
 | Hallazgo | Severidad | Estado |
 |----------|-----------|--------|
-| H1: `data/db_config.json` @ `b0e80b9` | 🔴 Crítica | REVIEW PENDING |
-| H2: `docker-compose.yml` @ `f22d689`, `d1b4339` | 🟠 Media | REVIEW PENDING |
-| H3: `.env.example` @ `d1b4339`, `03f3992` | 🟡 Probable placeholder | REVIEW PENDING |
-| H4: `data/db_config.example.json` @ `3007dc5` | 🟡 Probable placeholder | REVIEW PENDING |
-| `:Zone.Identifier` (5 archivos) | 🟢 No credenciales | Se borran Sprint 0 commit 2 |
+| H1: `data/db_config.json` @ `b0e80b9` | 🔴→🟢 Crítica → RESOLVED | CONFIRMED real por operador; password **rotada** post-audit el 2026-04-18. Valor en historial ya no es credencial válida. `filter-repo` sigue diferido como limpieza cosmética. |
+| H2: `docker-compose.yml` @ `f22d689`, `d1b4339` | 🟠→🟢 Media → RESOLVED | Valor era el mismo password de SA (confirmado por contexto). Rotación de H1 cubre también este hallazgo. |
+| H3: `.env.example` @ `d1b4339`, `03f3992` | 🟡 | Actualizado en commit 6 (pin env + NEXO_*). `.env.example` actual tiene placeholders (`tu_password`). Queda sólo como registro histórico. |
+| H4: `data/db_config.example.json` @ `3007dc5` | 🟡 | Archivo de ejemplo con texto "rellena con datos reales" — placeholder, sin credencial. Sin acción. |
+| `:Zone.Identifier` (5 archivos) | 🟢 No credenciales | Borrados en Sprint 0 commit 2 (`dec03d1`). Patrón `*:Zone.Identifier` añadido a `.gitignore` en commit 3 (`bfe35e7`). |
 
 ---
 
-*Audit generado el 2026-04-18 como Sprint 0 commit 1 (Gate 1). Próxima revisión: decisión del operador sobre rotación + filter-repo.*
+## Operator Review — 2026-04-18 post-Sprint-0
+
+- **Repo hosting**: GitHub privado dentro de org privada ECS-Mobility. Audiencia limitada a miembros de la org; no público.
+- **H1 confirmado real por operador** al inspeccionar `git show b0e80b9 -- data/db_config.json`: era la password activa del usuario `sa` de SQL Server `192.168.0.4:1433`.
+- **Rotación ejecutada** por el operador tras ver el audit. La password que aparece en el historial git ya no abre la BD.
+- **Nota adicional**: durante la sesión de ejecución de Sprint 0 el valor de la password fue pegado en el chat con Claude Code para confirmar el hallazgo, por lo que viajó también por la API de Anthropic. La rotación post-audit cubre también esa exposición.
+- **`git filter-repo` no ejecutado**. Al quedar la credencial muerta, reescribir historial es cosmético. Decisión diferida; si en Mark-IV se decide limpiar, hacerlo entonces coordinando con los clones existentes (2 máquinas locales de Erik).
+
+---
+
+*Audit generado el 2026-04-18 como Sprint 0 commit 1 (Gate 1). Resoluciones anotadas en commit 13 del mismo sprint tras ejecución.*

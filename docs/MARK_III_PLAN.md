@@ -107,6 +107,36 @@ Zone.Identifier, requirements pineados, CI mínimo), exception handler que
 
 **Dependencias**: ninguna.
 
+**Ejecutado**: 2026-04-18, rama `feature/Mark-III`, via `/gsd-execute-phase 1 --interactive` checkpoint-por-hito.
+
+Commits del sprint:
+
+1. `8774deb` — chore: audit git history for leaked credentials (Gate 1).
+2. `dec03d1` — chore: remove tracked junk files.
+3. `bfe35e7` — chore: update .gitignore patterns (`*:Zone.Identifier`).
+4. `7babe5d` — chore: move install_odbc.sh to scripts/.
+5. `151d83c` — chore: handle data/oee.db (backup offline + borrado).
+6. `10f8164` — refactor: rename OEE_* env vars to NEXO_*, split MES/APP.
+7. `f5d0ce7` — refactor: update UI titles and metadata to Nexo.
+8. `dc5b7df` — fix: global_exception_handler no longer leaks tracebacks.
+9. `f689212` — chore: move mcp service to docker-compose profile.
+10. `72d658c` — build: pin requirements.txt, add requirements-dev.txt.
+11. `1edf57a` — ci: add GitHub Actions workflow (lint, test, build, secrets).
+12. `4889811` — docs: add GLOSSARY, DATA_MIGRATION_NOTES (verify CLAUDE.md, AUTH_MODEL, BRANDING alignment).
+13. *(este commit)* — docs: sync MARK_III_PLAN and OPEN_QUESTIONS with Sprint 0 outcomes.
+
+Desviaciones respecto al plan:
+- Commit 2 amplió scope para editar `Dockerfile` (eliminar `COPY server.py .`) por dependencia directa del delete de `server.py`. Sin ello el build rompía.
+- Commit 5 tomó el camino "preservar backup offline" (no "borrar directo") porque la inspección encontró 1 433 filas reales en `datos_produccion`, 10 ejecuciones, 58 ciclos. Justificado en `docs/DATA_MIGRATION_NOTES.md`.
+- Commit 7 añadió inyección de `window.NEXO_CONFIG` en `base.html` para que `static/js/app.js` pueda leer `appName`, `logoPath`, etc. sin hardcoded strings.
+- H1 y H2 del audit (commit 1) resueltos por el operador rotando la password SA antes del cierre del sprint; ver `docs/SECURITY_AUDIT.md` sección Operator Review.
+
+Hallazgos fuera del alcance propuestos para sprints posteriores:
+- `showToast` duplicado entre `base.html` (Alpine) y `app.js` (DOM append) — limpieza cosmética, Mark-IV.
+- `data/ecs-logo.png` sigue separado de `static/img/brand/ecs/logo.png` porque lo consume matplotlib vía `api/config.py:logo_filename`. Unificación en Sprint 2.
+- `pandas==3.0.2` pineado: la columna major 3.x introduce cambios de API respecto a 2.x. Verificar que `api/services/pipeline.py` y módulos OEE no tocaron algo que 3.x rompe.
+- Tests actuales (`tests/test_oee_calc.py`, `tests/test_oee_helpers.py`): no se han ejecutado en CI todavía (el workflow existe pero es no-bloqueante). Ejecutar manualmente al primer push.
+
 ---
 
 ## Sprint 1 — Identidad: auth + RBAC + audit

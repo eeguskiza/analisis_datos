@@ -353,9 +353,9 @@ Cualquier "sí/no" sobre estas 5 cosas me vale para cerrar el plan.
 
 ### 🚦 Decisión 2 — Rotación de password SQL + limpieza `.env:Zone.Identifier`: **RESUELTA (parcial)**
 
-- **Limpieza de `.env:Zone.Identifier` y otros residuos trackeados**: **sí**, en Sprint 0 (commits `chore: remove tracked junk files` y `chore: update .gitignore patterns`).
-- **Rotación de credenciales SQL Server**: **no se rota en Sprint 0**. Se difiere hasta que el operador revise `docs/SECURITY_AUDIT.md` (generado por el commit 1 de Sprint 0). La decisión de rotar (y cuándo) la toma el operador después del audit.
-- **Reescritura de historial (`git filter-repo`)**: **no se ejecuta** sin autorización explícita del operador.
+- **Limpieza de `.env:Zone.Identifier` y otros residuos trackeados**: **sí**, en Sprint 0 (commits `dec03d1` y `bfe35e7`).
+- **Rotación de credenciales SQL Server**: **ejecutada por el operador el 2026-04-18 durante el cierre del Sprint 0**. La password SA que aparece en el historial (`b0e80b9`) ya no es válida. Ver `docs/SECURITY_AUDIT.md` sección Operator Review.
+- **Reescritura de historial (`git filter-repo`)**: no ejecutada. Al quedar la credencial muerta, la limpieza del historial se difiere como cosmética. Si se decide hacer (Mark-IV), coordinar con los 2 clones locales existentes.
 
 ### 🚦 Decisión 3 — CI mínimo desde Sprint 0: **RESUELTA (sí)**
 
