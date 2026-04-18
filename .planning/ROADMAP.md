@@ -14,7 +14,7 @@ de phases GSD: Phase N = Sprint (N-1) del plan.
 
 ## Phases
 
-- [ ] **Phase 1: Naming + Higiene + CI** — Sprint 0: rebrand Nexo, limpieza, CI mínimo, exception handler sin traceback, audit de historial
+- [x] **Phase 1: Naming + Higiene + CI** — Sprint 0: rebrand Nexo, limpieza, CI mínimo, exception handler sin traceback, audit de historial ✓ 2026-04-18
 - [ ] **Phase 2: Identidad (auth + RBAC + audit)** — Sprint 1: login, roles propietario/directivo/usuario + departamentos, middleware de auth y audit append-only
 - [ ] **Phase 3: Capa de datos** — Sprint 2: repositorios, `.sql` versionados, schema_guard, separación `engine_mes` / `engine_app` / `engine_nexo`
 - [ ] **Phase 4: Consultas pesadas** — Sprint 3: preflight + postflight + aprobación asíncrona + umbrales editables
@@ -41,7 +41,7 @@ de phases GSD: Phase N = Sprint (N-1) del plan.
 **Plans**: 1 plan (Sprint 0 se ejecuta como una secuencia de 13 commits atómicos especificados en `.planning/1-sprint-0-naming-and-hygiene/PLAN.md`)
 
 Plans:
-- [ ] 01-01: Sprint 0 — 13 commits atómicos (audit historial GATE, junk, gitignore, odbc move, oee.db decision, env rename + split, UI rebrand + logos vars, exception handler fix, mcp profile, requirements pin, CI workflow, docs core, MARK_III_PLAN/OPEN_QUESTIONS sync)
+- [x] 01-01: Sprint 0 — 13 commits atómicos + 1 feedback operador (audit historial GATE, junk, gitignore, odbc move, oee.db decision, env rename + split, UI rebrand + logos vars, exception handler fix, mcp profile, requirements pin, CI workflow, docs core, MARK_III_PLAN/OPEN_QUESTIONS sync, sidebar tweak) ✓ 2026-04-18
 
 ### Phase 2: Identidad (auth + RBAC + audit)
 **Goal**: Toda request con `/api/*` o HTML autenticada; roles propietario/directivo/usuario con departamentos; cada acción registrada en tabla append-only a nivel BBDD.
@@ -125,7 +125,7 @@ Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Naming + Higiene + CI | 0/1 | Not started | - |
+| 1. Naming + Higiene + CI | 1/1 | Complete | 2026-04-18 |
 | 2. Identidad | 0/? | Not started | - |
 | 3. Capa de datos | 0/? | Not started | - |
 | 4. Consultas pesadas | 0/? | Not started | - |
