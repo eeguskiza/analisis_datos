@@ -53,6 +53,7 @@ services:
   # ── MCP Server ──────────────────────────────────────────────────────────────
   mcp:
     build: ./mcp
+    container_name: nexo-mcp
     environment:
       - NEXO_API_URL=http://web:8000
       - OEE_API_URL=http://web:8000  # compat, se retira en Mark-IV

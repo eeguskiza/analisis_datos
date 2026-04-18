@@ -87,7 +87,7 @@ def enviar(payload: EnviarRequest):
         raise HTTPException(404, "No se encontraron los PDFs")
 
     asunto = payload.asunto or f"Informes OEE — {len(pdf_paths)} PDFs"
-    cuerpo = f"Se adjuntan {len(pdf_paths)} informes OEE generados.\n\n— OEE Planta (automático)"
+    cuerpo = f"Se adjuntan {len(pdf_paths)} informes OEE generados.\n\n— Nexo (automatico)"
 
     resultado = enviar_informes(payload.destinatarios, asunto, cuerpo, pdf_paths)
 

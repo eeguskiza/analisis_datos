@@ -31,8 +31,9 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="ECS Mobility — Centro de Mando",
-    version="2.0.0",
+    title=settings.app_name,
+    description=f"Plataforma interna de {settings.company_name} — Nexo (Mark-III).",
+    version="3.0.0",
     docs_url="/api/docs",
     redoc_url=None,
     lifespan=lifespan,
@@ -64,7 +65,7 @@ app.mount("/static", StaticFiles(directory=str(settings.project_root / "static")
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse(settings.project_root / "static" / "img" / "brand" / "ecs" / "logo.png")
+    return FileResponse(settings.project_root / "static" / "img" / "brand" / "nexo" / "logo.png")
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 

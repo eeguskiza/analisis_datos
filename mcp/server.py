@@ -1,5 +1,5 @@
 """
-MCP Server para OEE Planta.
+MCP Server para Nexo.
 
 Expone herramientas de consulta READ-ONLY sobre la API FastAPI
 (que a su vez habla con dbizaro/SQL Server y la BD local).
@@ -18,9 +18,10 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 # API base: en Docker apunta a "web:8000"; en local a 127.0.0.1:8000.
-API_BASE = os.environ.get("OEE_API_URL", "http://127.0.0.1:8000")
+# NEXO_API_URL es el nombre canonico; OEE_API_URL se mantiene como compat durante Mark-III.
+API_BASE = os.environ.get("NEXO_API_URL") or os.environ.get("OEE_API_URL", "http://127.0.0.1:8000")
 
-app = Server("oee-planta")
+app = Server("nexo-mcp")
 client = httpx.Client(base_url=API_BASE, timeout=120)
 
 

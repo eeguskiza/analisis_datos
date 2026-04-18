@@ -1,7 +1,14 @@
-# MCP Server — OEE Planta
+# MCP Server — Nexo
 
-Servidor MCP (Model Context Protocol) que expone la API OEE a Claude Code
+Servidor MCP (Model Context Protocol) que expone la API de Nexo a Claude Code
 como herramientas de **consulta read-only**.
+
+> **Breaking change desde Mark-III**: el ID del server MCP pasa de
+> `oee-planta` a `nexo-mcp` y el contenedor Docker se renombra a `nexo-mcp`.
+> Si tienes clientes con `.claude.json` que apuntan al ID antiguo,
+> actualizalos. Las variables de entorno tambien cambian: `NEXO_API_URL`
+> es el nombre canonico; `OEE_API_URL` se mantiene como compat durante
+> Mark-III y se retira en Mark-IV.
 
 ## Tools disponibles
 
@@ -34,8 +41,8 @@ como herramientas de **consulta read-only**.
 Asumiendo que `make dev` escucha en `127.0.0.1:8000`:
 
 ```bash
-claude mcp add oee-planta \
-  --env OEE_API_URL=http://127.0.0.1:8000 \
+claude mcp add nexo-mcp \
+  --env NEXO_API_URL=http://127.0.0.1:8000 \
   -- python3 /home/eeguskiza/analisis_datos/mcp/server.py
 ```
 
@@ -44,10 +51,10 @@ O editando `~/.claude.json` (seccion `mcpServers`):
 ```json
 {
   "mcpServers": {
-    "oee-planta": {
+    "nexo-mcp": {
       "command": "python3",
       "args": ["/home/eeguskiza/analisis_datos/mcp/server.py"],
-      "env": { "OEE_API_URL": "http://127.0.0.1:8000" }
+      "env": { "NEXO_API_URL": "http://127.0.0.1:8000" }
     }
   }
 }
@@ -57,11 +64,15 @@ Luego reinicia Claude Code y verifica con `/mcp`.
 
 ## Docker
 
-El `docker-compose.yml` ya arranca el MCP. Para usarlo desde Claude Code
-en el host via `docker exec`:
+El `docker-compose.yml` declara el servicio `mcp` con
+`container_name: nexo-mcp`. Se arranca junto al resto con `make up` en la
+version actual; el aparcado en profile llega en el siguiente commit del
+sprint.
+
+Para usarlo desde Claude Code via `docker exec`:
 
 ```bash
-claude mcp add oee-planta -- docker exec -i analisis_datos-mcp-1 python server.py
+claude mcp add nexo-mcp -- docker exec -i nexo-mcp python server.py
 ```
 
 ## Seguridad

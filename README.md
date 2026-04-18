@@ -1,6 +1,8 @@
-# OEE Planta — Informes de produccion
+# Nexo — Plataforma interna de ECS Mobility
 
-Herramienta interna para generar informes OEE (Overall Equipment Effectiveness) de la planta. Extrae datos de produccion directamente de la BD MES (IZARO/dbizaro), los almacena en base de datos local, y genera informes PDF bajo demanda.
+Plataforma interna de ECS Mobility (sucesora de "OEE Planta" / `analisis_datos`). En Mark-III centraliza OEE (Overall Equipment Effectiveness); en milestones posteriores añade calidad, trazabilidad y otros módulos de planta. Extrae datos de produccion directamente de la BD MES (IZARO/dbizaro), los almacena en base de datos local, y genera informes PDF bajo demanda.
+
+> **Rename del servicio MCP**: el ID pasa de `oee-planta` a `nexo-mcp` y el contenedor se renombra a `nexo-mcp`. Si tienes `.claude.json` apuntando al ID antiguo, actualizalo (ver `mcp/README.md`).
 
 ## Arquitectura
 

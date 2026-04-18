@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}ECS Mobility{% endblock %}</title>
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script defer src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
@@ -31,13 +31,16 @@
   <aside class="flex flex-col shrink-0 bg-brand-800 text-white transition-all duration-200"
          :class="sidebarOpen ? 'w-56' : 'w-16'">
 
-    <!-- Logo empresa -->
+    <!-- Logo producto + empresa -->
     <div class="flex items-center gap-3 px-4 py-5 border-b border-brand-700">
       <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm">
-        <img src="/static/img/brand/ecs/logo.png" alt="Logo" class="w-7 h-7 object-contain"
-             onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\'font-bold text-brand-600 text-sm\'>ECS</span>'">
+        <img src="{{ logo_path }}" alt="{{ app_name }}" class="w-7 h-7 object-contain"
+             onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\'font-bold text-brand-600 text-sm\'>NEXO</span>'">
       </div>
-      <span class="text-sm font-semibold tracking-wide whitespace-nowrap" x-show="sidebarOpen" x-cloak>ECS MOBILITY</span>
+      <span class="text-sm font-semibold tracking-wide whitespace-nowrap leading-tight" x-show="sidebarOpen" x-cloak>
+        {{ app_name|upper }}
+        <span class="block text-[10px] font-normal text-brand-300">by {{ company_name|upper }}</span>
+      </span>
     </div>
 
     <!-- Nav -->
@@ -103,8 +106,25 @@
     <main class="flex-1 overflow-y-auto p-6">
       {% block content %}{% endblock %}
     </main>
+
+    <!-- Footer — marca corporativa -->
+    <footer class="flex items-center justify-center gap-2 px-6 py-2 text-[11px] text-gray-400 border-t border-surface-200 bg-white">
+      <img src="{{ ecs_logo_path }}" alt="{{ company_name }}" class="h-3 opacity-70"
+           onerror="this.style.display='none'">
+      <span>© {{ company_name }} — {{ app_name }}</span>
+    </footer>
   </div>
 </div>
+
+<!-- Config global para JS (marca + paths de assets) -->
+<script>
+  window.NEXO_CONFIG = Object.freeze({
+    appName: {{ app_name|tojson }},
+    companyName: {{ company_name|tojson }},
+    logoPath: {{ logo_path|tojson }},
+    ecsLogoPath: {{ ecs_logo_path|tojson }}
+  });
+</script>
 
 <!-- ── Toast notifications (centro pantalla) ──────────────────────── -->
 <div x-data="toastSystem()" x-ref="toastRoot"

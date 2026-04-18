@@ -1,4 +1,4 @@
-/* ── ECS Mobility — JavaScript helpers ──────────────────────────────────────── */
+/* ── Nexo — JavaScript helpers ──────────────────────────────────────────────── */
 
 // ── Conexion badge (responde al hx-get /api/conexion/status) ────────────────
 document.addEventListener('htmx:afterRequest', (evt) => {
@@ -135,11 +135,14 @@ function getSectionForResource(name) {
 
 function notifyBrowser(message) {
   if (!('Notification' in window)) return;
+  const cfg = window.NEXO_CONFIG || {};
+  const title = cfg.appName || 'Nexo';
+  const icon = cfg.logoPath || '/static/img/brand/nexo/logo.png';
   if (Notification.permission === 'granted') {
-    new Notification('ECS Mobility', { body: message, icon: '/static/img/brand/ecs/logo.png' });
+    new Notification(title, { body: message, icon });
   } else if (Notification.permission !== 'denied') {
     Notification.requestPermission().then(p => {
-      if (p === 'granted') new Notification('ECS Mobility', { body: message });
+      if (p === 'granted') new Notification(title, { body: message, icon });
     });
   }
 }

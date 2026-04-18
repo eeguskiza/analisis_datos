@@ -5,7 +5,7 @@
 up: ## Arranca todos los servicios
 	docker compose up -d
 	@echo ""
-	@echo "  OEE Planta arrancado:"
+	@echo "  Nexo arrancado:"
 	@echo "    Local:  http://localhost:8000"
 	@echo "    HTTPS:  https://localhost  (cert auto-firmado)"
 	@IP=$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $$1}'); \
