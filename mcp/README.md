@@ -65,9 +65,12 @@ Luego reinicia Claude Code y verifica con `/mcp`.
 ## Docker
 
 El `docker-compose.yml` declara el servicio `mcp` con
-`container_name: nexo-mcp`. Se arranca junto al resto con `make up` en la
-version actual; el aparcado en profile llega en el siguiente commit del
-sprint.
+`container_name: nexo-mcp` y `profiles: ["mcp"]`. **No** arranca con
+`make up` / `make dev` por defecto. Para arrancarlo:
+
+```bash
+docker compose --profile mcp up -d mcp
+```
 
 Para usarlo desde Claude Code via `docker exec`:
 

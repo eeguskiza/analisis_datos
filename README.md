@@ -2,7 +2,7 @@
 
 Plataforma interna de ECS Mobility (sucesora de "OEE Planta" / `analisis_datos`). En Mark-III centraliza OEE (Overall Equipment Effectiveness); en milestones posteriores añade calidad, trazabilidad y otros módulos de planta. Extrae datos de produccion directamente de la BD MES (IZARO/dbizaro), los almacena en base de datos local, y genera informes PDF bajo demanda.
 
-> **Rename del servicio MCP**: el ID pasa de `oee-planta` a `nexo-mcp` y el contenedor se renombra a `nexo-mcp`. Si tienes `.claude.json` apuntando al ID antiguo, actualizalo (ver `mcp/README.md`).
+> **Servicio MCP aparcado en profile `mcp`**. `make up` y `make dev` ya **no** arrancan el contenedor `mcp`. Si necesitas el server MCP en Docker (p.ej. para inspeccion local desde Claude Code), arrancalo explicitamente con `docker compose --profile mcp up -d mcp`. El ID del servidor MCP pasa de `oee-planta` a `nexo-mcp` — si tienes `.claude.json` apuntando al ID antiguo, actualizalo (ver `mcp/README.md`).
 
 ## Arquitectura
 
