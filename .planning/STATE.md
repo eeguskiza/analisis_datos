@@ -9,12 +9,19 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 1 of 7 complete — Phase 2 pending
-Plan: (Phase 1) 1/1 complete
-Status: Phase 1 cerrada el 2026-04-18. Siguiente: `/gsd-plan-phase 2` o `/gsd-discuss-phase 2`.
-Last activity: 2026-04-18 — Sprint 0 ejecutado (14 commits), `01-01-SUMMARY.md` escrito.
+Phase: 2 of 7 — Identidad (in progress)
+Plan: (Phase 2) 1/4 complete (02-01 ✓)
+Status: Plan 02-01 cerrado el 2026-04-18 (schema Postgres + 8 tablas + engine_nexo + propietario bootstrap + argon2id smoke OK). Siguiente: retomar con `/gsd-execute-phase 2 --interactive` para arrancar Plan 02-02 (auth middleware + /login + /cambiar-password + lockout cableado).
+Last activity: 2026-04-18 — Plan 02-01 ejecutado (6 commits: 1 core + 5 out-of-plan por entorno), `02-01-SUMMARY.md` escrito. Sesión pausada al 78% de contexto antes de Plan 02-02.
 
-Progress: [█░░░░░░░░░] 14% (1/7 phases)
+Progress: [██░░░░░░░░] 18% (1/7 phases + 1/4 plans de Phase 2)
+
+## Plans de Phase 2 (estado)
+
+- [x] 02-01 — schema-engine-bootstrap ✓ 2026-04-18
+- [ ] 02-02 — auth-middleware-login (siguiente)
+- [ ] 02-03 — rbac-retrofit-routers
+- [ ] 02-04 — audit-middleware-ajustes-ui
 
 ## Performance Metrics
 
