@@ -11,6 +11,13 @@ SQL Server via pyodbc + Docker Compose).
 
 Las estimaciones son **días de trabajo focalizado**, no días de calendario.
 
+> **Actualizado 2026-04-18 — sesión de arranque Sprint 0.**
+>
+> - 5 decisiones bloqueantes de `docs/OPEN_QUESTIONS.md` cerradas. Resumen inline en ese doc; tabla completa en `.planning/PROJECT.md` "Key Decisions".
+> - Alcance de **Sprint 0** ampliado con tres piezas que no estaban (o estaban en Sprint 1) en el bosquejo inicial: **audit de historial git**, **fix del `global_exception_handler`** y **mover `mcp` a profile compose**. Detalle en la sección Sprint 0 más abajo.
+> - **Sprint 1** reemplaza los roles `admin / analyst / viewer` por el modelo `propietario / directivo / usuario + departamentos` acordado. Ver `docs/AUTH_MODEL.md` (autoritativo). El bloqueo progresivo se simplifica a **5 intentos → 15 min** lock `(user, IP)`.
+> - **Sin fecha objetivo ni hito externo.** Estimación orientativa 10-12 semanas focalizadas.
+
 ---
 
 ## Desviación respecto al plan base (justificada)
@@ -51,45 +58,52 @@ Si prefieres mantener el orden original tal cual, decídmelo — es reversible.
 
 ## Sprint 0 — Naming + estructura + higiene
 
-**Objetivo**: repo arrancable con marca "Nexo", higiene básica (secrets,
-Zone.Identifier, requirements pineados, CI mínimo), y un CLAUDE.md que le
-explique a cualquier dev futuro cómo navegar el código.
+**Objetivo**: repo arrancable con marca "Nexo", higiene básica (residuos,
+Zone.Identifier, requirements pineados, CI mínimo), exception handler que
+**no** filtra traceback, audit del historial git documentado, y un
+`CLAUDE.md` que le explique a cualquier dev futuro cómo navegar el código.
 
-**Entregable verificable**:
-- Repo compila con `make build && make up` y `/api/health` responde OK.
-- Título FastAPI dice "Nexo", sidebar dice "NEXO", README renombrado.
-- `.env.example` completo (incluye SMTP y nueva nomenclatura `NEXO_*`).
-- Password SQL rotada, `.env:Zone.Identifier` eliminado del repo.
-- `CI_basic.yml` en GitHub Actions que corre pytest + ruff en cada push.
-- `CLAUDE.md` en raíz con mapa del repo para IAs / devs nuevos.
+**Entregable verificable** (versión refinada 2026-04-18):
+- Repo compila con `make build && make up` y `/api/health` responde OK. `make dev` arranca también. `mcp` **no** arranca por default (está en `profiles: ["mcp"]`).
+- Título FastAPI dice "Nexo", sidebar dice "NEXO", README renombrado, metadata OpenAPI consistente.
+- `.env.example` completo con nueva nomenclatura `NEXO_*` (split `NEXO_MES_*` + `NEXO_APP_*`) y variables de branding. `api/config.py` acepta compat `OEE_*` durante Mark-III.
+- `.env:Zone.Identifier`, `test_email.py` y `server.py` eliminados del tracking. `.gitignore` añade `*:Zone.Identifier` y residuos comunes.
+- `install_odbc.sh` movido a `scripts/` si no estaba ahí.
+- Decisión sobre `data/oee.db` documentada (snapshot o borrado) en `docs/DATA_MIGRATION_NOTES.md`.
+- `global_exception_handler` de `api/main.py` devuelve `{"error_id": "<uuid>", "message": "Internal error"}` — nunca traceback.
+- Servicio `mcp` en `docker-compose.yml` bajo `profiles: ["mcp"]`. `README.md` documenta `docker compose --profile mcp up`.
+- `.github/workflows/ci.yml` con jobs `lint` (ruff), `test` (pytest, no bloqueante), `build` (docker build), `secrets` (gitleaks). Trigger push a `feature/Mark-III` + `main` y PRs a ambas. **No bloqueante** como status check en Sprint 0.
+- `requirements.txt` con versiones pineadas exactas (`package==x.y.z`); `requirements-dev.txt` con ruff/pytest/pytest-cov/gitleaks.
+- `docs/SECURITY_AUDIT.md` lista credenciales expuestas en el historial (sin valores literales). **No se ejecuta `filter-repo`**.
+- `CLAUDE.md`, `docs/AUTH_MODEL.md`, `docs/GLOSSARY.md`, `docs/BRANDING.md`, `docs/DATA_MIGRATION_NOTES.md` creados. `docs/MARK_III_PLAN.md` y `docs/OPEN_QUESTIONS.md` actualizados con las decisiones cerradas.
+- Assets de marca estructurados en `static/img/brand/{nexo,ecs}/`; templates consumen `NEXO_LOGO_PATH` / `NEXO_ECS_LOGO_PATH` desde contexto, no hardcoded.
 
-**Archivos/módulos tocados**:
-- `api/main.py` (title), `api/config.py` (prefijo env `NEXO_` + compat
-  `OEE_`), `README.md`, `docs/` (ya arranca esta rama).
-- `templates/base.html` (marca, título, favicon), `static/css/app.css`,
-  `static/js/app.js` (strings).
-- `.env.example` (añadir SMTP, cambiar prefijos), `.gitignore` (añadir
-  `*.Zone.Identifier`).
-- `requirements.txt` (pinear versiones exactas: `fastapi==X.Y.Z`, etc.),
-  añadir `httpx`, `pytest`, `ruff`.
-- `.github/workflows/ci.yml` (nuevo).
-- Borrar `.env:Zone.Identifier` del repo, `data/oee.db`, `test_email.py`,
-  `server.py` (redundante con `CMD` del Dockerfile y `make dev`).
-- `CLAUDE.md` (nuevo).
+**Rotación de credenciales SQL Server**: **NO entra en Sprint 0**. Decisión diferida hasta revisar `docs/SECURITY_AUDIT.md`.
+
+**13 commits atómicos** (detalle en `.planning/1-sprint-0-naming-and-hygiene/PLAN.md`):
+
+1. `chore: audit git history for leaked credentials` — GATE: sólo genera `SECURITY_AUDIT.md`. No modifica código.
+2. `chore: remove tracked junk files` — `.env:Zone.Identifier`, `test_email.py`, `server.py`.
+3. `chore: update .gitignore patterns` — `*:Zone.Identifier` y residuos.
+4. `chore: move install_odbc.sh to scripts/` — si no está ahí.
+5. `chore: handle data/oee.db` — decisión documentada: inspeccionar; si residuo, borrar; si datos reales, snapshot + documentar.
+6. `refactor: rename OEE_* env vars to NEXO_*, split MES/APP` — `api/config.py`, `docker-compose.yml`, `.env.example`. Compat `OEE_*` activa.
+7. `refactor: update UI titles and metadata to Nexo` — títulos visibles, OpenAPI, compose service names, uso de `NEXO_LOGO_PATH` y `NEXO_ECS_LOGO_PATH` en templates.
+8. `fix: global_exception_handler no longer leaks tracebacks` — UUID al cliente, traceback server-side.
+9. `chore: move mcp service to docker-compose profile` — `profiles: ["mcp"]` + documentar en README.
+10. `build: pin requirements.txt, add requirements-dev.txt` — versiones exactas; dev deps aisladas.
+11. `ci: add GitHub Actions workflow` — 4 jobs: lint, test (no bloqueante), build, secrets.
+12. `docs: add GLOSSARY, DATA_MIGRATION_NOTES (verify CLAUDE.md, AUTH_MODEL, BRANDING alignment)` — los tres primeros ya existen de la sesión de arranque.
+13. `docs: sync MARK_III_PLAN and OPEN_QUESTIONS with Sprint 0 outcomes` — actualización final con resultado efectivo del sprint (hashes, decisiones finales).
 
 **Riesgos específicos**:
-- Cambiar prefijo `OEE_*` a `NEXO_*` rompe el `.env` actual que está en
-  disco en el servidor LAN si ya hay uno. **Mitigación**: `api/config.py`
-  acepta ambos prefijos durante Mark-III (lee `NEXO_DB_SERVER` y cae a
-  `OEE_DB_SERVER` si el primero está vacío). Eliminamos la compat en
-  Mark-IV.
-- El prefijo `OEE_` aparece en el `docker-compose.yml` también. Actualizar
-  allí al mismo tiempo.
-- Renombrar el servicio MCP (ID `oee-planta` → `nexo`) invalida cualquier
-  config `.claude.json` que los usuarios tengan apuntando al ID viejo.
-  Documentarlo en el README.
+- Cambiar prefijo `OEE_*` a `NEXO_*` rompe el `.env` actual en el servidor LAN si ya hay uno. **Mitigación**: `api/config.py` acepta ambos prefijos durante Mark-III.
+- El prefijo `OEE_` aparece también en `docker-compose.yml`. Actualizar al mismo tiempo.
+- Renombrar el servicio MCP (ID `oee-planta` → `nexo-mcp`) invalida cualquier `.claude.json` externo apuntando al ID viejo. Documentarlo en README.
+- Mover assets de logo rompe las rutas hardcoded en `templates/base.html`, `static/js/app.js`, `api/main.py`. Resolverlo en el mismo commit (7) que actualiza templates y usa las variables de contexto.
+- El audit de historial (commit 1) puede descubrir credenciales expuestas. Se documenta pero **no** se actúa sin autorización explícita.
 
-**Estimación**: **2 días**.
+**Estimación**: **2-3 días** (ampliado frente a 2 originales por audit + exception handler + mcp profile + logos).
 
 **Dependencias**: ninguna.
 
@@ -100,24 +114,25 @@ explique a cualquier dev futuro cómo navegar el código.
 **Objetivo**: toda request con `/api/*` o HTML autenticada; roles con
 permisos granulares; cada acción registrada en una tabla append-only.
 
+> Modelo de auth autoritativo: ver `docs/AUTH_MODEL.md`. Los bullets de
+> abajo se ajustan al modelo definitivo (`propietario / directivo /
+> usuario` + departamentos, bloqueo `5 → 15 min`), que sustituye al
+> bosquejo `admin / analyst / viewer` del borrador inicial.
+
 **Entregable verificable**:
-- Página `/login` funcional con bloqueo progresivo: 3 intentos → 30s, 5 →
-  5 min, 10 → lockout manual. Contador por `(user, IP)` para no bloquear
-  a un usuario desde todas partes por culpa de una IP concreta.
-- Tabla `nexo.users` en Postgres (hash argon2, rol, activo, last_login).
-- Tabla `nexo.roles` y `nexo.permissions` (RBAC simple: rol = conjunto de
-  permisos, permiso = `modulo:accion`, ejemplo `oee:read`, `admin:write`).
-- Middleware FastAPI que redirige HTML a `/login` y devuelve 401 JSON para
-  `/api/*` no autenticadas.
-- Dependency `Depends(require_permission("oee:read"))` aplicada a cada
-  router.
-- Tabla `nexo.audit_log` append-only: `(id, ts, user_id, ip, method, path,
-  status, details_json)`. **Append-only** a nivel de BBDD: `REVOKE UPDATE,
-  DELETE` del rol app sobre esa tabla; sólo un rol admin puede purgar.
-- Middleware que registra **cada request autenticada**, incluido admin.
-- Panel `/ajustes/auditoria` con filtros (user, fecha, path, status) +
-  export CSV.
-- `/ajustes/usuarios` CRUD de usuarios y roles (sólo rol admin).
+- Página `/login` funcional con bloqueo progresivo **5 intentos fallidos → 15 min** lock sobre `(user, IP)`. Tabla `nexo.login_attempts` con TTL y purga al login exitoso.
+- Tabla `nexo.users` en Postgres: `id`, `email`, `password_hash` (argon2id), `role_id`, `active`, `last_login`, `must_change_password`, `created_at`, `updated_at`.
+- Tabla `nexo.roles` (semilla: `propietario`, `directivo`, `usuario`) y `nexo.departments` (semilla: `rrhh`, `comercial`, `ingenieria`, `produccion`, `gerencia`).
+- Tabla `nexo.user_departments` (N:M entre users y departments).
+- Tabla `nexo.permissions` con mapping `rol × modulo × accion` (ejemplo: `usuario:pipeline:read`, `directivo:admin:write`). Propietario ignora departamento.
+- Middleware FastAPI que redirige HTML a `/login` y devuelve `401` JSON para `/api/*` no autenticadas. Cookie HttpOnly + Secure + SameSite=Lax.
+- Dependency `Depends(require_permission("modulo:accion"))` aplicada a cada router.
+- Tabla `nexo.audit_log` append-only: `(id, ts, user_id, ip, method, path, status, details_json)`. **Append-only** a nivel BBDD: `REVOKE UPDATE, DELETE` del rol app; sólo un rol admin de BBDD puede purgar.
+- Middleware que registra **cada request autenticada**.
+- Panel `/ajustes/auditoria` con filtros (user, fecha, path, status) + export CSV (visible sólo a `propietario` en Mark-III).
+- `/ajustes/usuarios` CRUD de usuarios + asignación de rol + asignación de departamentos (sólo `propietario`).
+- Primer login obliga a cambio de password (flag `must_change_password`).
+- `global_exception_handler` **ya está arreglado en Sprint 0** — verificar que no se regresó tras cambios de este sprint.
 
 **Archivos/módulos tocados**:
 - `api/routers/auth.py` (nuevo), `api/routers/admin.py` (nuevo).
@@ -138,21 +153,11 @@ permisos granulares; cada acción registrada en una tabla append-only.
   devuelva traceback al navegador (fuga de info).
 
 **Riesgos específicos**:
-- El `global_exception_handler` actual devuelve traceback HTML. Si lo
-  dejas y alguien fuerza un 500 en `/login`, filtras secretos. **Hay que
-  reescribirlo en este sprint, no en Sprint 0**.
-- El middleware de audit captura el body de POST/PUT. Esos bodies pueden
-  contener credenciales SQL (endpoint `/api/conexion/config`). Sanitizar
-  en el servicio de audit: whitelist de campos a grabar, o `details_json`
-  vacío para endpoints marcados como "sensibles".
-- La política de bloqueo progresivo requiere tabla `nexo.login_attempts`
-  con limpieza periódica (cronjob o purga al login exitoso).
-- El login también tiene que estar rate-limited (excepción al "no rate
-  limit" que me diste), porque sin eso el bloqueo es por usuario pero un
-  atacante puede probar 10 K usuarios en paralelo.
-- **Retro-fit de permisos** en los 14 routers es un pasada mecánica larga.
-  Propón 2-3 roles base iniciales (admin, analyst, viewer) antes de
-  empezar; sin eso te pierdes en granularidad.
+- El `global_exception_handler` ya está cerrado en Sprint 0. Verificar en este sprint que ningún cambio de auth lo regresa.
+- El middleware de audit captura el body de POST/PUT. Esos bodies pueden contener credenciales SQL (endpoint `/api/conexion/config`). Sanitizar en el servicio de audit: whitelist de campos a grabar, o `details_json` vacío para endpoints marcados como "sensibles".
+- La política de bloqueo progresivo (5 → 15 min) requiere tabla `nexo.login_attempts` con TTL y purga al login exitoso.
+- El login también tiene que estar rate-limited por IP (excepción al "no rate limit" general), porque sin eso un atacante distribuido puede probar 10 K usuarios en paralelo.
+- **Retro-fit de permisos** en los 14 routers es una pasada mecánica larga. Los 3 roles base (`propietario` / `directivo` / `usuario`) + departamentos están fijados en `docs/AUTH_MODEL.md` — trabajar con ese contrato, no reinventar la granularidad en el sprint.
 
 **Estimación**: **6 días**.
 

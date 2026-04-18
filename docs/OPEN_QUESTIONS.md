@@ -7,6 +7,12 @@ Las decisiones **🚦 BLOQUEANTES** hay que tomarlas antes de arrancar Sprint 0
 para no pintar planes sobre suposiciones. Las demás se pueden resolver durante
 el sprint correspondiente.
 
+> **Actualizado 2026-04-18 — sesión de arranque Sprint 0.** Las 5 decisiones
+> bloqueantes (§"Resumen de decisiones bloqueantes antes de Sprint 0" al final
+> de este documento) han sido cerradas. Ver `.planning/PROJECT.md` sección
+> "Key Decisions" para la tabla completa y rationales. Resumen inline al final
+> de este archivo.
+
 ---
 
 ## SQL Server y BBDD
@@ -333,3 +339,74 @@ del pipeline**.
    negocio, no estado interno de la app. Pero confirmar explícitamente.
 
 Cualquier "sí/no" sobre estas 5 cosas me vale para cerrar el plan.
+
+---
+
+## Resoluciones 2026-04-18 (sesión de arranque Sprint 0)
+
+### 🚦 Decisión 1 — Separación de instancias SQL Server: **RESUELTA**
+
+- Misma instancia hoy (`192.168.0.4:1433`).
+- Env vars **separadas** desde Sprint 0: `NEXO_MES_*` para `dbizaro`, `NEXO_APP_*` para `ecs_mobility`. Ambos bloques apuntan hoy al mismo host/puerto/credenciales.
+- Compat: `api/config.py` acepta `OEE_*` como fallback durante Mark-III. Compat eliminada en Mark-IV.
+- Cross-database 3-part names (`dbizaro.admuser.fmesmic`) se eliminan en **Sprint 2** al introducir los dos engines.
+
+### 🚦 Decisión 2 — Rotación de password SQL + limpieza `.env:Zone.Identifier`: **RESUELTA (parcial)**
+
+- **Limpieza de `.env:Zone.Identifier` y otros residuos trackeados**: **sí**, en Sprint 0 (commits `chore: remove tracked junk files` y `chore: update .gitignore patterns`).
+- **Rotación de credenciales SQL Server**: **no se rota en Sprint 0**. Se difiere hasta que el operador revise `docs/SECURITY_AUDIT.md` (generado por el commit 1 de Sprint 0). La decisión de rotar (y cuándo) la toma el operador después del audit.
+- **Reescritura de historial (`git filter-repo`)**: **no se ejecuta** sin autorización explícita del operador.
+
+### 🚦 Decisión 3 — CI mínimo desde Sprint 0: **RESUELTA (sí)**
+
+- `.github/workflows/ci.yml` con 4 jobs en Sprint 0: `lint` (ruff), `test` (pytest, **no bloqueante**), `build` (docker build sin push), `secrets` (gitleaks).
+- Triggers: push a `feature/Mark-III` y `main` + PRs a ambas.
+- Status checks **no bloqueantes** para merges durante Sprint 0. Se vuelven bloqueantes en Sprint 6 (Phase 7) cuando se amplía CI con cobertura y matriz Python.
+
+### 🚦 Decisión 4 — MCP en compose de producción: **RESUELTA — APARCADO**
+
+- Servicio `mcp` se mueve a `profiles: ["mcp"]` en `docker-compose.yml` (commit 9 de Sprint 0).
+- `make up` y `make dev` **no** lo arrancan por default.
+- Sólo arranca con `docker compose --profile mcp up`.
+- Código del directorio `mcp/` se **mantiene intacto** (no se borra). Es útil para uso local de desarrollo.
+- `README.md` documenta cómo arrancarlo.
+
+### 🚦 Decisión 5 — Postgres casa de users/audit/cache + `cfg.*`: **RESUELTA**
+
+- **Postgres** = casa nueva para `nexo.users`, `nexo.roles`, `nexo.permissions`, `nexo.audit_log`, `nexo.query_log`, `nexo.login_attempts`, `nexo.query_thresholds`, `nexo.sessions`. Schema `nexo.*` exclusivo de Postgres.
+- **`cfg.recursos`, `cfg.ciclos`, `cfg.contactos` permanecen en `ecs_mobility.cfg.*`**. Razón: datos de negocio compartidos; Power BI y túnel IoT ya los leen; migrarlos rompería integraciones externas.
+- **`oee.*` y `luk4.*`** también permanecen en `ecs_mobility`.
+
+---
+
+## Decisiones adicionales tomadas en la misma sesión
+
+Estas no eran bloqueantes pero se cerraron a la vez.
+
+- **Modelo de auth (roles + departamentos)**: definido. Ver `docs/AUTH_MODEL.md`. Sustituye al bosquejo `admin/analyst/viewer` del plan original.
+- **Bloqueo progresivo de login**: **5 intentos → 15 min** lock `(user, IP)`. Sustituye al escalado `3→30s / 5→5min / 10→manual` del plan original.
+- **Passwords**: argon2id, min 12 chars, cambio obligatorio primer login, **sin expiración forzada**.
+- **Sin 2FA, sin LDAP** en Mark-III.
+- **`global_exception_handler` sin traceback** entra en **Sprint 0** (movido desde Sprint 1). Razón: fuga de información independiente de auth.
+- **Audit del historial git** entra en **Sprint 0** como GATE (commit 1): genera `docs/SECURITY_AUDIT.md`, nunca ejecuta `filter-repo` por sí solo.
+- **Carpeta `OEE/`**: no se renombra en Mark-III. Diferido a Sprint 2.
+- **Repo GitHub `analisis_datos`**: no se renombra en Mark-III.
+- **SMTP operativo**: Out of Scope Mark-III (pendiente de decisión de infraestructura).
+- **Dominio público + exposición a internet**: Out of Scope (LAN-only).
+- **Assets de marca**: estructura `static/img/brand/{nexo,ecs}/`, variables `NEXO_LOGO_PATH` / `NEXO_ECS_LOGO_PATH` / `NEXO_APP_NAME` / `NEXO_COMPANY_NAME`. Ver `docs/BRANDING.md`. Logo de Nexo = placeholder IA temporal (regenerar en Mark-V).
+- **Timeline**: sin fecha objetivo. Estimación orientativa 10-12 semanas focalizadas.
+- **Regeneración `.planning/` desde `docs/`**: conversacional (`"Claude, regenera .planning/ desde docs/"`). No se escribe un skill dedicado.
+
+---
+
+## Preguntas que quedan abiertas para sprints posteriores
+
+No afectan Sprint 0. Se resuelven en su sprint correspondiente.
+
+- **SMTP (Sprint 1 o posterior)**: qué servidor usamos (Office 365? Gmail relay? SMTP interno?), qué address de envío, plantillas HTML.
+- **Dominio interno + DNS (Sprint 5)**: ¿controlamos el DNS público de `ecsmobility.com` para hacer DNS-01? Si no, caemos a cert interno/autofirmado.
+- **Ubuntu Server 24.04 detalles (Sprint 5)**: versión exacta del host (¿ya instalado?), política de backups del `pgdata` volumen, rotación de logs.
+- **Backups (Sprint 5)**: ¿snapshot del SSD completo, o backup lógico por `pg_dump` + `docker compose exec`?
+- **LDAP / AD futuro (Mark-IV)**: ¿ECS tiene AD interno al que enchufar?
+- **Pre-commit y formato en código legacy (Sprint 6)**: ejecutar `black + ruff --fix` sobre todo el repo en un único commit aislado para que los diffs futuros sean señal. Decisión de scope (¿sólo `api/` y `nexo/`, o también `OEE/`?).
+

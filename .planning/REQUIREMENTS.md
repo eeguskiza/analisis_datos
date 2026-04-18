@@ -28,6 +28,8 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 - [ ] **NAMING-13**: `docs/GLOSSARY.md` creado con términos: Nexo, MES, APP, módulo, rol, departamento, propietario, directivo, usuario, audit_log, preflight, postflight
 - [ ] **NAMING-14**: `docs/MARK_III_PLAN.md` y `docs/OPEN_QUESTIONS.md` actualizados con las 5 decisiones bloqueantes resueltas + lagunas pendientes (SMTP, dominio, Ubuntu detalles, backups, LDAP futuro)
 - [ ] **NAMING-15**: Post-Sprint-0 la app arranca con `make dev` y `docker build` sigue funcionando; `make health` devuelve OK
+- [ ] **NAMING-16**: Servicio `mcp` en `docker-compose.yml` movido a `profiles: ["mcp"]`; `make up` y `make dev` **no** arrancan `mcp`; sólo `docker compose --profile mcp up`. `README.md` documenta cómo arrancarlo
+- [ ] **NAMING-17**: Assets de marca estructurados en `static/img/brand/nexo/` y `static/img/brand/ecs/`; `docs/BRANDING.md` documenta uso, variables (`NEXO_LOGO_PATH`, `NEXO_ECS_LOGO_PATH`, `NEXO_APP_NAME`, `NEXO_COMPANY_NAME`) y templates (base.html, favicon, Notification) leen de esas variables en vez de rutas hardcoded
 
 ### IDENT — Phase 2 / Sprint 1 (auth + RBAC + audit)
 
@@ -162,6 +164,8 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | NAMING-13 | Phase 1 | Pending |
 | NAMING-14 | Phase 1 | Pending |
 | NAMING-15 | Phase 1 | Pending |
+| NAMING-16 | Phase 1 | Pending |
+| NAMING-17 | Phase 1 | Pending |
 | IDENT-01 | Phase 2 | Pending |
 | IDENT-02 | Phase 2 | Pending |
 | IDENT-03 | Phase 2 | Pending |
@@ -213,10 +217,10 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | DEVEX-07 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 64 total
-- Mapped to phases: 64
+- v1 requirements: 66 total
+- Mapped to phases: 66
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-18*
-*Last updated: 2026-04-18 after initial definition (Modo C — derivado de `docs/`)*
+*Last updated: 2026-04-18 after closing open questions (added NAMING-16 MCP profile, NAMING-17 brand assets)*

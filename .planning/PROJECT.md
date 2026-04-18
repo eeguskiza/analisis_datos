@@ -68,6 +68,8 @@ Explícitamente excluido de Mark-III (ver `docs/MARK_III_PLAN.md` §"Qué queda 
 - Reescritura de historial git (filter-repo) — sólo tras revisar `docs/SECURITY_AUDIT.md` con el operador
 - Rename de la carpeta `OEE/` a `modules/oee/` — diferido a Phase 3 / Sprint 2
 - Rename del repo en GitHub (`analisis_datos`) — diferido
+- Mover `cfg.recursos` / `cfg.ciclos` / `cfg.contactos` a Postgres — datos de negocio compartidos; Power BI y túnel IoT ya los leen; migración rompería integraciones externas
+- MCP en stack de producción por defecto — aparcado en `profiles: ["mcp"]`; sólo arranca con `docker compose --profile mcp up`
 
 ## Context
 
@@ -98,7 +100,7 @@ Explícitamente excluido de Mark-III (ver `docs/MARK_III_PLAN.md` §"Qué queda 
 - **Despliegue**: LAN interna ECS (Ubuntu Server 24.04, i5 7ª gen, 16 GB, SSD 1 TB). Sin exposición internet. DNS interno resuelve `nexo.ecsmobility.com`.
 - **BBDD SQL Server**: dos BDs (`dbizaro` MES read-only, `ecs_mobility` propia) **en la misma instancia** (`192.168.0.4:1433`). Confirmado por cross-database references de 3-part names en código. Nexo prepara env vars separadas (`NEXO_MES_*` / `NEXO_APP_*`) para futuro split, pero apuntan al mismo host y credenciales hoy.
 - **Postgres 16**: casa nueva para `nexo.*` (users, roles, audit_log, query_log). `cfg.*` y `oee.*` se quedan en `ecs_mobility` (son datos de negocio ya consumidos por Power BI y el túnel IoT; moverlos es riesgo fuera de scope).
-- **Timeline**: 29-30 días de trabajo focalizado = **10-12 semanas naturales** asumiendo 3 días focalizados por semana entre reuniones. Sin deadline duro; el operador marca el ritmo.
+- **Timeline**: estimación orientativa **10-12 semanas de trabajo focalizado** (29-30 días focalizados, ~3 por semana). **Sin fecha objetivo ni hito externo.** El operador marca el ritmo.
 - **Seguridad**: `.env` con permisos 600 en producción; credenciales NO rotadas en Sprint 0 (decisión explícita, diferida). Cualquier credencial encontrada en historial git se documenta en `docs/SECURITY_AUDIT.md` pero no se reescribe historial sin autorización.
 - **Backward compatibility**: `api/config.py` acepta ambos prefijos `NEXO_*` y `OEE_*` durante Mark-III (compat removida en Mark-IV).
 
@@ -115,9 +117,9 @@ Sprint 0. El modelo de roles se definió en la misma sesión.
 | `global_exception_handler` sin fuga de traceback en Sprint 0 (no en Sprint 1) | Fuga de información independiente de auth; no tiene sentido arrastrarla 6 días más | — Pending |
 | Audit de historial git para buscar credenciales commiteadas (`docs/SECURITY_AUDIT.md`) | Pre-requisito para decidir sobre filter-repo; usuario decide después de ver el informe | — Pending |
 | `filter-repo` (reescritura de historial): NO en Sprint 0; decisión manual post-audit | Reescribir historial sin revisar hallazgos rompe commits y referencias externas | — Pending |
-| MCP server permanece en compose (también prod, hasta decisión contraria) | Laguna: `docs/OPEN_QUESTIONS.md` decisión 4 no cerrada explícitamente en esta sesión; default = mantener estado actual | ⚠️ Revisit |
+| MCP server aparcado en `docker-compose.yml` bajo `profiles: ["mcp"]`; `make up` y `make dev` **no** lo arrancan; sólo `docker compose --profile mcp up` | En LAN con Nexo en producción el MCP no aporta; se conserva el código para uso local de desarrollo. Cambio efectivo en `docker-compose.yml` ejecutado dentro de Sprint 0 (commit 9). | ✓ Closed |
 | Postgres = casa de `nexo.users`, `nexo.roles`, `nexo.permissions`, `nexo.audit_log`, `nexo.query_log`, `nexo.login_attempts` | Aislar identidad y observabilidad de la BD de negocio (ecs_mobility) y de la BD read-only (dbizaro) | — Pending |
-| `cfg.recursos`, `cfg.ciclos`, `cfg.contactos` permanecen en `ecs_mobility.cfg.*` | Son datos de negocio consumidos por Power BI y túnel IoT; moverlos sale del scope Mark-III | — Pending |
+| `cfg.recursos`, `cfg.ciclos`, `cfg.contactos` permanecen en `ecs_mobility.cfg.*` | Datos de negocio compartidos: Power BI y túnel IoT ya los leen; migrarlos rompería integraciones externas | ✓ Closed |
 | Modelo de auth: 1 rol de nivel (propietario/directivo/usuario) + N departamentos (rrhh/comercial/ingenieria/producción/gerencia) | Granularidad suficiente para ECS sin complejidad de RBAC full-matrix; simplificable si no escala | — Pending |
 | Passwords: argon2id, min 12 chars, cambio obligatorio primer login, sin expiración forzada | Compromiso entre seguridad y fricción para uso interno; sin expiración evita tickets de soporte por passwords caducadas | — Pending |
 | Bloqueo progresivo: 5 intentos fallidos → 15 min lock de `(user, IP)` | Más simple que el escalado 3→30s / 5→5min / 10→manual de MARK_III_PLAN.md; mismo efecto defensivo | — Pending |
@@ -151,4 +153,4 @@ Si el plan cambia, se edita el doc fuente y se regenera `.planning/`.
 son runtime de GSD — éstos sí los mutan los comandos GSD durante la ejecución.
 
 ---
-*Last updated: 2026-04-18 after initialization (Modo C — derivado de `docs/`)*
+*Last updated: 2026-04-18 after closing Mark-III open questions (MCP, cfg tables, timeline, regen policy)*

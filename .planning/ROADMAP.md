@@ -27,19 +27,21 @@ de phases GSD: Phase N = Sprint (N-1) del plan.
 ### Phase 1: Naming + Higiene + CI
 **Goal**: Repo arrancable con marca "Nexo", higiene mínima (Zone.Identifier, archivos residuales, requirements pineados), CI en GitHub Actions, handler de excepciones que no filtra traceback, audit de historial git documentado.
 **Depends on**: Nothing (first phase)
-**Requirements**: NAMING-01, NAMING-02, NAMING-03, NAMING-04, NAMING-05, NAMING-06, NAMING-07, NAMING-08, NAMING-09, NAMING-10, NAMING-11, NAMING-12, NAMING-13, NAMING-14, NAMING-15
+**Requirements**: NAMING-01, NAMING-02, NAMING-03, NAMING-04, NAMING-05, NAMING-06, NAMING-07, NAMING-08, NAMING-09, NAMING-10, NAMING-11, NAMING-12, NAMING-13, NAMING-14, NAMING-15, NAMING-16, NAMING-17
 **Success Criteria** (what must be TRUE):
-  1. `make build && make up && make health` devuelven OK con contenedores llamados `nexo-*`
+  1. `make build && make up && make health` devuelven OK con contenedores llamados `nexo-*`; `make up` y `make dev` **no** arrancan el servicio `mcp`
   2. Título FastAPI, sidebar, README dicen "Nexo"; metadata OpenAPI consistente
-  3. `.env.example` cubre `NEXO_*` (MES + APP + web + PG) y mantiene compat `OEE_*` durante Mark-III
+  3. `.env.example` cubre `NEXO_*` (MES + APP + web + PG + branding) y mantiene compat `OEE_*` durante Mark-III
   4. `.github/workflows/ci.yml` ejecuta lint/test/build/secrets en push a `feature/Mark-III` y PRs
   5. Forzar un 500 en desarrollo devuelve `{"error_id": "<uuid>", "message": "Internal error"}` — sin traceback en el body
   6. `docs/SECURITY_AUDIT.md` lista credenciales expuestas del historial (sin valores literales)
-  7. `CLAUDE.md`, `docs/AUTH_MODEL.md`, `docs/GLOSSARY.md` existen con el contenido acordado; `docs/MARK_III_PLAN.md` y `docs/OPEN_QUESTIONS.md` actualizados
-**Plans**: 1 plan (Sprint 0 se ejecuta como una secuencia de 12 commits atómicos especificados en el plan de arranque)
+  7. `CLAUDE.md`, `docs/AUTH_MODEL.md`, `docs/GLOSSARY.md`, `docs/BRANDING.md`, `docs/DATA_MIGRATION_NOTES.md` existen con el contenido acordado; `docs/MARK_III_PLAN.md` y `docs/OPEN_QUESTIONS.md` actualizados
+  8. `docker compose --profile mcp up` arranca el contenedor `mcp`; sin el flag, no arranca
+  9. Templates (`base.html`, favicon, Notification icon de `app.js`) leen el logo desde las variables `NEXO_LOGO_PATH` / `NEXO_ECS_LOGO_PATH` en vez de rutas hardcoded; logos físicos ubicados bajo `static/img/brand/nexo/` y `static/img/brand/ecs/`
+**Plans**: 1 plan (Sprint 0 se ejecuta como una secuencia de 13 commits atómicos especificados en `.planning/1-sprint-0-naming-and-hygiene/PLAN.md`)
 
 Plans:
-- [ ] 01-01: Sprint 0 — 12 commits atómicos (junk, gitignore, odbc move, oee.db decision, env rename + split, UI rebrand, exception handler fix, requirements pin, CI workflow, docs core, security audit doc, MARK_III_PLAN/OPEN_QUESTIONS sync)
+- [ ] 01-01: Sprint 0 — 13 commits atómicos (audit historial GATE, junk, gitignore, odbc move, oee.db decision, env rename + split, UI rebrand + logos vars, exception handler fix, mcp profile, requirements pin, CI workflow, docs core, MARK_III_PLAN/OPEN_QUESTIONS sync)
 
 ### Phase 2: Identidad (auth + RBAC + audit)
 **Goal**: Toda request con `/api/*` o HTML autenticada; roles propietario/directivo/usuario con departamentos; cada acción registrada en tabla append-only a nivel BBDD.
