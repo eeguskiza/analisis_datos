@@ -26,7 +26,6 @@ COPY api/ ./api/
 COPY OEE/ ./OEE/
 COPY templates/ ./templates/
 COPY static/ ./static/
-COPY server.py .
 
 # ── Volumenes para datos persistentes ────────────────────────────────────────
 VOLUME ["/app/data", "/app/informes"]
