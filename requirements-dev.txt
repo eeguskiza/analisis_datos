@@ -1,0 +1,19 @@
+# Herramientas de desarrollo. No se instalan en el contenedor runtime,
+# solo en el entorno local del dev y en el CI de GitHub Actions.
+#
+# Instalacion:
+#   pip install -r requirements.txt -r requirements-dev.txt
+
+-r requirements.txt
+
+# Lint + formato
+ruff==0.9.8
+
+# Testing
+pytest==8.3.4
+pytest-cov==6.0.0
+
+# Escaneo de secretos. Nota: gitleaks es binario Go, no se instala por pip;
+# se ejecuta desde el workflow de GitHub Actions via gitleaks/gitleaks-action.
+# Para correrlo en local: `brew install gitleaks` o
+# `curl -sSfL ... | sh` desde https://github.com/gitleaks/gitleaks/releases.
