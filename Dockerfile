@@ -24,6 +24,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ── Codigo fuente ────────────────────────────────────────────────────────────
 COPY api/ ./api/
 COPY OEE/ ./OEE/
+COPY nexo/ ./nexo/
+COPY scripts/ ./scripts/
 COPY templates/ ./templates/
 COPY static/ ./static/
 

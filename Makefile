@@ -1,4 +1,4 @@
-.PHONY: up down build rebuild restart logs status dev db-shell clean help ip
+.PHONY: up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-owner nexo-verify nexo-smoke nexo-setup
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
@@ -41,8 +41,42 @@ logs-mcp: ## Logs solo del MCP server
 status: ## Muestra el estado de los contenedores
 	docker compose ps
 
-db-shell: ## Abre una shell psql
-	docker compose exec db psql -U oee oee_planta
+db-shell: ## Abre una shell psql en el Postgres de Nexo
+	@docker compose exec db psql \
+		-U "$$(grep '^NEXO_PG_USER=' .env | cut -d= -f2 | tr -d '\r')" \
+		-d "$$(grep '^NEXO_PG_DB=' .env | cut -d= -f2 | tr -d '\r')"
+
+# ── Nexo: schema + bootstrap (Phase 2 / Plan 02-01) ─────────────────────────
+
+nexo-init: ## Crea schema nexo + 8 tablas + seed (idempotente)
+	docker compose exec web python scripts/init_nexo_schema.py
+
+nexo-owner: ## Crea el primer usuario 'propietario' (interactivo)
+	docker compose exec -it web python scripts/create_propietario.py
+
+nexo-verify: ## Lista las tablas del schema nexo y los usuarios
+	@echo "── Tablas del schema nexo ──"
+	@docker compose exec db psql \
+		-U "$$(grep '^NEXO_PG_USER=' .env | cut -d= -f2 | tr -d '\r')" \
+		-d "$$(grep '^NEXO_PG_DB=' .env | cut -d= -f2 | tr -d '\r')" \
+		-c "\dt nexo.*"
+	@echo ""
+	@echo "── Usuarios ──"
+	@docker compose exec db psql \
+		-U "$$(grep '^NEXO_PG_USER=' .env | cut -d= -f2 | tr -d '\r')" \
+		-d "$$(grep '^NEXO_PG_DB=' .env | cut -d= -f2 | tr -d '\r')" \
+		-c "SELECT id, email, role, active, must_change_password FROM nexo.users;"
+	@echo ""
+	@echo "── Seed de catalogos ──"
+	@docker compose exec db psql \
+		-U "$$(grep '^NEXO_PG_USER=' .env | cut -d= -f2 | tr -d '\r')" \
+		-d "$$(grep '^NEXO_PG_DB=' .env | cut -d= -f2 | tr -d '\r')" \
+		-c "SELECT code FROM nexo.roles ORDER BY code; SELECT code FROM nexo.departments ORDER BY code;"
+
+nexo-smoke: ## Smoke test de argon2id (hash + verify)
+	@docker compose exec web python -c "from nexo.services.auth import hash_password, verify_password; h = hash_password('test12345678'); print('hash:', h[:40], '...'); print('ok :', verify_password(h, 'test12345678')); print('bad:', verify_password(h, 'equivocado'))"
+
+nexo-setup: nexo-init nexo-verify ## Init completo (schema + verify). Owner se crea despues con 'make nexo-owner'
 
 ip: ## Muestra la IP local para compartir el enlace
 	@IP=$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $$1}'); \
