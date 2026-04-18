@@ -36,6 +36,12 @@ services:
     volumes:
       - ./data:/app/data
       - ./informes:/app/informes
+    # Inyecta el .env del host al container. Necesario para NEXO_SECRET_KEY
+    # y demas vars que pydantic-settings lee. El Dockerfile NO copia .env
+    # a la imagen (correcto — secretos nunca en imagen); el bind de env
+    # garantiza que el container recibe los valores reales en runtime.
+    env_file:
+      - .env
     environment:
       - NEXO_DATA_DIR=/app/data
       - NEXO_INFORMES_DIR=/app/informes
