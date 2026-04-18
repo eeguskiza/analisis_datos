@@ -31,6 +31,7 @@ data/db_config.json
 data/recursos/
 data/csv/
 data/excels/
+data/backups/
 
 # Credenciales
 .env
