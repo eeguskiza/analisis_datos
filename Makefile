@@ -41,10 +41,14 @@ logs-mcp: ## Logs solo del MCP server
 status: ## Muestra el estado de los contenedores
 	docker compose ps
 
+# Macro para correr psql dentro del container db usando las env vars que
+# el propio container ya tiene inyectadas (POSTGRES_USER, POSTGRES_DB).
+# Evita parsear el .env del host (que puede usar OEE_* via compat layer
+# y no tener NEXO_* literalmente definido).
+PSQL_IN_DB = docker compose exec -T db bash -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+
 db-shell: ## Abre una shell psql en el Postgres de Nexo
-	@docker compose exec db psql \
-		-U "$$(grep '^NEXO_PG_USER=' .env | cut -d= -f2 | tr -d '\r')" \
-		-d "$$(grep '^NEXO_PG_DB=' .env | cut -d= -f2 | tr -d '\r')"
+	@docker compose exec -it db bash -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 
 # ── Nexo: schema + bootstrap (Phase 2 / Plan 02-01) ─────────────────────────
 
@@ -56,22 +60,14 @@ nexo-owner: ## Crea el primer usuario 'propietario' (interactivo)
 
 nexo-verify: ## Lista las tablas del schema nexo y los usuarios
 	@echo "── Tablas del schema nexo ──"
-	@docker compose exec db psql \
-		-U "$$(grep '^NEXO_PG_USER=' .env | cut -d= -f2 | tr -d '\r')" \
-		-d "$$(grep '^NEXO_PG_DB=' .env | cut -d= -f2 | tr -d '\r')" \
-		-c "\dt nexo.*"
+	@docker compose exec -T db bash -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "\\dt nexo.*"'
 	@echo ""
 	@echo "── Usuarios ──"
-	@docker compose exec db psql \
-		-U "$$(grep '^NEXO_PG_USER=' .env | cut -d= -f2 | tr -d '\r')" \
-		-d "$$(grep '^NEXO_PG_DB=' .env | cut -d= -f2 | tr -d '\r')" \
-		-c "SELECT id, email, role, active, must_change_password FROM nexo.users;"
+	@docker compose exec -T db bash -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "SELECT id, email, role, active, must_change_password FROM nexo.users;"'
 	@echo ""
 	@echo "── Seed de catalogos ──"
-	@docker compose exec db psql \
-		-U "$$(grep '^NEXO_PG_USER=' .env | cut -d= -f2 | tr -d '\r')" \
-		-d "$$(grep '^NEXO_PG_DB=' .env | cut -d= -f2 | tr -d '\r')" \
-		-c "SELECT code FROM nexo.roles ORDER BY code; SELECT code FROM nexo.departments ORDER BY code;"
+	@docker compose exec -T db bash -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "SELECT code FROM nexo.roles ORDER BY code;"'
+	@docker compose exec -T db bash -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "SELECT code FROM nexo.departments ORDER BY code;"'
 
 nexo-smoke: ## Smoke test de argon2id (hash + verify)
 	@docker compose exec web python -c "from nexo.services.auth import hash_password, verify_password; h = hash_password('test12345678'); print('hash:', h[:40], '...'); print('ok :', verify_password(h, 'test12345678')); print('bad:', verify_password(h, 'equivocado'))"
