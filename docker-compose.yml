@@ -29,7 +29,10 @@ services:
     expose:
       - "8000"
     ports:
-      - "8000:8000"
+      # Host ${NEXO_WEB_HOST_PORT:-8001} -> container 8000. Por defecto 8001
+      # para no colisionar con dev servers locales que usan 8000. Caddy sigue
+      # llegando al web por la red interna de compose en el puerto 8000.
+      - "${NEXO_WEB_HOST_PORT:-8001}:8000"
     volumes:
       - ./data:/app/data
       - ./informes:/app/informes
