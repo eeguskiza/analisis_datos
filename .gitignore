@@ -31,3 +31,13 @@ data/excels/
 
 # Credenciales
 .env
+
+# Estado local de Claude Code
+.claude/projects/
+.claude/todos/
+.claude/shell-snapshots/
+
+# GSD — estado local / caché
+.planning/quick/
+.planning/threads/
+.planning/HANDOFF.json
