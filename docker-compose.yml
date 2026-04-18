@@ -9,7 +9,13 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      # Host 5433 -> container 5432. El host 5432 tenia otro proceso (Postgres
+      # nativo u otro container). Web sigue conectando por red interna de
+      # compose al puerto 5432 del container (NEXO_PG_HOST=db, NEXO_PG_PORT=5432);
+      # el mapeo al host solo afecta a 'psql' directo desde el host.
+      # Para acceder al Postgres de Nexo desde el host:
+      #     psql -h localhost -p 5433 -U <NEXO_PG_USER> <NEXO_PG_DB>
+      - "${NEXO_PG_HOST_PORT:-5433}:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${NEXO_PG_USER:-${OEE_PG_USER:-oee}} -d ${NEXO_PG_DB:-${OEE_PG_DB:-oee_planta}}"]
