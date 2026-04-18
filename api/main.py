@@ -64,7 +64,7 @@ app.mount("/static", StaticFiles(directory=str(settings.project_root / "static")
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse(settings.project_root / "static" / "img" / "logo.png")
+    return FileResponse(settings.project_root / "static" / "img" / "brand" / "ecs" / "logo.png")
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 

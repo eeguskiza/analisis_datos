@@ -136,7 +136,7 @@ function getSectionForResource(name) {
 function notifyBrowser(message) {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
-    new Notification('ECS Mobility', { body: message, icon: '/static/img/logo.png' });
+    new Notification('ECS Mobility', { body: message, icon: '/static/img/brand/ecs/logo.png' });
   } else if (Notification.permission !== 'denied') {
     Notification.requestPermission().then(p => {
       if (p === 'granted') new Notification('ECS Mobility', { body: message });
