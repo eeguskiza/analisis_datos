@@ -20,6 +20,9 @@ env/
 Thumbs.db
 .claude
 
+# NTFS/WSL alternate data streams (residuos al copiar desde Windows)
+*:Zone.Identifier
+
 # Informes generados (no rastrear en git)
 informes/
 
