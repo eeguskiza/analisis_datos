@@ -86,6 +86,14 @@ class Settings(BaseSettings):
     )
 
     # ── PostgreSQL (Docker) ───────────────────────────────────────────────
+    pg_host: str = Field(
+        "db",
+        validation_alias=AliasChoices("NEXO_PG_HOST"),
+    )
+    pg_port: int = Field(
+        5432,
+        validation_alias=AliasChoices("NEXO_PG_PORT"),
+    )
     pg_user: str = Field(
         "oee",
         validation_alias=AliasChoices("NEXO_PG_USER", "OEE_PG_USER"),
@@ -97,6 +105,23 @@ class Settings(BaseSettings):
     pg_db: str = Field(
         "oee_planta",
         validation_alias=AliasChoices("NEXO_PG_DB", "OEE_PG_DB"),
+    )
+
+    # ── Auth (Phase 2 — Sprint 1) ─────────────────────────────────────────
+    # NEXO_SECRET_KEY NO tiene default: si falta en .env, FastAPI arranca
+    # con ValidationError claro. Generar con:
+    #     python -c "import secrets; print(secrets.token_urlsafe(48))"
+    secret_key: str = Field(
+        ...,
+        validation_alias=AliasChoices("NEXO_SECRET_KEY"),
+    )
+    session_cookie_name: str = Field(
+        "nexo_session",
+        validation_alias=AliasChoices("NEXO_SESSION_COOKIE_NAME"),
+    )
+    session_ttl_hours: int = Field(
+        12,
+        validation_alias=AliasChoices("NEXO_SESSION_TTL_HOURS"),
     )
 
     # ── Branding (Sprint 0 introduce los campos; Sprint 0 commit 7 los cablea en templates) ──
