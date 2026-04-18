@@ -3,16 +3,16 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${OEE_PG_USER:-oee}
-      POSTGRES_PASSWORD: ${OEE_PG_PASSWORD:-oee}
-      POSTGRES_DB: ${OEE_PG_DB:-oee_planta}
+      POSTGRES_USER: ${NEXO_PG_USER:-${OEE_PG_USER:-oee}}
+      POSTGRES_PASSWORD: ${NEXO_PG_PASSWORD:-${OEE_PG_PASSWORD:-oee}}
+      POSTGRES_DB: ${NEXO_PG_DB:-${OEE_PG_DB:-oee_planta}}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${OEE_PG_USER:-oee} -d ${OEE_PG_DB:-oee_planta}"]
+      test: ["CMD-SHELL", "pg_isready -U ${NEXO_PG_USER:-${OEE_PG_USER:-oee}} -d ${NEXO_PG_DB:-${OEE_PG_DB:-oee_planta}}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -28,9 +28,9 @@ services:
       - ./data:/app/data
       - ./informes:/app/informes
     environment:
-      - OEE_DATA_DIR=/app/data
-      - OEE_INFORMES_DIR=/app/informes
-      - OEE_DATABASE_URL=postgresql://${OEE_PG_USER:-oee}:${OEE_PG_PASSWORD:-oee}@db:5432/${OEE_PG_DB:-oee_planta}
+      - NEXO_DATA_DIR=/app/data
+      - NEXO_INFORMES_DIR=/app/informes
+      - NEXO_DATABASE_URL=postgresql://${NEXO_PG_USER:-${OEE_PG_USER:-oee}}:${NEXO_PG_PASSWORD:-${OEE_PG_PASSWORD:-oee}}@db:5432/${NEXO_PG_DB:-${OEE_PG_DB:-oee_planta}}
     depends_on:
       db:
         condition: service_healthy
@@ -54,7 +54,8 @@ services:
   mcp:
     build: ./mcp
     environment:
-      - OEE_API_URL=http://web:8000
+      - NEXO_API_URL=http://web:8000
+      - OEE_API_URL=http://web:8000  # compat, se retira en Mark-IV
     depends_on:
       - web
     restart: unless-stopped
