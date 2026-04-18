@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import logging
 import traceback
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.config import settings
@@ -40,21 +41,51 @@ app = FastAPI(
 )
 
 
-# ── Error handler — muestra el error real en vez de "Internal Server Error" ──
+# ── Error handler — loguea server-side, devuelve solo un UUID al cliente ─────
+# NO incluye traceback ni detalles de la excepcion en el body. Fuga de
+# informacion evitada (Sprint 0 commit 8 / NAMING-07).
+
+def _wants_json(request: Request) -> bool:
+    """Devuelve True si la request espera JSON (endpoints /api/*, Accept
+    header con application/json, o htmx request). El resto recibe HTML."""
+    if request.url.path.startswith("/api/"):
+        return True
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept and "text/html" not in accept:
+        return True
+    if request.headers.get("hx-request") == "true":
+        return True
+    return False
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    tb = traceback.format_exc()
-    logger.error(f"Error en {request.url}: {exc}\n{tb}")
+    error_id = str(uuid.uuid4())
+    logger.exception(
+        "Unhandled exception %s at %s %s", error_id, request.method, request.url.path
+    )
+
+    if _wants_json(request):
+        return JSONResponse(
+            status_code=500,
+            content={"error_id": error_id, "message": "Internal error"},
+        )
+
     return HTMLResponse(
-        content=f"""<!DOCTYPE html>
-<html><head><title>Error</title>
-<style>body{{font-family:monospace;padding:2em;background:#1a1a2e;color:#e0e0e0}}
-pre{{background:#16213e;padding:1em;border-radius:8px;overflow-x:auto;font-size:13px}}
-h1{{color:#e94560}}</style></head>
-<body><h1>Error 500</h1><p>{exc}</p><pre>{tb}</pre>
-<p><a href="/" style="color:#0f3460">Volver al dashboard</a></p></body></html>""",
         status_code=500,
+        content=(
+            "<!DOCTYPE html>"
+            "<html><head><title>Error</title>"
+            "<style>body{font-family:system-ui,sans-serif;padding:3em;"
+            "background:#0f2236;color:#e0e0e0;text-align:center}"
+            "code{background:#1a3a5c;padding:.2em .5em;border-radius:4px;"
+            "font-size:12px}a{color:#5995ff}</style></head>"
+            "<body><h1>Error interno</h1>"
+            "<p>Algo ha fallado procesando tu peticion. "
+            "Contacta con el equipo tecnico incluyendo este identificador.</p>"
+            f"<p>Error ID: <code>{error_id}</code></p>"
+            '<p><a href="/">Volver al dashboard</a></p></body></html>'
+        ),
     )
 
 
