@@ -1,4 +1,4 @@
-.PHONY: up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-owner nexo-verify nexo-smoke nexo-setup
+.PHONY: up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-owner nexo-verify nexo-smoke nexo-setup test-data
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
@@ -73,6 +73,12 @@ nexo-smoke: ## Smoke test de argon2id (hash + verify)
 	@docker compose exec web python -c "from nexo.services.auth import hash_password, verify_password; h = hash_password('test12345678'); print('hash:', h[:40], '...'); print('ok :', verify_password(h, 'test12345678')); print('bad:', verify_password(h, 'equivocado'))"
 
 nexo-setup: nexo-init nexo-verify ## Init completo (schema + verify). Owner se crea despues con 'make nexo-owner'
+
+test-data: ## Arranca compose db y corre pytest tests/data/
+	docker compose up -d db
+	@echo "Esperando Postgres healthy..."
+	@until docker compose exec -T db pg_isready -U $${NEXO_PG_USER:-oee} >/dev/null 2>&1; do sleep 1; done
+	docker compose exec -T web pytest tests/data/ -q
 
 nexo-app-role: ## Crea rol nexo_app con GRANTs limitados (audit_log append-only). Plan 02-04 gate IDENT-06. Lee NEXO_PG_APP_PASSWORD del .env.
 	@APP_PWD=$$(grep -E '^[[:space:]]*NEXO_PG_APP_PASSWORD=' .env 2>/dev/null | tail -1 | sed -E 's/^[[:space:]]*NEXO_PG_APP_PASSWORD=//' | tr -d '\r'); \

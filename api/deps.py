@@ -48,3 +48,53 @@ def render(
     return templates.TemplateResponse(
         name=template_name, context=ctx, request=request, status_code=status_code
     )
+
+
+# ── Dependencias de base de datos (Plan 03-01) ───────────────────────────
+# Tres engines distintos: APP (ecs_mobility), NEXO (Postgres), MES
+# (dbizaro read-only). Cada uno con su propio generator yield-pattern para
+# que FastAPI cierre la sesion al terminar la request. MES es read-only
+# por convención → entregamos el Engine directamente, no una Session
+# (no hay transacciones que gestionar).
+
+from typing import Annotated, Iterator  # noqa: E402
+
+from fastapi import Depends  # noqa: E402
+from sqlalchemy.engine import Engine  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+
+from nexo.data.engines import (  # noqa: E402
+    SessionLocalApp,
+    SessionLocalNexo,
+    engine_mes as _engine_mes,
+)
+
+
+def get_db_app() -> Iterator[Session]:
+    """Session SQL Server ``ecs_mobility``. El caller comitea."""
+    db = SessionLocalApp()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_db_nexo() -> Iterator[Session]:
+    """Session Postgres ``nexo.*``. El caller comitea."""
+    db = SessionLocalNexo()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_engine_mes() -> Engine:
+    """MES es read-only; entregamos el Engine directamente."""
+    return _engine_mes
+
+
+# Aliases ``Annotated`` (PEP 593) — firmas de router más limpias:
+#   def endpoint(db: DbApp, engine_mes: EngineMes): ...
+DbApp = Annotated[Session, Depends(get_db_app)]
+DbNexo = Annotated[Session, Depends(get_db_nexo)]
+EngineMes = Annotated[Engine, Depends(get_engine_mes)]

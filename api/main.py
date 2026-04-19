@@ -17,6 +17,8 @@ from api.database import init_db
 from api.middleware.audit import AuditMiddleware
 from api.middleware.auth import AuthMiddleware
 from api.rate_limit import limiter
+from nexo.data import schema_guard
+from nexo.data.engines import engine_nexo
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("oee")
@@ -24,7 +26,20 @@ logger = logging.getLogger("oee")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Inicializa la BBDD al arrancar."""
+    """Inicializa la BBDD al arrancar.
+
+    1. ``schema_guard.verify`` ANTES de ``init_db``: si falla aquí,
+       abortamos claro — el ``RuntimeError`` sube hasta uvicorn y la app
+       NO arranca. D-06 / D-07 del plan 03-01.
+    2. ``init_db()`` conserva su try/except legacy — el bootstrap de
+       ``ecs_mobility`` es best-effort históricamente (los schemas ya
+       existen en SQL Server, sólo carga CSVs idempotentes).
+    """
+    # 1. Schema guard (Phase 3, plan 03-01) — aborta arranque si faltan
+    #    tablas en nexo.* y NEXO_AUTO_MIGRATE != true.
+    schema_guard.verify(engine_nexo)
+
+    # 2. init_db legacy (bootstrap ecs_mobility) — mantener best-effort.
     try:
         init_db()
         logger.info("Base de datos inicializada OK")
