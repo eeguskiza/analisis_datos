@@ -28,6 +28,7 @@ COPY nexo/ ./nexo/
 COPY scripts/ ./scripts/
 COPY templates/ ./templates/
 COPY static/ ./static/
+COPY tests/ ./tests/
 
 # ── Volumenes para datos persistentes ────────────────────────────────────────
 VOLUME ["/app/data", "/app/informes"]

@@ -12,6 +12,9 @@ ruff==0.9.8
 # Testing
 pytest==8.3.4
 pytest-cov==6.0.0
+# httpx lo necesita fastapi.testclient (Starlette 1.x usa httpx como backend
+# real en TestClient; no viene como dep transitiva de fastapi).
+httpx==0.28.1
 
 # Escaneo de secretos. Nota: gitleaks es binario Go, no se instala por pip;
 # se ejecuta desde el workflow de GitHub Actions via gitleaks/gitleaks-action.
