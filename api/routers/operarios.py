@@ -1,11 +1,22 @@
-"""Endpoints de rendimiento de operarios — consulta directa a IZARO."""
+"""Endpoints de rendimiento de operarios — consulta directa a IZARO.
+
+Plan 03-02 Task 3.4: elimina ``_connect()`` (pyodbc crudo) y usa
+``engine_mes`` (2-part names via DSN + SQLAlchemy) con queries
+extraidas a ``nexo/data/sql/mes/operarios_*.sql``. La ficha detalle
+mantiene tres queries inline parametrizadas con ``:codigo`` /
+``:fecha_inicio`` / ``:fecha_fin`` (sus agregaciones eran monolithic
+y no requieren `.sql` versionado por separado — D-01 scope).
+"""
 from __future__ import annotations
 
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
 
+from api.deps import EngineMes
 from api.services import db as mes_service
+from nexo.data.sql.loader import load_sql
 from nexo.services.auth import require_permission
 
 router = APIRouter(
@@ -15,45 +26,17 @@ router = APIRouter(
 )
 
 
-def _connect():
-    from OEE.db.connector import _build_connection_string
-    import pyodbc
-    cfg = mes_service.get_config()
-    return pyodbc.connect(_build_connection_string(cfg), timeout=15)
-
-
 @router.get("")
-def listar_operarios(activos: bool = True):
+def listar_operarios(engine_mes: EngineMes, activos: bool = True):
+    """Lista operarios de IZARO.
+
+    Devuelve ``codigo``, ``nombre``, ``activo``, y nº registros del
+    ultimo mes. Con ``activos=True`` (default) se filtran los que no
+    tienen actividad registrada en el periodo.
     """
-    Lista operarios de IZARO.
-    Devuelve codigo, nombre, activo, y nº registros último mes.
-    """
-    conn = _connect()
-    try:
-        c = conn.cursor()
-        c.execute("""
-            SELECT
-                CAST(ope.op010 AS INT) AS codigo,
-                RTRIM(ope.op020) AS nombre,
-                CAST(ope.op060 AS INT) AS activo,
-                COALESCE(act.n_mes, 0) AS n_registros_mes,
-                act.ultimo
-            FROM admuser.fmesope ope
-            LEFT JOIN (
-                SELECT CAST(dt140 AS INT) AS ope_cod,
-                    COUNT(*) AS n_mes,
-                    MAX(CONVERT(DATE, dt060)) AS ultimo
-                FROM admuser.fmesdtc
-                WHERE dt060 >= DATEADD(MONTH, -1, GETDATE())
-                    AND dt140 IS NOT NULL AND RTRIM(dt140) != ''
-                GROUP BY CAST(dt140 AS INT)
-            ) act ON act.ope_cod = CAST(ope.op010 AS INT)
-            WHERE ope.op000 = 'ALGA'
-            ORDER BY COALESCE(act.n_mes, 0) DESC, ope.op010
-        """)
-        rows = c.fetchall()
-    finally:
-        conn.close()
+    sql = text(load_sql("mes/operarios_listar"))
+    with engine_mes.connect() as conn:
+        rows = conn.execute(sql).fetchall()
 
     result = []
     for r in rows:
@@ -72,6 +55,7 @@ def listar_operarios(activos: bool = True):
 @router.get("/{codigo}")
 def ficha_operario(
     codigo: int,
+    engine_mes: EngineMes,
     desde: date = Query(None),
     hasta: date = Query(None),
 ):
@@ -87,17 +71,15 @@ def ficha_operario(
     if desde is None:
         desde = hasta - timedelta(days=30)
 
-    conn = _connect()
-    try:
-        c = conn.cursor()
+    fi = desde.isoformat()
+    fh = hasta.isoformat()
 
+    with engine_mes.connect() as conn:
         # 1. Datos del operario
-        c.execute("""
-            SELECT RTRIM(op020), CAST(op060 AS INT), op055
-            FROM admuser.fmesope
-            WHERE op010 = ? AND op000 = 'ALGA'
-        """, [codigo])
-        row = c.fetchone()
+        row = conn.execute(
+            text(load_sql("mes/operarios_ficha")),
+            {"codigo": codigo},
+        ).fetchone()
         if not row:
             raise HTTPException(404, "Operario no encontrado")
 
@@ -108,38 +90,37 @@ def ficha_operario(
             "dni": (row[2] or "").strip() if row[2] else "",
         }
 
-        fi = desde.isoformat()
-        fh = hasta.isoformat()
-
         # 2. Resumen por centro de trabajo
-        c.execute("""
-            SELECT
-                CAST(dtc.dt150 AS INT) AS ct,
-                RTRIM(rec.re020) AS nombre_ct,
-                COUNT(*) AS registros,
-                SUM(CASE WHEN dtc.dt110 = '0' THEN 1 ELSE 0 END) AS regs_produccion,
-                SUM(CASE WHEN dtc.dt110 = '0' THEN CAST(dtc.dt130 AS FLOAT) ELSE 0 END) AS piezas,
-                SUM(CASE WHEN dtc.dt110 = '0' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_prod,
-                SUM(CASE WHEN dtc.dt110 = '1' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_prep,
-                SUM(CASE WHEN dtc.dt110 = '2' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_inci,
-                COUNT(DISTINCT CONVERT(DATE, dtc.dt060)) AS dias_trabajados
-            FROM admuser.fmesdtc dtc
-            LEFT JOIN admuser.fmesrec rec
-                ON rec.re010 = dtc.dt150 AND RTRIM(rec.re000) = RTRIM(dtc.dt000)
-            WHERE RTRIM(dtc.dt140) = ?
-                AND CONVERT(DATE, dtc.dt060) BETWEEN ? AND ?
-            GROUP BY CAST(dtc.dt150 AS INT), RTRIM(rec.re020)
-            ORDER BY piezas DESC
-        """, [str(codigo), fi, fh])
+        centros_rows = conn.execute(
+            text("""
+                SELECT
+                    CAST(dtc.dt150 AS INT) AS ct,
+                    RTRIM(rec.re020) AS nombre_ct,
+                    COUNT(*) AS registros,
+                    SUM(CASE WHEN dtc.dt110 = '0' THEN 1 ELSE 0 END) AS regs_produccion,
+                    SUM(CASE WHEN dtc.dt110 = '0' THEN CAST(dtc.dt130 AS FLOAT) ELSE 0 END) AS piezas,
+                    SUM(CASE WHEN dtc.dt110 = '0' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_prod,
+                    SUM(CASE WHEN dtc.dt110 = '1' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_prep,
+                    SUM(CASE WHEN dtc.dt110 = '2' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_inci,
+                    COUNT(DISTINCT CONVERT(DATE, dtc.dt060)) AS dias_trabajados
+                FROM admuser.fmesdtc dtc
+                LEFT JOIN admuser.fmesrec rec
+                    ON rec.re010 = dtc.dt150 AND RTRIM(rec.re000) = RTRIM(dtc.dt000)
+                WHERE RTRIM(dtc.dt140) = :codigo_txt
+                    AND CONVERT(DATE, dtc.dt060) BETWEEN :fi AND :fh
+                GROUP BY CAST(dtc.dt150 AS INT), RTRIM(rec.re020)
+                ORDER BY piezas DESC
+            """),
+            {"codigo_txt": str(codigo), "fi": fi, "fh": fh},
+        ).fetchall()
 
         centros = []
-        total_piezas = 0
-        total_horas_prod = 0
-        total_horas_prep = 0
-        total_horas_inci = 0
-        total_dias = set()
+        total_piezas = 0.0
+        total_horas_prod = 0.0
+        total_horas_prep = 0.0
+        total_horas_inci = 0.0
 
-        for r in c.fetchall():
+        for r in centros_rows:
             piezas = float(r[4] or 0)
             horas_prod = float(r[5] or 0)
             centros.append({
@@ -160,29 +141,32 @@ def ficha_operario(
             total_horas_inci += float(r[7] or 0)
 
         # 3. Resumen por referencia (piezas/hora vs teórico)
-        c.execute("""
-            SELECT
-                RTRIM(lof.lo030) AS referencia,
-                CAST(dtc.dt150 AS INT) AS ct,
-                RTRIM(rec.re020) AS nombre_ct,
-                SUM(CAST(dtc.dt130 AS FLOAT)) AS piezas,
-                SUM(CAST(dtc.dt090 AS FLOAT)) AS horas,
-                COUNT(*) AS registros
-            FROM admuser.fmesdtc dtc
-            LEFT JOIN admuser.fprolof lof
-                ON RTRIM(lof.lo010) = RTRIM(dtc.dt020) AND lof.lo020 = dtc.dt030
-            LEFT JOIN admuser.fmesrec rec
-                ON rec.re010 = dtc.dt150 AND RTRIM(rec.re000) = RTRIM(dtc.dt000)
-            WHERE RTRIM(dtc.dt140) = ?
-                AND CONVERT(DATE, dtc.dt060) BETWEEN ? AND ?
-                AND dtc.dt110 = '0'
-                AND RTRIM(lof.lo030) != ''
-            GROUP BY RTRIM(lof.lo030), CAST(dtc.dt150 AS INT), RTRIM(rec.re020)
-            ORDER BY piezas DESC
-        """, [str(codigo), fi, fh])
+        refs_rows = conn.execute(
+            text("""
+                SELECT
+                    RTRIM(lof.lo030) AS referencia,
+                    CAST(dtc.dt150 AS INT) AS ct,
+                    RTRIM(rec.re020) AS nombre_ct,
+                    SUM(CAST(dtc.dt130 AS FLOAT)) AS piezas,
+                    SUM(CAST(dtc.dt090 AS FLOAT)) AS horas,
+                    COUNT(*) AS registros
+                FROM admuser.fmesdtc dtc
+                LEFT JOIN admuser.fprolof lof
+                    ON RTRIM(lof.lo010) = RTRIM(dtc.dt020) AND lof.lo020 = dtc.dt030
+                LEFT JOIN admuser.fmesrec rec
+                    ON rec.re010 = dtc.dt150 AND RTRIM(rec.re000) = RTRIM(dtc.dt000)
+                WHERE RTRIM(dtc.dt140) = :codigo_txt
+                    AND CONVERT(DATE, dtc.dt060) BETWEEN :fi AND :fh
+                    AND dtc.dt110 = '0'
+                    AND RTRIM(lof.lo030) != ''
+                GROUP BY RTRIM(lof.lo030), CAST(dtc.dt150 AS INT), RTRIM(rec.re020)
+                ORDER BY piezas DESC
+            """),
+            {"codigo_txt": str(codigo), "fi": fi, "fh": fh},
+        ).fetchall()
 
         referencias = []
-        for r in c.fetchall():
+        for r in refs_rows:
             pzas = float(r[3] or 0)
             hrs = float(r[4] or 0)
             referencias.append({
@@ -196,23 +180,26 @@ def ficha_operario(
             })
 
         # 4. Evolución diaria
-        c.execute("""
-            SELECT
-                CONVERT(DATE, dtc.dt060) AS dia,
-                SUM(CASE WHEN dtc.dt110 = '0' THEN CAST(dtc.dt130 AS FLOAT) ELSE 0 END) AS piezas,
-                SUM(CASE WHEN dtc.dt110 = '0' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_prod,
-                SUM(CASE WHEN dtc.dt110 = '1' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_prep,
-                SUM(CASE WHEN dtc.dt110 = '2' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_inci,
-                COUNT(*) AS registros
-            FROM admuser.fmesdtc dtc
-            WHERE RTRIM(dtc.dt140) = ?
-                AND CONVERT(DATE, dtc.dt060) BETWEEN ? AND ?
-            GROUP BY CONVERT(DATE, dtc.dt060)
-            ORDER BY dia
-        """, [str(codigo), fi, fh])
+        evo_rows = conn.execute(
+            text("""
+                SELECT
+                    CONVERT(DATE, dtc.dt060) AS dia,
+                    SUM(CASE WHEN dtc.dt110 = '0' THEN CAST(dtc.dt130 AS FLOAT) ELSE 0 END) AS piezas,
+                    SUM(CASE WHEN dtc.dt110 = '0' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_prod,
+                    SUM(CASE WHEN dtc.dt110 = '1' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_prep,
+                    SUM(CASE WHEN dtc.dt110 = '2' THEN CAST(dtc.dt090 AS FLOAT) ELSE 0 END) AS horas_inci,
+                    COUNT(*) AS registros
+                FROM admuser.fmesdtc dtc
+                WHERE RTRIM(dtc.dt140) = :codigo_txt
+                    AND CONVERT(DATE, dtc.dt060) BETWEEN :fi AND :fh
+                GROUP BY CONVERT(DATE, dtc.dt060)
+                ORDER BY dia
+            """),
+            {"codigo_txt": str(codigo), "fi": fi, "fh": fh},
+        ).fetchall()
 
         evolucion = []
-        for r in c.fetchall():
+        for r in evo_rows:
             pzas = float(r[1] or 0)
             hrs = float(r[2] or 0)
             evolucion.append({
@@ -225,9 +212,6 @@ def ficha_operario(
                 "registros": r[5],
             })
 
-    finally:
-        conn.close()
-
     # Cargar ciclos teóricos para comparar
     from api.database import Ciclo, SessionLocal
     with SessionLocal() as db:
@@ -238,7 +222,6 @@ def ficha_operario(
         }
 
     # Añadir teórico a referencias
-    from api.database import SECTION_MAP
     # Mapeo inverso CT -> nombre recurso
     cfg = mes_service.get_config()
     ct_to_nombre = {r["centro_trabajo"]: r["nombre"] for r in cfg.get("recursos", [])}
