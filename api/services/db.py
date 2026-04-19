@@ -1,4 +1,21 @@
-"""Wrapper sobre OEE.db.connector — aísla el acceso a BD del resto de la API."""
+"""Facade MES — aisla el acceso a la BD del resto de la API.
+
+Plan 03-02 Task 3.7 (handoff a 03-03): este modulo es el unico
+consumidor legacy de ``OEE.db.connector``. Lo usa ``api/services/pipeline.py``
+indirectamente (via ``extract_data``, ``compute_real_cycles``, etc.).
+
+Repointing: las 4 funciones wrappable delegan ahora a
+``MesRepository`` (construido sobre ``engine_mes`` de
+``nexo/data/engines.py``). ``load_config`` / ``save_config`` /
+``test_conexion`` / ``explorar_columnas_fmesdtc`` / ``datos_a_csvs``
+siguen importados directamente del connector legacy porque el
+repositorio no los envuelve (no son MES-queries sino helpers de
+config/diagnostico/IO).
+
+Beneficio: ``pipeline.py`` sigue llamando ``mes_service.extract_data(...)``
+y automaticamente usa el backend nuevo — NO se toca ``pipeline.py``
+en este plan (propiedad de 03-03 per ``<context_handoff>`` del PLAN.md).
+"""
 from __future__ import annotations
 
 from datetime import date
@@ -8,16 +25,28 @@ from typing import Dict, List
 from api.config import settings
 
 from OEE.db.connector import (
-    calcular_ciclos_reales,
     datos_a_csvs,
-    detectar_recursos,
-    estado_maquina_live,
     explorar_columnas_fmesdtc,
-    extraer_datos,
     load_config,
     save_config,
     test_conexion,
 )
+
+
+def _repo():
+    """Factory helper — construye un MesRepository con engine_mes.
+
+    Imports lazy para romper el ciclo:
+    ``api.services.db`` <-> ``nexo.data.repositories.mes`` (el repo
+    importa ``get_config`` de este modulo — Landmine #1 del RESEARCH).
+
+    El engine es singleton con pool compartido, asi que el repo es
+    barato de instanciar por-llamada. Permite mockear ``_repo`` en
+    tests unitarios del facade sin tocar el repo real.
+    """
+    from nexo.data.engines import engine_mes
+    from nexo.data.repositories.mes import MesRepository
+    return MesRepository(engine=engine_mes)
 
 
 def get_config() -> dict:
@@ -56,8 +85,7 @@ def explore_columns() -> List[str]:
 
 def discover_resources() -> List[dict]:
     """Detecta centros de trabajo disponibles en IZARO."""
-    cfg = get_config()
-    return detectar_recursos(cfg)
+    return _repo().detectar_recursos()
 
 
 def extract_data(
@@ -66,25 +94,21 @@ def extract_data(
     recursos: list[str] | None = None,
 ) -> List[dict]:
     """Extrae datos de IZARO y devuelve lista de dicts."""
-    cfg = get_config()
-    if recursos:
-        cfg = {**cfg, "recursos": [
-            r for r in cfg.get("recursos", [])
-            if r.get("nombre") in recursos
-        ]}
-    return extraer_datos(cfg, fecha_inicio, fecha_fin)
+    return _repo().extraer_datos_produccion(
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        recursos=recursos,
+    )
 
 
 def compute_real_cycles(centro_trabajo: int, dias_atras: int = 30) -> tuple[List[dict], str]:
     """Calcula ciclos reales desde contadores de IZARO. Devuelve (resultados, fuente)."""
-    cfg = get_config()
-    return calcular_ciclos_reales(cfg, centro_trabajo, dias_atras)
+    return _repo().calcular_ciclos_reales(centro_trabajo, dias_atras)
 
 
 def live_status(centro_trabajo: int, umbral_activo_seg: int = 600) -> dict:
     """Estado en vivo: ultima lectura de contador y si la maquina esta activa."""
-    cfg = get_config()
-    return estado_maquina_live(cfg, centro_trabajo, umbral_activo_seg)
+    return _repo().estado_maquina_live(centro_trabajo, umbral_activo_seg)
 
 
 def write_csvs(rows: List[dict], recursos_dir: Path | None = None) -> Dict[str, Path]:
