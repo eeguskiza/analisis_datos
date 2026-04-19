@@ -18,8 +18,18 @@ from api.config import settings
 
 
 def _build_dsn() -> str:
+    """DSN para el engine que usa la app en runtime.
+
+    Prefiere ``NEXO_PG_APP_USER`` / ``NEXO_PG_APP_PASSWORD`` (rol ``nexo_app``
+    creado en Plan 02-04, con GRANTs limitados que impiden UPDATE/DELETE
+    en ``nexo.audit_log``). Cae a ``NEXO_PG_USER``/``NEXO_PG_PASSWORD`` (el
+    owner ``oee``) si el par APP no esta definido — backwards compat con
+    deploys anteriores al plan 02-04.
+    """
+    user = settings.effective_pg_user
+    password = settings.effective_pg_password
     return (
-        f"postgresql+psycopg2://{settings.pg_user}:{settings.pg_password}"
+        f"postgresql+psycopg2://{user}:{password}"
         f"@{settings.pg_host}:{settings.pg_port}/{settings.pg_db}"
     )
 

@@ -74,6 +74,17 @@ nexo-smoke: ## Smoke test de argon2id (hash + verify)
 
 nexo-setup: nexo-init nexo-verify ## Init completo (schema + verify). Owner se crea despues con 'make nexo-owner'
 
+nexo-app-role: ## Crea rol nexo_app con GRANTs limitados (audit_log append-only). Plan 02-04 gate IDENT-06. Lee NEXO_PG_APP_PASSWORD del .env.
+	@APP_PWD=$$(grep -E '^[[:space:]]*NEXO_PG_APP_PASSWORD=' .env 2>/dev/null | tail -1 | sed -E 's/^[[:space:]]*NEXO_PG_APP_PASSWORD=//' | tr -d '\r'); \
+	 if [ -z "$$APP_PWD" ]; then \
+		echo "ERROR: NEXO_PG_APP_PASSWORD no esta en .env. Anade (sin espacios iniciales):"; \
+		echo "  NEXO_PG_APP_USER=nexo_app"; \
+		echo "  NEXO_PG_APP_PASSWORD=<password-generado>"; \
+		exit 1; \
+	 fi; \
+	 echo "→ Aplicando rol nexo_app..."; \
+	 docker compose exec -T db bash -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -v nexo_app_password='"'$$APP_PWD'"' -f -' < scripts/create_nexo_app_role.sql
+
 ip: ## Muestra la IP local para compartir el enlace
 	@IP=$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $$1}'); \
 	 echo "  Tu IP: $$IP"; \

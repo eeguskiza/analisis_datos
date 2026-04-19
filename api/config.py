@@ -107,6 +107,36 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("NEXO_PG_DB", "OEE_PG_DB"),
     )
 
+    # ── Postgres — rol 'app' dedicado (Plan 02-04, gate IDENT-06) ─────────
+    # ``pg_app_user`` / ``pg_app_password`` son las credenciales que usa el
+    # servidor web (engine_nexo) para conectar en runtime. ``nexo_app`` es
+    # un rol con GRANTs limitados (SELECT/INSERT/UPDATE/DELETE en todo el
+    # schema nexo EXCEPTO UPDATE/DELETE en nexo.audit_log — append-only).
+    #
+    # ``pg_user`` / ``pg_password`` siguen siendo las credenciales del
+    # owner (``oee``), usadas por scripts de bootstrap (init_nexo_schema,
+    # create_propietario) y por el container db como POSTGRES_USER.
+    #
+    # Si ``NEXO_PG_APP_USER`` no esta definido en .env, el engine usa
+    # automaticamente ``pg_user``/``pg_password`` (backwards compat con
+    # deploys anteriores al Plan 02-04).
+    pg_app_user: str = Field(
+        "",
+        validation_alias=AliasChoices("NEXO_PG_APP_USER"),
+    )
+    pg_app_password: str = Field(
+        "",
+        validation_alias=AliasChoices("NEXO_PG_APP_PASSWORD"),
+    )
+
+    @property
+    def effective_pg_user(self) -> str:
+        return self.pg_app_user or self.pg_user
+
+    @property
+    def effective_pg_password(self) -> str:
+        return self.pg_app_password or self.pg_password
+
     # ── Auth (Phase 2 — Sprint 1) ─────────────────────────────────────────
     # NEXO_SECRET_KEY NO tiene default: si falta en .env, FastAPI arranca
     # con ValidationError claro. Generar con:
