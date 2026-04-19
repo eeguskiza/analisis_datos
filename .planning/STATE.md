@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Consultar datos reales de producción (MES IZARO) y generar informes OEE fiables por máquina/turno/sección sin bloquear al operario y sin filtrar información entre departamentos.
-**Current focus:** Phase 4 (Consultas pesadas) — CONTEXT.md capturado via /gsd-discuss-phase; ready for `/gsd-plan-phase 4`.
+**Current focus:** Phase 4 (Consultas pesadas) — 4 plans READY TO EXECUTE (verified iter 2).
 
 ## Current Position
 
-Phase: 4 of 7 — Consultas pesadas (discuss-phase completado, research+plan pendientes)
-Plan: (Phase 2) 4/4 ✓; (Phase 3) 3/3 ✓; (Phase 4) 0/? — 04-CONTEXT.md ready
-Status: 2026-04-19 — /gsd-discuss-phase 4 ejecutado interactivo. 8 gray areas discutidas (umbrales semilla, UX toast amber/red, query_log retención+PII, approval semantics, postflight alerts, matplotlib concurrency, hot-reload thresholds, preflight learning). 4 decisiones LOCKED explícitas del usuario (D-05 modal AMBER bloqueante, D-11 página /ajustes/rendimiento dedicada, D-16 usuario puede cancelar solicitud propia, D-19 cache thresholds + invalidate on edit LISTEN/NOTIFY). 16 decisiones delegadas al planner con defaults documentados. Commit `aca6807` (docs(04): capture phase context).
-Last activity: 2026-04-19 — commit `aca6807` (Phase 4 CONTEXT + DISCUSSION-LOG). Phase 3 SUMMARY + commits 54d711a..2ccec36 siguen pendientes de push (~23 commits locales).
+Phase: 4 of 7 — Consultas pesadas (discuss+research+plan completados)
+Plan: (Phase 2) 4/4 ✓; (Phase 3) 3/3 ✓; (Phase 4) 4/4 PLAN.md ready (0/4 ejecutados)
+Status: 2026-04-19 — Pipeline discuss→research→plan completo. Artefactos: 04-CONTEXT.md (20 decisiones), 04-RESEARCH.md (1868 LOC), 04-PATTERNS.md (27 files classified, 24 analogs), 04-VALIDATION.md (10 Wave 0 tests + 6 manual verifications), 04-{01,02,03,04}-PLAN.md (wave 1→4 serialized). plan-checker iter 1 dio 2 BLOCKERS + 5 WARNINGS + 1 INFO; revision iter 1 los resolvió; iter 2 PASSED clean. 4 LOCKED decisiones honradas (D-05, D-11, D-16, D-19). Commits: `aca6807` (CONTEXT+LOG), `948f993` (RESEARCH+VALIDATION), `72320dc` (PATTERNS), `9580957` (4 PLANs post-revision).
+Last activity: 2026-04-19 — commit `9580957` (plan iter 2 verified). --chain activo, auto-advance a /gsd-execute-phase 4.
 
 Progress: [██████████] 43% (3/7 phases completas) — Phase 3 CERRADA
 
