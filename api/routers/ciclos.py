@@ -1,12 +1,18 @@
-"""CRUD para ciclos (tiempos de ciclo ideales) — desde BBDD."""
+"""CRUD para ciclos (tiempos de ciclo ideales) - via CicloRepo (DATA-03).
+
+Plan 03-03 Task 4.1: las queries ORM inline se encapsulan en
+``CicloRepo`` (``nexo.data.repositories.app``). El router solo hace
+transport logic: validacion de payload + grouping + return shape.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 
-from api.database import Ciclo, Recurso, SECTION_MAP, get_db
+from api.database import SECTION_MAP
+from api.deps import DbApp
 from api.models import CicloRow, CiclosPayload
 from api.services import db as mes_service
+from nexo.data.repositories.app import CicloRepo, RecursoRepo
 from nexo.services.auth import require_permission
 
 router = APIRouter(
@@ -15,22 +21,27 @@ router = APIRouter(
     dependencies=[Depends(require_permission("ciclos:read"))],
 )
 
-# Shortcut para endpoints mutables — inyecta el check adicional de :edit.
+# Shortcut para endpoints mutables - inyecta el check adicional de :edit.
 _edit = [Depends(require_permission("ciclos:edit"))]
 
 
 @router.get("")
-def listar(db: Session = Depends(get_db)):
+def listar(db: DbApp):
     """Devuelve ciclos agrupados por seccion y maquina."""
-    rows = db.query(Ciclo).order_by(Ciclo.maquina, Ciclo.referencia).all()
+    rows = CicloRepo(db).list_all()
 
-    # Flat list
+    # Flat list (DTOs -> dicts para JSON)
     flat = [
-        {"id": r.id, "maquina": r.maquina, "referencia": r.referencia, "tiempo_ciclo": r.tiempo_ciclo}
+        {
+            "id": r.id,
+            "maquina": r.maquina,
+            "referencia": r.referencia,
+            "tiempo_ciclo": r.tiempo_ciclo,
+        }
         for r in rows
     ]
 
-    # Agrupado por seccion -> maquina
+    # Agrupado por seccion -> maquina (transport logic, se queda en router)
     grouped: dict[str, dict[str, list]] = {}
     for r in rows:
         sec = SECTION_MAP.get(r.maquina.lower(), "GENERAL")
@@ -39,37 +50,43 @@ def listar(db: Session = Depends(get_db)):
         if r.maquina not in grouped[sec]:
             grouped[sec][r.maquina] = []
         grouped[sec][r.maquina].append({
-            "id": r.id, "referencia": r.referencia, "tiempo_ciclo": r.tiempo_ciclo,
+            "id": r.id,
+            "referencia": r.referencia,
+            "tiempo_ciclo": r.tiempo_ciclo,
         })
 
     return {"rows": flat, "grouped": grouped}
 
 
 @router.put("", dependencies=_edit)
-def guardar(payload: CiclosPayload, db: Session = Depends(get_db)):
+def guardar(payload: CiclosPayload, db: DbApp):
     """Reescribe todos los ciclos."""
-    db.query(Ciclo).delete()
-    for r in payload.rows:
-        db.add(Ciclo(maquina=r.maquina, referencia=r.referencia, tiempo_ciclo=r.tiempo_ciclo))
+    repo = CicloRepo(db)
+    repo.replace_all([r.model_dump() for r in payload.rows])
     db.commit()
     return {"ok": True, "count": len(payload.rows)}
 
 
 @router.post("/row", dependencies=_edit)
-def add_row(row: CicloRow, db: Session = Depends(get_db)):
+def add_row(row: CicloRow, db: DbApp):
     """Anade un ciclo."""
-    exists = db.query(Ciclo).filter_by(maquina=row.maquina, referencia=row.referencia).first()
-    if exists:
+    repo = CicloRepo(db)
+    if repo.exists(row.maquina, row.referencia):
         raise HTTPException(409, "Ya existe esa combinacion maquina/referencia")
-    db.add(Ciclo(maquina=row.maquina, referencia=row.referencia, tiempo_ciclo=row.tiempo_ciclo))
+    repo.add(
+        maquina=row.maquina,
+        referencia=row.referencia,
+        tiempo_ciclo=row.tiempo_ciclo,
+    )
     db.commit()
     return {"ok": True}
 
 
 @router.put("/row/{ciclo_id}", dependencies=_edit)
-def update_row(ciclo_id: int, row: CicloRow, db: Session = Depends(get_db)):
+def update_row(ciclo_id: int, row: CicloRow, db: DbApp):
     """Actualiza un ciclo por ID."""
-    ciclo = db.get(Ciclo, ciclo_id)
+    repo = CicloRepo(db)
+    ciclo = repo.get_by_id(ciclo_id)
     if not ciclo:
         raise HTTPException(404, "Ciclo no encontrado")
     ciclo.maquina = row.maquina
@@ -80,23 +97,24 @@ def update_row(ciclo_id: int, row: CicloRow, db: Session = Depends(get_db)):
 
 
 @router.delete("/row/{ciclo_id}", dependencies=_edit)
-def delete_row(ciclo_id: int, db: Session = Depends(get_db)):
+def delete_row(ciclo_id: int, db: DbApp):
     """Elimina un ciclo por ID."""
-    ciclo = db.get(Ciclo, ciclo_id)
+    repo = CicloRepo(db)
+    ciclo = repo.get_by_id(ciclo_id)
     if not ciclo:
         raise HTTPException(404, "Ciclo no encontrado")
-    db.delete(ciclo)
+    repo.delete(ciclo)
     db.commit()
     return {"ok": True}
 
 
 @router.post("/sync-csv", dependencies=_edit)
-def sync_to_csv(db: Session = Depends(get_db)):
+def sync_to_csv(db: DbApp):
     """Exporta la tabla ciclos a ciclos.csv (para que los modulos OEE lo lean)."""
     import csv as csv_mod
     from api.config import settings
 
-    rows = db.query(Ciclo).order_by(Ciclo.maquina, Ciclo.referencia).all()
+    rows = CicloRepo(db).list_all_orm()
     path = settings.ciclos_path
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -112,8 +130,8 @@ def sync_to_csv(db: Session = Depends(get_db)):
 @router.get("/calcular/{nombre_recurso}")
 def calcular_ciclos(
     nombre_recurso: str,
+    db: DbApp,
     dias: int = Query(30, ge=1, le=365),
-    db: Session = Depends(get_db),
 ):
     """
     Calcula ciclos reales desde contadores de IZARO para un recurso.
@@ -121,7 +139,7 @@ def calcular_ciclos(
     Analiza los contadores de piezas y cruza con la referencia en fabricacion.
     Devuelve por referencia: ciclo mediano (seg), piezas/hora, n muestras.
     """
-    recurso = db.query(Recurso).filter_by(nombre=nombre_recurso).first()
+    recurso = RecursoRepo(db).get_orm_by_nombre(nombre_recurso)
     if not recurso:
         raise HTTPException(404, f"Recurso '{nombre_recurso}' no encontrado")
 
@@ -142,8 +160,8 @@ def calcular_ciclos(
 @router.get("/live/{nombre_recurso}")
 def estado_live(
     nombre_recurso: str,
+    db: DbApp,
     umbral: int = Query(600, ge=30, le=3600),
-    db: Session = Depends(get_db),
 ):
     """
     Estado en vivo de una maquina: si esta registrando contadores ahora mismo.
@@ -151,7 +169,7 @@ def estado_live(
     Devuelve ultima lectura, segundos transcurridos y estado
     (activo/inactivo/sin_datos) usando `umbral` segundos como limite.
     """
-    recurso = db.query(Recurso).filter_by(nombre=nombre_recurso).first()
+    recurso = RecursoRepo(db).get_orm_by_nombre(nombre_recurso)
     if not recurso:
         raise HTTPException(404, f"Recurso '{nombre_recurso}' no encontrado")
 
