@@ -1,11 +1,19 @@
-"""Historial de ejecuciones del pipeline."""
+"""Historial de ejecuciones del pipeline - via EjecucionRepo + MetricaRepo.
+
+Plan 03-03 Task 4.3: las queries ORM inline se encapsulan en
+``EjecucionRepo`` y ``MetricaRepo`` (``nexo.data.repositories.app``).
+El count aggregate de ``DatosProduccion`` se mantiene inline en el
+handler (query compuesta con group_by, mas claro como transport logic
+local).
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
-from sqlalchemy.orm import Session
 
-from api.database import DatosProduccion, Ejecucion, InformeMeta, MetricaOEE, get_db
+from api.deps import DbApp
+from nexo.data.models_app import DatosProduccion, Ejecucion, InformeMeta, MetricaOEE
+from nexo.data.repositories.app import EjecucionRepo, MetricaRepo
 from nexo.services.auth import require_permission
 
 router = APIRouter(
@@ -16,15 +24,12 @@ router = APIRouter(
 
 
 @router.get("")
-def listar(limit: int = 50, db: Session = Depends(get_db)):
+def listar(db: DbApp, limit: int = 50):
     """Ultimas ejecuciones."""
-    rows = (
-        db.query(Ejecucion)
-        .order_by(Ejecucion.created_at.desc())
-        .limit(limit)
-        .all()
-    )
-    # Contar registros de datos por ejecución
+    rows = EjecucionRepo(db).list_recent_orm(limit=limit)
+
+    # Contar registros de datos por ejecución (join count - se queda
+    # en el router como transport logic compuesta)
     counts = dict(
         db.query(DatosProduccion.ejecucion_id, func.count(DatosProduccion.id))
         .group_by(DatosProduccion.ejecucion_id)
@@ -48,12 +53,25 @@ def listar(limit: int = 50, db: Session = Depends(get_db)):
 
 @router.get("/tendencias")
 def tendencias(
+    db: DbApp,
     recurso: str = Query(...),
     fecha_inicio: str = Query(None),
     fecha_fin: str = Query(None),
-    db: Session = Depends(get_db),
 ):
     """Metricas OEE diarias de un recurso a lo largo del tiempo."""
+    # Delegamos a MetricaRepo.tendencias_recurso (devuelve DTOs MetricaRow
+    # ya filtrados por fecha no nula + turno nulo).
+    dtos = MetricaRepo(db).tendencias_recurso(
+        recurso=recurso,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+    )
+
+    # Deduplicar: para cada fecha, quedarse con la ejecucion mas reciente.
+    # MetricaRow no expone buenas_finales/horas_* todos - necesitamos el
+    # ORM para los campos extra. Re-query compacto sobre MetricaOEE filtrando
+    # por las mismas condiciones y recurso.
+    from datetime import date as _date
     query = (
         db.query(MetricaOEE)
         .filter(
@@ -64,13 +82,11 @@ def tendencias(
         .order_by(MetricaOEE.fecha)
     )
     if fecha_inicio:
-        query = query.filter(MetricaOEE.fecha >= fecha_inicio)
+        query = query.filter(MetricaOEE.fecha >= _date.fromisoformat(fecha_inicio))
     if fecha_fin:
-        query = query.filter(MetricaOEE.fecha <= fecha_fin)
-
+        query = query.filter(MetricaOEE.fecha <= _date.fromisoformat(fecha_fin))
     rows = query.all()
 
-    # Deduplicar: para cada fecha, quedarse con la ejecucion mas reciente
     by_date: dict = {}
     for r in rows:
         key = r.fecha.isoformat() if hasattr(r.fecha, "isoformat") else str(r.fecha)
@@ -98,9 +114,9 @@ def tendencias(
 
 
 @router.get("/{ejec_id}")
-def detalle(ejec_id: int, db: Session = Depends(get_db)):
+def detalle(ejec_id: int, db: DbApp):
     """Detalle de una ejecucion: log + PDFs."""
-    ejec = db.get(Ejecucion, ejec_id)
+    ejec = EjecucionRepo(db).get_orm_by_id(ejec_id)
     if not ejec:
         raise HTTPException(404, "Ejecucion no encontrada")
 
@@ -135,9 +151,9 @@ def detalle(ejec_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{ejec_id}/metrics")
-def metrics(ejec_id: int, db: Session = Depends(get_db)):
+def metrics(ejec_id: int, db: DbApp):
     """Calcula metricas OEE interactivas desde datos almacenados."""
-    ejec = db.get(Ejecucion, ejec_id)
+    ejec = EjecucionRepo(db).get_orm_by_id(ejec_id)
     if not ejec:
         raise HTTPException(404, "Ejecucion no encontrada")
 
@@ -149,9 +165,9 @@ def metrics(ejec_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{ejec_id}/regenerar")
-def regenerar(ejec_id: int, db: Session = Depends(get_db)):
+def regenerar(ejec_id: int, db: DbApp):
     """Regenera PDFs a partir de datos almacenados en BD."""
-    ejec = db.get(Ejecucion, ejec_id)
+    ejec = EjecucionRepo(db).get_orm_by_id(ejec_id)
     if not ejec:
         raise HTTPException(404, "Ejecucion no encontrada")
 
@@ -170,9 +186,9 @@ def regenerar(ejec_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{ejec_id}")
-def borrar(ejec_id: int, db: Session = Depends(get_db)):
+def borrar(ejec_id: int, db: DbApp):
     """Borra una ejecucion, sus datos y sus informes_meta."""
-    ejec = db.get(Ejecucion, ejec_id)
+    ejec = EjecucionRepo(db).get_orm_by_id(ejec_id)
     if not ejec:
         raise HTTPException(404, "Ejecucion no encontrada")
     db.query(DatosProduccion).filter_by(ejecucion_id=ejec_id).delete()
