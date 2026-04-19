@@ -9,9 +9,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from api.config import settings
 from api.database import init_db
+from api.middleware.auth import AuthMiddleware
+from api.rate_limit import limiter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("oee")
@@ -87,6 +91,29 @@ async def global_exception_handler(request: Request, exc: Exception):
             '<p><a href="/">Volver al dashboard</a></p></body></html>'
         ),
     )
+
+
+# ── Rate limit global (slowapi) ──────────────────────────────────────────────
+# El ``limiter`` es una instancia compartida (definida en ``api.rate_limit``)
+# que los routers importan para decorar endpoints con ``@limiter.limit(...)``.
+# La referencia en ``app.state.limiter`` la usa slowapi internamente para
+# construir el ``429`` handler.
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ── Middlewares ──────────────────────────────────────────────────────────────
+# ORDEN LIFO — recordatorio para Plan 02-04 (AuditMiddleware):
+#
+#     app.add_middleware(AuditMiddleware)   # se anade en 02-04 (registra ultimo)
+#     app.add_middleware(AuthMiddleware)    # ← registrado aqui (ejecuta primero)
+#
+# Starlette ejecuta en orden inverso al de registro: el ultimo ``add_middleware``
+# es el primero en procesar la request. AuthMiddleware DEBE ejecutar antes que
+# AuditMiddleware para poblar ``request.state.user`` (research §Pitfall 1).
+
+app.add_middleware(AuthMiddleware)
 
 
 # ── Static files ──────────────────────────────────────────────────────────────
