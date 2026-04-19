@@ -1,0 +1,295 @@
+"""CRUD de usuarios — solo accesible al propietario.
+
+Permission: ``usuarios:manage`` (lista vacia en PERMISSION_MAP → bypass
+del propietario, todos los demas roles reciben 403).
+
+Endpoints:
+- ``GET  /ajustes/usuarios``              → lista
+- ``POST /ajustes/usuarios/crear``        → crear nuevo usuario
+- ``POST /ajustes/usuarios/{id}/editar``  → cambia rol, departamentos, active
+- ``POST /ajustes/usuarios/{id}/reset-password`` → rehashes password +
+  invalida sesiones
+- ``POST /ajustes/usuarios/{id}/desactivar`` → active=False + revoca sesiones
+
+Todo via forms HTML + RedirectResponse 303. Sin JSON en este router —
+la UI es pura Jinja2/Alpine.
+"""
+from __future__ import annotations
+
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from api.deps import render
+from nexo.db.engine import SessionLocalNexo
+from nexo.db.models import NexoDepartment, NexoUser
+from nexo.services.auth import (
+    hash_password,
+    require_permission,
+    revoke_all_sessions,
+)
+
+logger = logging.getLogger("nexo.usuarios")
+
+router = APIRouter(
+    prefix="/ajustes/usuarios",
+    tags=["ajustes"],
+    dependencies=[Depends(require_permission("usuarios:manage"))],
+)
+
+
+MIN_PASSWORD_LEN = 12
+VALID_ROLES = frozenset({"propietario", "directivo", "usuario"})
+VALID_DEPT_CODES = frozenset({"rrhh", "comercial", "ingenieria", "produccion", "gerencia"})
+
+
+def get_nexo_db():
+    db = SessionLocalNexo()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def _serialize_user(u: NexoUser) -> dict:
+    return {
+        "id": u.id,
+        "email": u.email,
+        "role": u.role,
+        "active": u.active,
+        "must_change_password": u.must_change_password,
+        "last_login": u.last_login,
+        "departments": sorted(d.code for d in u.departments),
+    }
+
+
+def _render_list(
+    request: Request,
+    db: Session,
+    *,
+    error: Optional[str] = None,
+    ok: Optional[str] = None,
+    open_create: bool = False,
+    edit_id: Optional[int] = None,
+) -> HTMLResponse:
+    users = db.execute(select(NexoUser).order_by(NexoUser.email)).scalars().all()
+    depts = db.execute(
+        select(NexoDepartment).order_by(NexoDepartment.code)
+    ).scalars().all()
+    return render(
+        "ajustes_usuarios.html",
+        request,
+        {
+            "page": "ajustes",
+            "users": [_serialize_user(u) for u in users],
+            "departments": [{"code": d.code, "name": d.name} for d in depts],
+            "roles": sorted(VALID_ROLES),
+            "error": error,
+            "ok": ok,
+            "open_create": open_create,
+            "edit_id": edit_id,
+        },
+    )
+
+
+@router.get("", response_class=HTMLResponse)
+async def listar(
+    request: Request,
+    db: Session = Depends(get_nexo_db),
+    error: Optional[str] = None,
+    ok: Optional[str] = None,
+):
+    return _render_list(request, db, error=error, ok=ok)
+
+
+@router.post("/crear")
+async def crear(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    password_repetir: str = Form(...),
+    role: str = Form(...),
+    departments: list[str] = Form(default=[]),
+    db: Session = Depends(get_nexo_db),
+):
+    email_norm = email.strip().lower()
+
+    # Validaciones
+    if role not in VALID_ROLES:
+        return _render_list(request, db, error=f"Rol no valido: {role}", open_create=True, status_code=400) \
+            if False else _render_list(request, db, error=f"Rol no valido: {role}", open_create=True)
+    if password != password_repetir:
+        return _render_list(request, db, error="Las contrasenas no coinciden.", open_create=True)
+    if len(password) < MIN_PASSWORD_LEN:
+        return _render_list(
+            request, db, error=f"Password minima {MIN_PASSWORD_LEN} caracteres.", open_create=True
+        )
+    for code in departments:
+        if code not in VALID_DEPT_CODES:
+            return _render_list(request, db, error=f"Departamento invalido: {code}", open_create=True)
+
+    # Unicidad de email
+    if db.execute(select(NexoUser).where(NexoUser.email == email_norm)).scalar_one_or_none():
+        return _render_list(request, db, error=f"Ya existe un usuario con email {email_norm}.", open_create=True)
+
+    # Cargar departamentos
+    depts = []
+    if departments:
+        depts = db.execute(
+            select(NexoDepartment).where(NexoDepartment.code.in_(departments))
+        ).scalars().all()
+
+    new_user = NexoUser(
+        email=email_norm,
+        password_hash=hash_password(password),
+        role=role,
+        active=True,
+        must_change_password=True,  # fuerza cambio en primer login
+    )
+    new_user.departments = list(depts)
+    db.add(new_user)
+    db.commit()
+    logger.info("usuario creado: %s (rol=%s, depts=%s)", email_norm, role, sorted(departments))
+
+    return RedirectResponse(
+        f"/ajustes/usuarios?ok=usuario-creado:{email_norm}", status_code=303
+    )
+
+
+@router.post("/{user_id}/editar")
+async def editar(
+    user_id: int,
+    request: Request,
+    role: str = Form(...),
+    departments: list[str] = Form(default=[]),
+    active: str = Form(default="off"),
+    db: Session = Depends(get_nexo_db),
+):
+    user = db.get(NexoUser, user_id)
+    if user is None:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    # Safeguard: el propietario no puede cambiarse a si mismo de rol ni
+    # desactivarse (evita locking out del unico admin).
+    current_user = request.state.user
+    is_self = current_user.id == user.id
+
+    if role not in VALID_ROLES:
+        return _render_list(request, db, error=f"Rol no valido: {role}", edit_id=user_id)
+    for code in departments:
+        if code not in VALID_DEPT_CODES:
+            return _render_list(request, db, error=f"Departamento invalido: {code}", edit_id=user_id)
+
+    new_active = active == "on"
+
+    if is_self and role != user.role:
+        return _render_list(
+            request, db, error="No puedes cambiarte tu propio rol.", edit_id=user_id
+        )
+    if is_self and not new_active:
+        return _render_list(
+            request, db, error="No puedes desactivarte a ti mismo.", edit_id=user_id
+        )
+
+    # Cargar departamentos nuevos
+    new_depts = []
+    if departments:
+        new_depts = db.execute(
+            select(NexoDepartment).where(NexoDepartment.code.in_(departments))
+        ).scalars().all()
+
+    role_changed = user.role != role
+    deactivated_now = user.active and not new_active
+
+    user.role = role
+    user.departments = list(new_depts)
+    user.active = new_active
+    db.commit()
+
+    # Si rebaja de rol o desactiva → revocar sesiones activas del target
+    # para que la proxima request use los nuevos privilegios.
+    if role_changed or deactivated_now:
+        revoke_all_sessions(db, user.id)
+
+    logger.info(
+        "usuario editado: %s (id=%d, rol=%s, depts=%s, active=%s)",
+        user.email, user.id, role, sorted(departments), new_active,
+    )
+
+    return RedirectResponse(
+        f"/ajustes/usuarios?ok=usuario-editado:{user.email}", status_code=303
+    )
+
+
+@router.post("/{user_id}/reset-password")
+async def reset_password(
+    user_id: int,
+    request: Request,
+    password_nueva: str = Form(...),
+    db: Session = Depends(get_nexo_db),
+):
+    user = db.get(NexoUser, user_id)
+    if user is None:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    if len(password_nueva) < MIN_PASSWORD_LEN:
+        return _render_list(
+            request, db, error=f"Password minima {MIN_PASSWORD_LEN} caracteres.", edit_id=user_id
+        )
+
+    user.password_hash = hash_password(password_nueva)
+    user.must_change_password = True
+    db.commit()
+    revoke_all_sessions(db, user.id)
+
+    logger.info("password reseteado: %s (id=%d)", user.email, user.id)
+
+    return RedirectResponse(
+        f"/ajustes/usuarios?ok=password-reseteado:{user.email}", status_code=303
+    )
+
+
+@router.post("/{user_id}/desactivar")
+async def desactivar(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_nexo_db),
+):
+    user = db.get(NexoUser, user_id)
+    if user is None:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    current_user = request.state.user
+    if current_user.id == user.id:
+        return _render_list(
+            request, db, error="No puedes desactivarte a ti mismo."
+        )
+
+    # No permitir desactivar el ultimo propietario activo.
+    if user.role == "propietario":
+        other_owners = db.execute(
+            select(NexoUser).where(
+                NexoUser.role == "propietario",
+                NexoUser.active.is_(True),
+                NexoUser.id != user.id,
+            )
+        ).scalars().all()
+        if not other_owners:
+            return _render_list(
+                request, db,
+                error="No puedes desactivar al unico propietario activo del sistema.",
+            )
+
+    user.active = False
+    db.commit()
+    revoke_all_sessions(db, user.id)
+
+    logger.info("usuario desactivado: %s (id=%d)", user.email, user.id)
+
+    return RedirectResponse(
+        f"/ajustes/usuarios?ok=usuario-desactivado:{user.email}", status_code=303
+    )

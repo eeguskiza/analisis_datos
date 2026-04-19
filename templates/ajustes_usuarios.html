@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios — {{ app_name }}{% endblock %}
+{% block page_title %}Ajustes · Usuarios{% endblock %}
+
+{% block content %}
+<div x-data="usuariosPanel()" x-init="init()">
+
+  <!-- ── Feedback banner ─────────────────────────────────────────────── -->
+  {% if error %}
+    <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+      {{ error }}
+    </div>
+  {% endif %}
+  {% if ok %}
+    <div class="mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+      {{ ok }}
+    </div>
+  {% endif %}
+
+  <!-- ── Header ──────────────────────────────────────────────────────── -->
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h2 class="text-lg font-semibold text-brand-800">Gestion de usuarios</h2>
+      <p class="text-sm text-gray-500">Solo visible para el rol propietario. {{ users|length }} usuario{{ 's' if users|length != 1 else '' }} registrado{{ 's' if users|length != 1 else '' }}.</p>
+    </div>
+    <button type="button" @click="openCreate()"
+            class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium">
+      + Crear usuario
+    </button>
+  </div>
+
+  <!-- ── Tabla ───────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl shadow-sm border border-surface-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-surface-100 text-gray-600 text-xs uppercase tracking-wide">
+        <tr>
+          <th class="text-left px-4 py-2 font-medium">Email</th>
+          <th class="text-left px-4 py-2 font-medium">Rol</th>
+          <th class="text-left px-4 py-2 font-medium">Departamentos</th>
+          <th class="text-left px-4 py-2 font-medium">Estado</th>
+          <th class="text-left px-4 py-2 font-medium">Ultimo login</th>
+          <th class="text-right px-4 py-2 font-medium">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr class="border-t border-surface-200 hover:bg-surface-50">
+          <td class="px-4 py-3">
+            <span class="font-medium text-gray-800">{{ u.email }}</span>
+            {% if u.must_change_password %}
+              <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700" title="Debe cambiar password en proximo login">cambiar pwd</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <span class="text-[10px] px-2 py-0.5 rounded-full
+                   {% if u.role == 'propietario' %}bg-brand-50 text-brand-700{% elif u.role == 'directivo' %}bg-blue-50 text-blue-700{% else %}bg-gray-100 text-gray-700{% endif %}
+                   uppercase tracking-wide font-medium">
+              {{ u.role }}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            {% if u.departments %}
+              <div class="flex flex-wrap gap-1">
+                {% for d in u.departments %}
+                  <span class="text-[10px] px-2 py-0.5 rounded bg-surface-100 text-gray-700">{{ d }}</span>
+                {% endfor %}
+              </div>
+            {% else %}
+              <span class="text-gray-400 text-xs italic">
+                {% if u.role == 'propietario' %}— (acceso global){% else %}sin departamentos{% endif %}
+              </span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if u.active %}
+              <span class="text-xs text-green-700">● activo</span>
+            {% else %}
+              <span class="text-xs text-gray-400">● inactivo</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-500 text-xs">
+            {% if u.last_login %}
+              {{ u.last_login.strftime('%Y-%m-%d %H:%M') }}
+            {% else %}
+              nunca
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex justify-end gap-2">
+              <button type="button" @click='openEdit({{ u|tojson }})'
+                      class="text-xs text-brand-700 hover:text-brand-800 underline underline-offset-2">
+                Editar
+              </button>
+              <button type="button" @click='openReset({{ u|tojson }})'
+                      class="text-xs text-yellow-700 hover:text-yellow-800 underline underline-offset-2">
+                Reset pwd
+              </button>
+              {% if u.active %}
+              <form method="post" action="/ajustes/usuarios/{{ u.id }}/desactivar" class="inline"
+                    onsubmit="return confirm('Desactivar a {{ u.email }}? Sus sesiones se revocan y no podra iniciar sesion hasta reactivacion manual via SQL.');">
+                <button type="submit"
+                        class="text-xs text-red-700 hover:text-red-800 underline underline-offset-2">
+                  Desactivar
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Modal: crear / editar usuario ───────────────────────────────── -->
+  <div x-show="showForm" x-cloak x-transition.opacity
+       class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6"
+         @click.outside="closeModal()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-semibold text-brand-800"
+            x-text="mode === 'create' ? 'Crear usuario' : 'Editar usuario'"></h3>
+        <button type="button" @click="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+      </div>
+
+      <form :action="formAction" method="post" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input type="email" name="email" x-model="form.email" required
+                 :readonly="mode === 'edit'"
+                 class="block w-full px-3 py-2 rounded-lg border border-surface-300
+                        focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm"
+                 :class="mode === 'edit' ? 'bg-surface-50 text-gray-500' : ''">
+        </div>
+
+        <template x-if="mode === 'create'">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <input type="password" name="password" x-model="form.password"
+                     minlength="12" required
+                     class="block w-full px-3 py-2 rounded-lg border border-surface-300
+                            focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Repetir</label>
+              <input type="password" name="password_repetir" x-model="form.password_repetir"
+                     minlength="12" required
+                     class="block w-full px-3 py-2 rounded-lg border border-surface-300
+                            focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm">
+            </div>
+          </div>
+        </template>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+          <select name="role" x-model="form.role" required
+                  class="block w-full px-3 py-2 rounded-lg border border-surface-300
+                         focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm bg-white">
+            {% for r in roles %}
+            <option value="{{ r }}">{{ r }}</option>
+            {% endfor %}
+          </select>
+          <p class="mt-1 text-xs text-gray-500">propietario ignora departamentos (acceso global).</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Departamentos</label>
+          <div class="grid grid-cols-2 gap-2">
+            {% for d in departments %}
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="departments" value="{{ d.code }}"
+                     :checked="form.departments.includes('{{ d.code }}')"
+                     class="rounded border-surface-300 text-brand-600 focus:ring-brand-400">
+              <span>{{ d.code }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <template x-if="mode === 'edit'">
+          <div>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="active" x-model="form.active" value="on"
+                     class="rounded border-surface-300 text-brand-600 focus:ring-brand-400">
+              <span>Usuario activo</span>
+            </label>
+          </div>
+        </template>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" @click="closeModal()"
+                  class="px-4 py-2 rounded-lg border border-surface-300 text-gray-700 hover:bg-surface-50 text-sm">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium">
+            <span x-text="mode === 'create' ? 'Crear' : 'Guardar cambios'"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: reset password ────────────────────────────────────────── -->
+  <div x-show="showReset" x-cloak x-transition.opacity
+       class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6"
+         @click.outside="closeModal()">
+      <h3 class="text-base font-semibold text-brand-800 mb-1">Resetear password</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Usuario: <code x-text="form.email"></code>.
+        Las sesiones activas se revocan y el usuario debera cambiar la password en su proximo login.
+      </p>
+      <form :action="formAction" method="post" class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Password nueva</label>
+          <input type="password" name="password_nueva" minlength="12" required autofocus
+                 class="block w-full px-3 py-2 rounded-lg border border-surface-300
+                        focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm">
+          <p class="mt-1 text-xs text-gray-500">Minimo 12 caracteres.</p>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+          <button type="button" @click="closeModal()"
+                  class="px-4 py-2 rounded-lg border border-surface-300 text-gray-700 hover:bg-surface-50 text-sm">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium">
+            Resetear
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function usuariosPanel() {
+  return {
+    showForm: false,
+    showReset: false,
+    mode: 'create',
+    formAction: '',
+    form: {
+      id: null,
+      email: '',
+      password: '',
+      password_repetir: '',
+      role: 'usuario',
+      departments: [],
+      active: true,
+    },
+    init() {
+      {% if open_create %}
+      this.openCreate();
+      {% endif %}
+      {% if edit_id %}
+      const target = ({{ users|tojson }}).find(u => u.id === {{ edit_id }});
+      if (target) this.openEdit(target);
+      {% endif %}
+    },
+    openCreate() {
+      this.mode = 'create';
+      this.formAction = '/ajustes/usuarios/crear';
+      this.form = {
+        id: null, email: '', password: '', password_repetir: '',
+        role: 'usuario', departments: [], active: true,
+      };
+      this.showForm = true;
+    },
+    openEdit(user) {
+      this.mode = 'edit';
+      this.formAction = `/ajustes/usuarios/${user.id}/editar`;
+      this.form = {
+        id: user.id,
+        email: user.email,
+        password: '', password_repetir: '',
+        role: user.role,
+        departments: Array.isArray(user.departments) ? [...user.departments] : [],
+        active: user.active,
+      };
+      this.showForm = true;
+    },
+    openReset(user) {
+      this.mode = 'reset';
+      this.formAction = `/ajustes/usuarios/${user.id}/reset-password`;
+      this.form = { ...this.form, id: user.id, email: user.email };
+      this.showReset = true;
+    },
+    closeModal() {
+      this.showForm = false;
+      this.showReset = false;
+    },
+  };
+}
+</script>
+{% endblock %}
