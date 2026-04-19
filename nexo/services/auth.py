@@ -173,9 +173,16 @@ def clear_attempts(db: Session, email: str, ip: str) -> None:
 # ── Helpers de usuario ─────────────────────────────────────────────────────
 
 def get_user_by_email(db: Session, email: str) -> Optional[NexoUser]:
-    return db.execute(
-        select(NexoUser).where(NexoUser.email == email, NexoUser.active.is_(True))
-    ).scalar_one_or_none()
+    """Helper publico. Delegado a ``UserRepo.get_by_email_orm`` (DATA-04).
+
+    Firma externa estable: sigue devolviendo ``NexoUser`` ORM (no DTO)
+    porque el middleware de auth necesita el modelo completo para
+    session management + password hashing.
+    """
+    # Lazy import para evitar ciclo: UserRepo importa models_nexo, que
+    # es el mismo metadata que este modulo ya consume.
+    from nexo.data.repositories.nexo import UserRepo
+    return UserRepo(db).get_by_email_orm(email)
 
 
 # ── RBAC (Plan 02-03) ─────────────────────────────────────────────────────
