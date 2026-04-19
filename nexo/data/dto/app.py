@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class RecursoRow(BaseModel):
@@ -30,6 +30,13 @@ class CicloRow(BaseModel):
 
 
 class EjecucionRow(BaseModel):
+    """Representa una fila de ``oee.ejecuciones``.
+
+    Nota: el modelo ORM declara ``fecha_inicio`` y ``fecha_fin`` como
+    ``String(10)``, pero la tabla fisica puede exponerlos como ``DATE``
+    segun el backend (SQL Server legacy). Normalizamos a ``str``
+    (ISO 8601) en la DTO aceptando ambos tipos en input.
+    """
     model_config = ConfigDict(frozen=True, from_attributes=True)
     id: int
     fecha_inicio: str
@@ -40,6 +47,14 @@ class EjecucionRow(BaseModel):
     log: Optional[str] = ""
     n_pdfs: int = 0
     created_at: Optional[datetime] = None
+
+    @field_validator("fecha_inicio", "fecha_fin", mode="before")
+    @classmethod
+    def _normalize_fecha(cls, v):
+        """Acepta ``date`` y lo convierte a ISO str; deja ``str`` tal cual."""
+        if isinstance(v, date):
+            return v.isoformat()
+        return v
 
 
 class MetricaRow(BaseModel):

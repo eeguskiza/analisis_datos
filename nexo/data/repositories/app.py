@@ -47,8 +47,11 @@ class RecursoRepo:
         return [RecursoRow.model_validate(r) for r in rows]
 
     def list_activos(self) -> list[RecursoRow]:
+        # SQL Server no acepta ``IS TRUE`` (produce ``IS 1`` -> syntax
+        # error). Usar comparacion directa ``activo == True`` que
+        # SQLAlchemy renderiza como ``activo = 1``.
         rows = self._db.execute(
-            select(Recurso).where(Recurso.activo.is_(True))
+            select(Recurso).where(Recurso.activo == True)  # noqa: E712
             .order_by(Recurso.seccion, Recurso.nombre)
         ).scalars().all()
         return [RecursoRow.model_validate(r) for r in rows]
