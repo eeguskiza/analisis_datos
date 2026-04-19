@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import render
 from api.database import Recurso, get_db
+from nexo.services.auth import require_permission
 
 router = APIRouter(tags=["pages"])
 
@@ -102,6 +103,9 @@ def capacidad_page(request: Request):
     return render("capacidad.html", request, _common_extra("capacidad"))
 
 
-@router.get("/ajustes")
+@router.get(
+    "/ajustes",
+    dependencies=[Depends(require_permission("ajustes:manage"))],
+)
 def ajustes_page(request: Request):
     return render("ajustes.html", request, _common_extra("ajustes"))
