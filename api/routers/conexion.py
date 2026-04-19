@@ -1,13 +1,18 @@
 """Endpoints de conexion y configuracion del SQL Server MES."""
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from api.models import ConnectionStatus
 from api.services import db as db_service
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/conexion", tags=["conexion"])
+router = APIRouter(
+    prefix="/conexion",
+    tags=["conexion"],
+    dependencies=[Depends(require_permission("conexion:read"))],
+)
 
 
 # ── Modelos ───────────────────────────────────────────────────────────────────
@@ -49,7 +54,10 @@ def get_config():
     }
 
 
-@router.put("/config")
+@router.put(
+    "/config",
+    dependencies=[Depends(require_permission("conexion:config"))],
+)
 def save_config(payload: MesConfig):
     """Guarda la config del SQL Server."""
     cfg = db_service.get_config()

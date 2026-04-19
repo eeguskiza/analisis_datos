@@ -7,8 +7,16 @@ from sqlalchemy.orm import Session
 from api.database import Ciclo, Recurso, SECTION_MAP, get_db
 from api.models import CicloRow, CiclosPayload
 from api.services import db as mes_service
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/ciclos", tags=["ciclos"])
+router = APIRouter(
+    prefix="/ciclos",
+    tags=["ciclos"],
+    dependencies=[Depends(require_permission("ciclos:read"))],
+)
+
+# Shortcut para endpoints mutables — inyecta el check adicional de :edit.
+_edit = [Depends(require_permission("ciclos:edit"))]
 
 
 @router.get("")
@@ -37,7 +45,7 @@ def listar(db: Session = Depends(get_db)):
     return {"rows": flat, "grouped": grouped}
 
 
-@router.put("")
+@router.put("", dependencies=_edit)
 def guardar(payload: CiclosPayload, db: Session = Depends(get_db)):
     """Reescribe todos los ciclos."""
     db.query(Ciclo).delete()
@@ -47,7 +55,7 @@ def guardar(payload: CiclosPayload, db: Session = Depends(get_db)):
     return {"ok": True, "count": len(payload.rows)}
 
 
-@router.post("/row")
+@router.post("/row", dependencies=_edit)
 def add_row(row: CicloRow, db: Session = Depends(get_db)):
     """Anade un ciclo."""
     exists = db.query(Ciclo).filter_by(maquina=row.maquina, referencia=row.referencia).first()
@@ -58,7 +66,7 @@ def add_row(row: CicloRow, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.put("/row/{ciclo_id}")
+@router.put("/row/{ciclo_id}", dependencies=_edit)
 def update_row(ciclo_id: int, row: CicloRow, db: Session = Depends(get_db)):
     """Actualiza un ciclo por ID."""
     ciclo = db.get(Ciclo, ciclo_id)
@@ -71,7 +79,7 @@ def update_row(ciclo_id: int, row: CicloRow, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.delete("/row/{ciclo_id}")
+@router.delete("/row/{ciclo_id}", dependencies=_edit)
 def delete_row(ciclo_id: int, db: Session = Depends(get_db)):
     """Elimina un ciclo por ID."""
     ciclo = db.get(Ciclo, ciclo_id)
@@ -82,7 +90,7 @@ def delete_row(ciclo_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.post("/sync-csv")
+@router.post("/sync-csv", dependencies=_edit)
 def sync_to_csv(db: Session = Depends(get_db)):
     """Exporta la tabla ciclos a ciclos.csv (para que los modulos OEE lo lean)."""
     import csv as csv_mod

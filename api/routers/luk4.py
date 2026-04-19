@@ -6,7 +6,7 @@ from datetime import datetime
 
 from typing import List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -17,8 +17,13 @@ from api.services.turnos import (
     get_turno_boundaries,
     turno_from_hour,
 )
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/luk4", tags=["luk4"])
+router = APIRouter(
+    prefix="/luk4",
+    tags=["luk4"],
+    dependencies=[Depends(require_permission("luk4:read"))],
+)
 log = logging.getLogger(__name__)
 
 # Registros/hora estimados en luk4.estado (~443 segun analisis)

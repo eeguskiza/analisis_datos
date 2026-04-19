@@ -14,9 +14,15 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-router = APIRouter(prefix="/capacidad", tags=["capacidad"])
+from nexo.services.auth import require_permission
+
+router = APIRouter(
+    prefix="/capacidad",
+    tags=["capacidad"],
+    dependencies=[Depends(require_permission("capacidad:read"))],
+)
 
 
 def _p10(values: list[float]) -> float | None:

@@ -1,12 +1,17 @@
 """Endpoints para listar, servir y borrar informes PDF generados."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
 from api.services import informes as informes_service
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/informes", tags=["informes"])
+router = APIRouter(
+    prefix="/informes",
+    tags=["informes"],
+    dependencies=[Depends(require_permission("informes:read"))],
+)
 
 
 @router.get("")
@@ -49,7 +54,10 @@ def descargar_pdf(filepath: str):
     )
 
 
-@router.delete("/{date_str}")
+@router.delete(
+    "/{date_str}",
+    dependencies=[Depends(require_permission("informes:delete"))],
+)
 def borrar_fecha(date_str: str):
     """Borra todos los informes de una fecha."""
     ok = informes_service.delete_date(date_str)

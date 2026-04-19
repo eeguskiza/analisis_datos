@@ -4,12 +4,19 @@ from __future__ import annotations
 import json
 import shutil
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.config import settings
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/plantillas", tags=["plantillas"])
+router = APIRouter(
+    prefix="/plantillas",
+    tags=["plantillas"],
+    dependencies=[Depends(require_permission("plantillas:read"))],
+)
+
+_edit = [Depends(require_permission("plantillas:edit"))]
 
 
 def _templates_dir():
@@ -45,7 +52,7 @@ def leer(name: str):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-@router.put("/{name}")
+@router.put("/{name}", dependencies=_edit)
 def guardar(name: str, payload: dict):
     """Guarda/actualiza una plantilla."""
     path = _templates_dir() / f"{name}.json"
@@ -58,7 +65,7 @@ class NewTemplate(BaseModel):
     description: str = ""
 
 
-@router.post("")
+@router.post("", dependencies=_edit)
 def crear(req: NewTemplate):
     """Crea nueva plantilla copiando default."""
     d = _templates_dir()
@@ -75,7 +82,7 @@ def crear(req: NewTemplate):
     return {"ok": True, "name": req.name}
 
 
-@router.delete("/{name}")
+@router.delete("/{name}", dependencies=_edit)
 def borrar(name: str):
     """Borra una plantilla (no permite borrar default)."""
     if name == "default":

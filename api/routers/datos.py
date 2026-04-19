@@ -1,13 +1,19 @@
 """Extraccion de datos de IZARO → ecs_mobility (para Power BI)."""
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import date
 from typing import Optional
 
-router = APIRouter(prefix="/datos", tags=["datos"])
+from nexo.services.auth import require_permission
+
+router = APIRouter(
+    prefix="/datos",
+    tags=["datos"],
+    dependencies=[Depends(require_permission("datos:read"))],
+)
 
 
 class ExtractRequest(BaseModel):

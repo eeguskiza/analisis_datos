@@ -6,8 +6,13 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.database import DatosProduccion, Ejecucion, InformeMeta, MetricaOEE, get_db
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/historial", tags=["historial"])
+router = APIRouter(
+    prefix="/historial",
+    tags=["historial"],
+    dependencies=[Depends(require_permission("historial:read"))],
+)
 
 
 @router.get("")

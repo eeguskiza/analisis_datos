@@ -3,11 +3,16 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.services import db as mes_service
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/operarios", tags=["operarios"])
+router = APIRouter(
+    prefix="/operarios",
+    tags=["operarios"],
+    dependencies=[Depends(require_permission("operarios:read"))],
+)
 
 
 def _connect():

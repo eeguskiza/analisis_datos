@@ -3,9 +3,15 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
-router = APIRouter(prefix="/bbdd", tags=["bbdd"])
+from nexo.services.auth import require_permission
+
+router = APIRouter(
+    prefix="/bbdd",
+    tags=["bbdd"],
+    dependencies=[Depends(require_permission("bbdd:read"))],
+)
 
 
 def _get_conn_string(database: str | None = None):

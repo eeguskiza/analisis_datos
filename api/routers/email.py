@@ -8,8 +8,13 @@ from sqlalchemy.orm import Session
 from api.config import settings
 from api.database import Contacto, get_db
 from api.services.email import enviar_informes, test_smtp
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/email", tags=["email"])
+router = APIRouter(
+    prefix="/email",
+    tags=["email"],
+    dependencies=[Depends(require_permission("email:send"))],
+)
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────

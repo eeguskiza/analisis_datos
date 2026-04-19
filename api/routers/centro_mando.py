@@ -10,8 +10,13 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.database import Recurso, engine, get_db
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(
+    prefix="/dashboard",
+    tags=["dashboard"],
+    dependencies=[Depends(require_permission("centro_mando:read"))],
+)
 log = logging.getLogger(__name__)
 
 # ── Cache ───────────────────────────────────────────────────────────────────

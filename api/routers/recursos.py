@@ -8,8 +8,15 @@ from api.database import Recurso, SECTION_MAP, get_db
 from api.models import RecursosPayload
 from api.models import Recurso as RecursoModel
 from api.services import db as mes_service
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/recursos", tags=["recursos"])
+router = APIRouter(
+    prefix="/recursos",
+    tags=["recursos"],
+    dependencies=[Depends(require_permission("recursos:read"))],
+)
+
+_edit = [Depends(require_permission("recursos:edit"))]
 
 SECCIONES_DISPONIBLES = sorted(set(SECTION_MAP.values()) | {"GENERAL"})
 
@@ -24,7 +31,7 @@ def listar(db: Session = Depends(get_db)):
     ]}
 
 
-@router.put("")
+@router.put("", dependencies=_edit)
 def guardar(payload: RecursosPayload, db: Session = Depends(get_db)):
     """Reescribe la lista de recursos."""
     db.query(Recurso).delete()
@@ -42,7 +49,7 @@ def guardar(payload: RecursosPayload, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.post("/row")
+@router.post("/row", dependencies=_edit)
 def add_row(recurso: RecursoModel, db: Session = Depends(get_db)):
     exists = db.query(Recurso).filter_by(nombre=recurso.nombre).first()
     if exists:
@@ -164,7 +171,7 @@ def _auto_name(codigo: int, nombre_izaro: str) -> tuple[str, str]:
     return slug, seccion
 
 
-@router.post("/auto-detectar")
+@router.post("/auto-detectar", dependencies=_edit)
 def auto_detectar(db: Session = Depends(get_db)):
     """
     Detecta TODAS las maquinas de IZARO y las anade automaticamente.

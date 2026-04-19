@@ -3,16 +3,24 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from api.models import PipelineRequest
 from api.services.pipeline import run_pipeline
+from nexo.services.auth import require_permission
 
-router = APIRouter(prefix="/pipeline", tags=["pipeline"])
+router = APIRouter(
+    prefix="/pipeline",
+    tags=["pipeline"],
+    dependencies=[Depends(require_permission("pipeline:read"))],
+)
 
 
-@router.post("/run")
+@router.post(
+    "/run",
+    dependencies=[Depends(require_permission("pipeline:run"))],
+)
 def run(req: PipelineRequest):
     """
     Ejecuta el pipeline y devuelve un stream SSE con el progreso.
