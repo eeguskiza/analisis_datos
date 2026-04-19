@@ -22,7 +22,13 @@ from datetime import date
 from pathlib import Path
 
 
-REF_DIR = Path(__file__).resolve().parents[1] / "tests" / "data" / "reference"
+# sys.path shim igual que en gen_pdf_reference.py.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+
+REF_DIR = _REPO_ROOT / "tests" / "data" / "reference"
 SIZE_TOLERANCE = 0.05  # +-5%
 
 
@@ -55,20 +61,22 @@ def main() -> int:
         return 2
 
     # Import diferido — el parse del script no debe ejecutar el pipeline.
+    from api.config import settings
     from api.services.pipeline import run_pipeline
 
-    tmp_out = REF_DIR / f"_postref_{fecha.isoformat()}"
-    tmp_out.mkdir(exist_ok=True)
+    informes_dir: Path = settings.informes_dir
+    before: set[Path] = set(informes_dir.rglob("*.pdf")) if informes_dir.exists() else set()
 
-    run_pipeline(
+    print(f"[pdf_regression_check] Pipeline start fecha={fecha.isoformat()}")
+    for line in run_pipeline(
         fecha_inicio=fecha,
         fecha_fin=fecha,
-        recursos=None,
         source="db",
-        output_dir=tmp_out,
-    )
+    ):
+        print(f"  >> {line}")
 
-    new_pdfs = sorted(tmp_out.glob("*.pdf"))
+    after: set[Path] = set(informes_dir.rglob("*.pdf"))
+    new_pdfs = sorted(after - before)
     if not new_pdfs:
         print("ERROR: pipeline post-refactor no genero PDFs.")
         return 2
