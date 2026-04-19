@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 
 from api.config import settings
 from api.database import init_db
+from api.middleware.audit import AuditMiddleware
 from api.middleware.auth import AuthMiddleware
 from api.rate_limit import limiter
 
@@ -104,16 +105,23 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # ── Middlewares ──────────────────────────────────────────────────────────────
-# ORDEN LIFO — recordatorio para Plan 02-04 (AuditMiddleware):
+# ORDEN LIFO (research §Pitfall 1):
 #
-#     app.add_middleware(AuditMiddleware)   # se anade en 02-04 (registra ultimo)
-#     app.add_middleware(AuthMiddleware)    # ← registrado aqui (ejecuta primero)
+# Starlette ejecuta los middlewares en orden INVERSO al registro. El ultimo
+# ``add_middleware`` es el primero en procesar la request (outer); el primero
+# en registrarse es el mas cercano al handler (inner).
 #
-# Starlette ejecuta en orden inverso al de registro: el ultimo ``add_middleware``
-# es el primero en procesar la request. AuthMiddleware DEBE ejecutar antes que
-# AuditMiddleware para poblar ``request.state.user`` (research §Pitfall 1).
+# Cadena deseada (outer → inner):
+#   Request → AuthMiddleware → AuditMiddleware → handler → Audit → Auth → Response
+#
+# AuthMiddleware va primero: si la sesion es invalida, retorna 401/redirect
+# sin llegar a Audit (las requests no autenticadas no se auditan).
+# AuditMiddleware va despues: lee request.state.user ya poblado por Auth.
+#
+# Registro correspondiente:
 
-app.add_middleware(AuthMiddleware)
+app.add_middleware(AuditMiddleware)    # inner — segundo en ejecutar
+app.add_middleware(AuthMiddleware)     # outer — primero en ejecutar
 
 
 # ── Static files ──────────────────────────────────────────────────────────────
