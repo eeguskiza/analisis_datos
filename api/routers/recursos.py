@@ -1,13 +1,23 @@
-"""CRUD de recursos / centros de trabajo — desde BBDD."""
+"""CRUD de recursos / centros de trabajo - via RecursoRepo (DATA-03).
+
+Plan 03-03 Task 4.2: las queries ORM inline se encapsulan en
+``RecursoRepo`` (``nexo.data.repositories.app``). El router mantiene la
+logica de transport (validacion de payload, auto-detect, _auto_name,
+sync a config). ``_sync_to_config`` es service-layer helper y se queda
+aqui (no es CRUD puro).
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from api.database import Recurso, SECTION_MAP, get_db
+from api.database import SECTION_MAP
+from api.deps import DbApp
 from api.models import RecursosPayload
 from api.models import Recurso as RecursoModel
 from api.services import db as mes_service
+from nexo.data.models_app import Recurso
+from nexo.data.repositories.app import RecursoRepo
 from nexo.services.auth import require_permission
 
 router = APIRouter(
@@ -22,26 +32,25 @@ SECCIONES_DISPONIBLES = sorted(set(SECTION_MAP.values()) | {"GENERAL"})
 
 
 @router.get("")
-def listar(db: Session = Depends(get_db)):
-    rows = db.query(Recurso).order_by(Recurso.seccion, Recurso.nombre).all()
+def listar(db: DbApp):
+    rows = RecursoRepo(db).list_all()
     return {"recursos": [
-        {"id": r.id, "centro_trabajo": r.centro_trabajo, "nombre": r.nombre,
-         "seccion": r.seccion, "activo": r.activo}
+        {
+            "id": r.id,
+            "centro_trabajo": r.centro_trabajo,
+            "nombre": r.nombre,
+            "seccion": r.seccion,
+            "activo": r.activo,
+        }
         for r in rows
     ]}
 
 
 @router.put("", dependencies=_edit)
-def guardar(payload: RecursosPayload, db: Session = Depends(get_db)):
+def guardar(payload: RecursosPayload, db: DbApp):
     """Reescribe la lista de recursos."""
-    db.query(Recurso).delete()
-    for r in payload.recursos:
-        db.add(Recurso(
-            centro_trabajo=r.centro_trabajo,
-            nombre=r.nombre,
-            seccion=r.seccion,
-            activo=r.activo,
-        ))
+    repo = RecursoRepo(db)
+    repo.replace_all([r.model_dump() for r in payload.recursos])
     db.commit()
 
     # Sincronizar con db_config.json para que el conector MES lo use
@@ -50,23 +59,23 @@ def guardar(payload: RecursosPayload, db: Session = Depends(get_db)):
 
 
 @router.post("/row", dependencies=_edit)
-def add_row(recurso: RecursoModel, db: Session = Depends(get_db)):
-    exists = db.query(Recurso).filter_by(nombre=recurso.nombre).first()
-    if exists:
+def add_row(recurso: RecursoModel, db: DbApp):
+    repo = RecursoRepo(db)
+    if repo.get_orm_by_nombre(recurso.nombre):
         raise HTTPException(409, "Ya existe ese recurso")
-    db.add(Recurso(
+    repo.add(
         centro_trabajo=recurso.centro_trabajo,
         nombre=recurso.nombre,
         seccion=recurso.seccion,
         activo=recurso.activo,
-    ))
+    )
     db.commit()
     _sync_to_config(db)
     return {"ok": True}
 
 
 @router.get("/detectar")
-def detectar(db: Session = Depends(get_db)):
+def detectar(db: DbApp):
     """
     Detecta centros de trabajo en IZARO.
 
@@ -85,7 +94,8 @@ def detectar(db: Session = Depends(get_db)):
         raise HTTPException(502, f"Error conectando a IZARO: {exc}")
 
     # Marcar cuáles ya están configurados
-    locales = {r.centro_trabajo: r for r in db.query(Recurso).all()}
+    repo = RecursoRepo(db)
+    locales = {r.centro_trabajo: r for r in repo.list_all_orm()}
 
     for m in maquinas:
         local = locales.get(m["codigo"])
@@ -172,7 +182,7 @@ def _auto_name(codigo: int, nombre_izaro: str) -> tuple[str, str]:
 
 
 @router.post("/auto-detectar", dependencies=_edit)
-def auto_detectar(db: Session = Depends(get_db)):
+def auto_detectar(db: DbApp):
     """
     Detecta TODAS las maquinas de IZARO y las anade automaticamente.
 
@@ -184,7 +194,8 @@ def auto_detectar(db: Session = Depends(get_db)):
     except Exception as exc:
         raise HTTPException(502, f"Error conectando a IZARO: {exc}")
 
-    existentes = {r.centro_trabajo for r in db.query(Recurso).all()}
+    repo = RecursoRepo(db)
+    existentes = {r.centro_trabajo for r in repo.list_all_orm()}
     añadidas = []
 
     for m in maquinas:
@@ -196,15 +207,15 @@ def auto_detectar(db: Session = Depends(get_db)):
         nombre, seccion = _auto_name(codigo, nombre_izaro)
 
         # Evitar duplicados por nombre
-        if db.query(Recurso).filter_by(nombre=nombre).first():
+        if repo.get_orm_by_nombre(nombre):
             nombre = f"{nombre}_{codigo}"
 
-        db.add(Recurso(
+        repo.add(
             centro_trabajo=codigo,
             nombre=nombre,
             seccion=seccion,
             activo=True,
-        ))
+        )
         añadidas.append({
             "codigo": codigo,
             "nombre_izaro": nombre_izaro,
@@ -221,7 +232,7 @@ def auto_detectar(db: Session = Depends(get_db)):
 
 def _sync_to_config(db: Session) -> None:
     """Sincroniza recursos de la BBDD a db_config.json."""
-    rows = db.query(Recurso).all()
+    rows = RecursoRepo(db).list_all_orm()
     cfg = mes_service.get_config()
     cfg["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "activo": r.activo}
