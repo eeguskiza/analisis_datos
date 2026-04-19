@@ -94,10 +94,24 @@
     {% block topbar %}
     <header class="flex items-center justify-between px-6 py-3 bg-white border-b border-surface-200 shrink-0">
       <h1 class="text-lg font-semibold text-brand-800">{% block page_title %}Dashboard{% endblock %}</h1>
-      <div id="conn-badge"
-           hx-get="/api/conexion/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
-           class="text-xs px-3 py-1 rounded-full bg-surface-100 text-gray-500">
-        Comprobando...
+      <div class="flex items-center gap-3">
+        <div id="conn-badge"
+             hx-get="/api/conexion/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
+             class="text-xs px-3 py-1 rounded-full bg-surface-100 text-gray-500">
+          Comprobando...
+        </div>
+        {% if current_user %}
+          <span class="text-xs text-gray-500 hidden sm:inline">{{ current_user.email }}</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 uppercase tracking-wide font-medium">
+            {{ current_user.role }}
+          </span>
+          <form method="post" action="/logout" class="inline">
+            <button type="submit"
+                    class="text-xs px-3 py-1 rounded-lg text-brand-700 hover:bg-brand-50 border border-surface-200 transition-colors">
+              Salir
+            </button>
+          </form>
+        {% endif %}
       </div>
     </header>
     {% endblock %}

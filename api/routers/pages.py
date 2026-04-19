@@ -7,40 +7,33 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from api.deps import templates
+from api.deps import render
 from api.database import Recurso, get_db
 
 router = APIRouter(tags=["pages"])
 
 
-def _common_ctx(request: Request, page: str) -> dict:
+def _common_extra(page: str) -> dict:
     return {
-        "request": request,
         "page": page,
         "today": date.today().isoformat(),
     }
 
 
-def _render(name: str, ctx: dict):
-    """Render template compatible con Starlette viejo y nuevo."""
-    return templates.TemplateResponse(name=name, context=ctx, request=ctx["request"])
-
-
 @router.get("/")
 def index(request: Request):
-    ctx = _common_ctx(request, "dashboard")
-    return _render("luk4.html", ctx)
+    return render("luk4.html", request, _common_extra("dashboard"))
 
 
 @router.get("/pipeline")
 def pipeline_page(request: Request, db: Session = Depends(get_db)):
-    ctx = _common_ctx(request, "pipeline")
+    extra = _common_extra("pipeline")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
-    ctx["recursos"] = [
+    extra["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
     ]
-    return _render("pipeline.html", ctx)
+    return render("pipeline.html", request, extra)
 
 
 @router.get("/informes")
@@ -51,68 +44,64 @@ def informes_page():
 
 @router.get("/recursos")
 def recursos_page(request: Request, db: Session = Depends(get_db)):
-    ctx = _common_ctx(request, "recursos")
+    extra = _common_extra("recursos")
     rows = db.query(Recurso).order_by(Recurso.seccion, Recurso.nombre).all()
-    ctx["recursos"] = [
+    extra["recursos"] = [
         {"id": r.id, "centro_trabajo": r.centro_trabajo, "nombre": r.nombre,
          "seccion": r.seccion, "activo": r.activo}
         for r in rows
     ]
-    return _render("recursos.html", ctx)
+    return render("recursos.html", request, extra)
 
 
 @router.get("/historial")
 def historial_page(request: Request, db: Session = Depends(get_db)):
-    ctx = _common_ctx(request, "historial")
+    extra = _common_extra("historial")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
-    ctx["recursos"] = [
+    extra["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
     ]
-    return _render("historial.html", ctx)
+    return render("historial.html", request, extra)
 
 
 @router.get("/ciclos-calc")
 def ciclos_calc_page(request: Request, db: Session = Depends(get_db)):
-    ctx = _common_ctx(request, "ciclos_calc")
+    extra = _common_extra("ciclos_calc")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
-    ctx["recursos"] = [
+    extra["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
     ]
-    return _render("ciclos_calc.html", ctx)
+    return render("ciclos_calc.html", request, extra)
 
 
 @router.get("/operarios")
 def operarios_page(request: Request):
-    ctx = _common_ctx(request, "operarios")
-    return _render("operarios.html", ctx)
+    return render("operarios.html", request, _common_extra("operarios"))
 
 
 @router.get("/datos")
 def datos_page(request: Request, db: Session = Depends(get_db)):
-    ctx = _common_ctx(request, "datos")
+    extra = _common_extra("datos")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
-    ctx["recursos"] = [
+    extra["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
     ]
-    return _render("datos.html", ctx)
+    return render("datos.html", request, extra)
 
 
 @router.get("/bbdd")
 def bbdd_page(request: Request):
-    ctx = _common_ctx(request, "bbdd")
-    return _render("bbdd.html", ctx)
+    return render("bbdd.html", request, _common_extra("bbdd"))
 
 
 @router.get("/capacidad")
 def capacidad_page(request: Request):
-    ctx = _common_ctx(request, "capacidad")
-    return _render("capacidad.html", ctx)
+    return render("capacidad.html", request, _common_extra("capacidad"))
 
 
 @router.get("/ajustes")
 def ajustes_page(request: Request):
-    ctx = _common_ctx(request, "ajustes")
-    return _render("ajustes.html", ctx)
+    return render("ajustes.html", request, _common_extra("ajustes"))
