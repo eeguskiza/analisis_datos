@@ -154,6 +154,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
             if now > halfway:
                 extend_session(db, session)
 
+            # Eager-load user.departments antes de cerrar la sesion. Sin esto,
+            # el acceso lazy a user.departments desde require_permission()
+            # (Plan 02-03) levantaria DetachedInstanceError porque la sesion
+            # ORM que lo cargo ya esta cerrada. La evaluacion de la list
+            # comprehension fuerza el SELECT y cachea el resultado en
+            # user.__dict__['departments'], accesible tras db.close().
+            _ = list(user.departments)
+
             request.state.user = user
             request.state.session = session
         finally:

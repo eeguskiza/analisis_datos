@@ -26,6 +26,7 @@ from typing import Optional
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from argon2.profiles import RFC_9106_LOW_MEMORY
+from fastapi import HTTPException, Request, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -175,3 +176,86 @@ def get_user_by_email(db: Session, email: str) -> Optional[NexoUser]:
     return db.execute(
         select(NexoUser).where(NexoUser.email == email, NexoUser.active.is_(True))
     ).scalar_one_or_none()
+
+
+# ── RBAC (Plan 02-03) ─────────────────────────────────────────────────────
+
+# Fuente de verdad de los permisos en codigo. La tabla ``nexo.permissions``
+# sigue siendo catalogo seed (Phase 5 la reconciliara) pero este dict es
+# quien decide en runtime.
+#
+# Clave: ``"modulo:accion"``. Valor: lista de ``department_code`` que pueden
+# usar el permiso. El rol ``propietario`` NUNCA aparece aqui — tiene bypass
+# hardcodeado en ``require_permission`` (research §Anti-Patterns).
+#
+# Mapeo completo en ``docs/AUTH_MODEL.md`` §Apendice PERMISSION_MAP
+# (regenerado al cerrar Phase 2 para trazabilidad).
+PERMISSION_MAP: dict[str, list[str]] = {
+    # ── Modulos de produccion / planta ──────────────────────────────────
+    "pipeline:run":       ["ingenieria", "produccion"],
+    "pipeline:read":      ["ingenieria", "produccion", "gerencia"],
+    "recursos:read":      ["ingenieria", "produccion"],
+    "recursos:edit":      ["ingenieria"],
+    "ciclos:read":        ["ingenieria"],
+    "ciclos:edit":        ["ingenieria"],
+    "centro_mando:read":  ["produccion", "ingenieria", "gerencia"],
+    "luk4:read":          ["produccion", "ingenieria", "gerencia"],
+    "capacidad:read":     ["comercial", "ingenieria", "produccion", "gerencia"],
+    "historial:read":     ["ingenieria", "produccion", "comercial", "gerencia", "rrhh"],
+    "informes:read":      ["ingenieria", "produccion", "comercial", "gerencia", "rrhh"],
+    "informes:delete":    ["ingenieria"],
+    "datos:read":         ["ingenieria", "produccion"],
+    # ── RRHH ────────────────────────────────────────────────────────────
+    "operarios:read":     ["rrhh"],
+    "operarios:export":   ["rrhh"],
+    # ── Administracion tecnica ─────────────────────────────────────────
+    "bbdd:read":          ["ingenieria"],
+    "conexion:read":      ["ingenieria"],
+    "conexion:config":    [],   # lista vacia → solo propietario (tocar credenciales)
+    "email:send":         ["rrhh", "ingenieria", "gerencia"],
+    "plantillas:read":    ["ingenieria"],
+    "plantillas:edit":    ["ingenieria"],
+    # ── Ajustes — Mark-III solo propietario ─────────────────────────────
+    "ajustes:manage":     [],
+    "auditoria:read":     [],
+    "usuarios:manage":    [],
+}
+
+
+def require_permission(permission: str):
+    """Factory que devuelve un Dependency de FastAPI.
+
+    Validacion en runtime:
+
+    1. ``request.state.user`` poblado por ``AuthMiddleware`` (Plan 02-02).
+       Si falta, 401 (defensivo — el middleware deberia haber cortado antes).
+    2. ``role == "propietario"`` → bypass inmediato, devuelve user sin
+       consultar el mapa (research §Anti-Patterns: propietario nunca en el
+       mapa).
+    3. Intersecta ``{d.code for d in user.departments}`` con
+       ``PERMISSION_MAP[permission]``. Si hay interseccion → pasa;
+       si no → 403 con detail explicando el permiso pedido.
+
+    Nota: el middleware eager-loadea ``user.departments`` antes de cerrar
+    la sesion ORM para evitar DetachedInstanceError al llegar aqui.
+    """
+    async def _check(request: Request) -> NexoUser:
+        user = getattr(request.state, "user", None)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
+        if user.role == "propietario":
+            return user
+        allowed = PERMISSION_MAP.get(permission, [])
+        user_depts = {d.code for d in user.departments}
+        if not user_depts.intersection(allowed):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permiso requerido: {permission}",
+            )
+        return user
+
+    _check.__name__ = f"require_permission__{permission.replace(':', '_')}"
+    return _check
