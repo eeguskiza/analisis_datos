@@ -36,6 +36,11 @@ services:
     volumes:
       - ./data:/app/data
       - ./informes:/app/informes
+      # tests/data/reference/ guarda PDFs baseline del gate de regresion
+      # (Plan 03-02 success #5). Bind-mount necesario para que los baseline
+      # sobrevivan a 'docker compose up --build' — sin el mount, el rebuild
+      # reemplaza la imagen y los .pdf se pierden con el container viejo.
+      - ./tests:/app/tests
     # Inyecta el .env del host al container. Necesario para NEXO_SECRET_KEY
     # y demas vars que pydantic-settings lee. El Dockerfile NO copia .env
     # a la imagen (correcto — secretos nunca en imagen); el bind de env
