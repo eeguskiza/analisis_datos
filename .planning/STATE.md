@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 3 of 7 — Capa de datos (CONTEXT.md gathered, PLAN.md pendiente)
-Plan: (Phase 2) 4/4 complete ✓; (Phase 3) 0/3 previstos (foundation + capa MES + capa APP+NEXO)
-Status: 2026-04-19 — /gsd-discuss-phase 3 ejecutado. 4 gray areas aceptadas en bloque por el operador ("elige tu"): SQL loader + `.sql` layout (text+`:named`, un `.sql` por método, `bindparam` expanding), repository shape (sesión inyectada, DTOs `*Row` frozen en `nexo/data/dto/`, repos sin transacción), plan breakdown (03-01 foundation → 03-02 MES ∥ 03-03 APP+NEXO), pipeline+bbdd (wrapper delgado sobre `OEE/db/connector.py` + whitelist queda en `bbdd.py`). 11 REQ-IDs mapeados a los 3 plans.
-Last activity: 2026-04-19 — commit `5111cfe` con `03-CONTEXT.md` + `03-DISCUSSION-LOG.md`.
+Phase: 3 of 7 — Capa de datos (Ready to execute — 3 plans)
+Plan: (Phase 2) 4/4 complete ✓; (Phase 3) 0/3 — 03-01 foundation, 03-02 capa MES, 03-03 capa APP+NEXO
+Status: 2026-04-19 — /gsd-plan-phase 3 --chain ejecutado. RESEARCH.md (1740 LOC, validation arch + landmines), VALIDATION.md (Nyquist Wave 0 mapeado), PATTERNS.md (47 archivos clasificados, 44 con analog), 3 PLAN.md generados. Plan-checker iter 2/3: VERIFICATION PASSED tras revisión de 2 BLOCKERs (pipeline.py overlap → 03-03 exclusivo; RESEARCH Open Questions marked RESOLVED) + 7 WARNINGs (task ordering, grep fix, PDF fallback contract, DATA-05 ORM scope clarification). Auto-advance a /gsd-execute-phase 3 --auto.
+Last activity: 2026-04-19 — commit `c3fc3be` (revisiones), commit `4c220bf` (RESEARCH+VALIDATION).
 
-Progress: [█████░░░░░] 29% (2/7 phases completas + CONTEXT.md de Phase 3 listo)
+Progress: [█████░░░░░] 29% (2/7 phases completas + 3 plans Phase 3 listos para execute)
 
 ## Plans de Phase 2 (estado)
 
@@ -82,6 +82,6 @@ Items explícitamente diferidos o pendientes de decisión posterior:
 
 ## Session Continuity
 
-Last session: 2026-04-19 — `/gsd-discuss-phase 3` (CONTEXT.md para capa de datos).
-Stopped at: Phase 3 CONTEXT gathered. 4 gray areas aceptadas en bloque. 11 REQ-IDs DATA-01..DATA-11 mapeados a plans 03-01 (foundation), 03-02 (MES), 03-03 (APP+NEXO). Commit: `5111cfe`.
-Resume file: `.planning/phases/03-capa-de-datos/03-CONTEXT.md`. Siguiente: `/gsd-plan-phase 3`.
+Last session: 2026-04-19 — `/gsd-plan-phase 3 --chain` (research + planning + verify).
+Stopped at: 3 PLAN.md aprobados por plan-checker iter 2/3. Auto-advancing a /gsd-execute-phase 3 --auto.
+Resume file: `.planning/phases/03-capa-de-datos/03-01-PLAN.md`. Siguiente: ejecución de los 3 plans (03-01 foundation primero, después 03-02 ∥ 03-03 en paralelo).
