@@ -1,11 +1,15 @@
-"""UI y export CSV de nexo.audit_log — solo propietario.
+"""UI y export CSV de nexo.audit_log - solo propietario.
 
-Permission: ``auditoria:read`` (lista vacia en PERMISSION_MAP → bypass
+Plan 03-03 Task 4.5: refactor para consumir ``AuditRepo``
+(``nexo.data.repositories.nexo``) y usar ``DbNexo`` de ``api.deps``
+en vez del ``get_nexo_db`` local duplicado.
+
+Permission: ``auditoria:read`` (lista vacia en PERMISSION_MAP -> bypass
 del propietario, resto 403).
 
 Endpoints:
-- ``GET /ajustes/auditoria``         → listado paginado + filtros
-- ``GET /ajustes/auditoria/export``  → CSV streaming con los filtros aplicados
+- ``GET /ajustes/auditoria``         -> listado paginado + filtros
+- ``GET /ajustes/auditoria/export``  -> CSV streaming con los filtros aplicados
 
 Filtros admitidos (query params):
 - ``user_email`` (match exacto)
@@ -23,14 +27,12 @@ import logging
 from datetime import datetime, timezone
 from typing import Iterator, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from sqlalchemy import and_, select
-from sqlalchemy.orm import Session
 
-from api.deps import render
-from nexo.db.engine import SessionLocalNexo
-from nexo.db.models import NexoAuditLog, NexoUser
+from api.deps import DbNexo, render
+from nexo.data.engines import SessionLocalNexo
+from nexo.data.repositories.nexo import AuditRepo
 from nexo.services.auth import require_permission
 
 logger = logging.getLogger("nexo.auditoria")
@@ -43,20 +45,12 @@ router = APIRouter(
 )
 
 
-def get_nexo_db():
-    db = SessionLocalNexo()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
     """Acepta 'YYYY-MM-DD' o ISO completo. Devuelve tz-aware UTC o None."""
     if not value:
         return None
     try:
-        # date-only → assume 00:00:00 UTC
+        # date-only -> assume 00:00:00 UTC
         if len(value) == 10:
             return datetime.fromisoformat(value).replace(tzinfo=timezone.utc)
         dt = datetime.fromisoformat(value)
@@ -67,43 +61,22 @@ def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _build_filtered_stmt(
-    user_email: Optional[str],
-    date_from: Optional[str],
-    date_to: Optional[str],
-    path: Optional[str],
-    status: Optional[int],
-):
-    """Construye un SELECT sobre NexoAuditLog + NexoUser con los filtros
-    aplicados. Devuelve el stmt sin ORDER BY/LIMIT (los aplican los
-    callers segun lo necesiten)."""
-    stmt = select(NexoAuditLog, NexoUser).outerjoin(
-        NexoUser, NexoUser.id == NexoAuditLog.user_id
-    )
-    conditions = []
-    if user_email:
-        conditions.append(NexoUser.email == user_email.strip().lower())
-    dt_from = _parse_iso_datetime(date_from)
-    if dt_from:
-        conditions.append(NexoAuditLog.ts >= dt_from)
-    dt_to = _parse_iso_datetime(date_to)
-    if dt_to:
-        # Si viene solo fecha, extender a fin del dia.
-        if len(date_to or "") == 10:
-            dt_to = dt_to.replace(hour=23, minute=59, second=59)
-        conditions.append(NexoAuditLog.ts <= dt_to)
-    if path:
-        conditions.append(NexoAuditLog.path.ilike(f"%{path}%"))
-    if status is not None:
-        conditions.append(NexoAuditLog.status == status)
-    if conditions:
-        stmt = stmt.where(and_(*conditions))
-    return stmt
+def _parse_date_to_end_of_day(value: Optional[str]) -> Optional[datetime]:
+    """Como ``_parse_iso_datetime`` pero si viene solo fecha, extiende
+    al final del dia (23:59:59 UTC) para que el filtro date_to sea
+    inclusivo."""
+    dt = _parse_iso_datetime(value)
+    if dt is None:
+        return None
+    if value is not None and len(value) == 10:
+        dt = dt.replace(hour=23, minute=59, second=59)
+    return dt
 
 
 @router.get("", response_class=HTMLResponse)
 async def listar(
     request: Request,
+    db: DbNexo,
     user_email: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
@@ -111,34 +84,43 @@ async def listar(
     status: Optional[int] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=500),
-    db: Session = Depends(get_nexo_db),
 ):
-    from sqlalchemy import func
+    repo = AuditRepo(db)
 
-    stmt = _build_filtered_stmt(user_email, date_from, date_to, path, status)
+    email_norm = user_email.strip().lower() if user_email else None
+    dt_from = _parse_iso_datetime(date_from)
+    dt_to = _parse_date_to_end_of_day(date_to)
 
-    # Count total con subquery — evita materializar las filas.
-    count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = db.execute(count_stmt).scalar_one() or 0
-
-    offset = (page - 1) * limit
-    rows = db.execute(
-        stmt.order_by(NexoAuditLog.ts.desc()).limit(limit).offset(offset)
-    ).all()
+    total = repo.count_filtered(
+        user_email=email_norm,
+        date_from=dt_from,
+        date_to=dt_to,
+        path=path or None,
+        status=status,
+    )
+    dtos = repo.list_filtered(
+        user_email=email_norm,
+        date_from=dt_from,
+        date_to=dt_to,
+        path=path or None,
+        status=status,
+        page=page,
+        limit=limit,
+    )
 
     serialized = [
         {
-            "id": r.NexoAuditLog.id,
-            "ts": r.NexoAuditLog.ts,
-            "user_email": r.NexoUser.email if r.NexoUser else "(desconocido)",
-            "user_id": r.NexoAuditLog.user_id,
-            "ip": r.NexoAuditLog.ip,
-            "method": r.NexoAuditLog.method,
-            "path": r.NexoAuditLog.path,
-            "status": r.NexoAuditLog.status,
-            "details_json": r.NexoAuditLog.details_json,
+            "id": r.id,
+            "ts": r.ts,
+            "user_email": r.user_email or "(desconocido)",
+            "user_id": r.user_id,
+            "ip": r.ip,
+            "method": r.method,
+            "path": r.path,
+            "status": r.status,
+            "details_json": r.details_json,
         }
-        for r in rows
+        for r in dtos
     ]
 
     total_pages = (total + limit - 1) // limit if total else 1
@@ -172,8 +154,13 @@ async def export_csv(
     path: Optional[str] = Query(None),
     status: Optional[int] = Query(None),
 ):
-    """CSV streaming con los filtros aplicados. No hay paginacion — el
-    CSV cubre todas las filas que matchean. Memory-safe via ``yield_per``."""
+    """CSV streaming con los filtros aplicados. No hay paginacion - el
+    CSV cubre todas las filas que matchean. Memory-safe via yield_per
+    en ``AuditRepo.iter_filtered``."""
+
+    email_norm = user_email.strip().lower() if user_email else None
+    dt_from = _parse_iso_datetime(date_from)
+    dt_to = _parse_date_to_end_of_day(date_to)
 
     def row_iterator() -> Iterator[str]:
         buf = io.StringIO()
@@ -186,24 +173,24 @@ async def export_csv(
 
         db = SessionLocalNexo()
         try:
-            stmt = (
-                _build_filtered_stmt(user_email, date_from, date_to, path, status)
-                .order_by(NexoAuditLog.ts.desc())
-                .execution_options(yield_per=500)
-            )
-            for row in db.execute(stmt):
-                log = row.NexoAuditLog
-                user = row.NexoUser
+            repo = AuditRepo(db)
+            for row in repo.iter_filtered(
+                user_email=email_norm,
+                date_from=dt_from,
+                date_to=dt_to,
+                path=path or None,
+                status=status,
+            ):
                 writer.writerow(
                     [
-                        log.ts.isoformat(),
-                        user.email if user else "",
-                        log.user_id or "",
-                        log.ip or "",
-                        log.method,
-                        log.path,
-                        log.status,
-                        log.details_json or "",
+                        row.ts.isoformat(),
+                        row.user_email or "",
+                        row.user_id or "",
+                        row.ip or "",
+                        row.method,
+                        row.path,
+                        row.status,
+                        row.details_json or "",
                     ]
                 )
                 yield buf.getvalue()
