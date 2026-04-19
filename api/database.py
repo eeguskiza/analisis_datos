@@ -1,23 +1,28 @@
-"""Motor SQLAlchemy, sesion y modelos ORM — conecta a SQL Server (ecs_mobility)."""
+"""Motor SQLAlchemy, sesion y modelos ORM - conecta a SQL Server (ecs_mobility).
+
+Plan 03-03 (DATA-03): los modelos ORM se migraron a
+``nexo/data/models_app.py``. Este modulo mantiene engine + SessionLocal +
+bootstrap (``init_db``, ``_import_*``) + ``get_db`` + ``check_db_health``
+y RE-EXPORTA las clases ORM desde ``nexo.data.models_app`` para preservar
+consumidores existentes (Landmine #9: ``api/services/pipeline.py`` tiene
+~15 refs a ``MetricaOEE``, ``ReferenciaStats``, ``IncidenciaResumen``,
+``Ejecucion``, ``InformeMeta``, ``DatosProduccion``).
+"""
 from __future__ import annotations
 
 import csv
-from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text,
-    UniqueConstraint, create_engine, inspect,
-)
-from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.orm import Session, sessionmaker
 
 from api.config import settings
 
 
-# ── Engine ────────────────────────────────────────────────────────────────────
+# -- Engine -------------------------------------------------------------------
 
 def _mssql_creator():
-    """Crea conexion pyodbc directa (más fiable que URL de SQLAlchemy)."""
+    """Crea conexion pyodbc directa (mas fiable que URL de SQLAlchemy)."""
     import pyodbc
     return pyodbc.connect(
         f"DRIVER={{ODBC Driver 18 for SQL Server}};"
@@ -41,164 +46,27 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
-class Base(DeclarativeBase):
-    pass
+# -- Modelos ORM - migrados a nexo/data/models_app.py en Plan 03-03 -----------
+# Re-export para preservar consumidores existentes (Landmine #9 en
+# api/services/pipeline.py - 15 refs a MetricaOEE, ReferenciaStats,
+# IncidenciaResumen, Ejecucion, InformeMeta, DatosProduccion). Elimina
+# cuando todos los consumers migren al path nuevo (Mark-IV).
+from nexo.data.models_app import (  # noqa: E402, F401
+    Base,
+    Ciclo,
+    Contacto,
+    DatosProduccion,
+    Ejecucion,
+    IncidenciaResumen,
+    InformeMeta,
+    MetricaOEE,
+    Recurso,
+    ReferenciaStats,
+    SECTION_MAP,
+)
 
 
-# ── Modelos ───────────────────────────────────────────────────────────────────
-
-class Ciclo(Base):
-    __tablename__ = "ciclos"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    maquina = Column(String(50), nullable=False)
-    referencia = Column(String(100), nullable=False)
-    tiempo_ciclo = Column(Float, nullable=False, default=0)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    __table_args__ = (
-        UniqueConstraint("maquina", "referencia", name="uq_ciclos"),
-        {"schema": "cfg"},
-    )
-
-
-class Recurso(Base):
-    __tablename__ = "recursos"
-    __table_args__ = {"schema": "cfg"}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    centro_trabajo = Column(Integer, nullable=False)
-    nombre = Column(String(50), nullable=False, unique=True)
-    seccion = Column(String(50), nullable=False, default="GENERAL")
-    activo = Column(Boolean, default=True)
-
-
-class Ejecucion(Base):
-    __tablename__ = "ejecuciones"
-    __table_args__ = {"schema": "oee"}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    fecha_inicio = Column(String(10), nullable=False)
-    fecha_fin = Column(String(10), nullable=False)
-    source = Column(String(20), nullable=False, default="db")
-    status = Column(String(20), nullable=False, default="running")
-    modulos = Column(Text, default="")
-    log = Column(Text, default="")
-    n_pdfs = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class InformeMeta(Base):
-    __tablename__ = "informes"
-    __table_args__ = {"schema": "oee"}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, nullable=True)
-    fecha = Column(String(10), nullable=False)
-    seccion = Column(String(50), nullable=False)
-    maquina = Column(String(50), default="")
-    modulo = Column(String(50), default="")
-    pdf_path = Column(String(500), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class DatosProduccion(Base):
-    """Datos extraidos de IZARO, almacenados por extraccion."""
-    __tablename__ = "datos"
-    __table_args__ = {"schema": "oee"}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("oee.ejecuciones.id"), nullable=False)
-    recurso = Column(String(50), nullable=False)
-    seccion = Column(String(50), nullable=False)
-    fecha = Column(Date, nullable=False)
-    h_ini = Column(String(10))
-    h_fin = Column(String(10))
-    tiempo = Column(Float, default=0)
-    proceso = Column(String(30))
-    incidencia = Column(String(200), default="")
-    cantidad = Column(Float, default=0)
-    malas = Column(Float, default=0)
-    recuperadas = Column(Float, default=0)
-    referencia = Column(String(50), default="")
-
-
-class Contacto(Base):
-    """Lista de contactos para envio de informes."""
-    __tablename__ = "contactos"
-    __table_args__ = {"schema": "cfg"}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    nombre = Column(String(100), nullable=False)
-    email = Column(String(200), nullable=False, unique=True)
-
-
-# Tablas adicionales para Power BI (solo escritura desde pipeline)
-
-class MetricaOEE(Base):
-    """Metricas OEE calculadas — tabla principal para Power BI."""
-    __tablename__ = "metricas"
-    __table_args__ = {"schema": "oee"}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("oee.ejecuciones.id"), nullable=False)
-    seccion = Column(String(50))
-    recurso = Column(String(50))
-    fecha = Column(Date)
-    turno = Column(String(5))
-    horas_brutas = Column(Float, default=0)
-    horas_disponible = Column(Float, default=0)
-    horas_operativo = Column(Float, default=0)
-    horas_preparacion = Column(Float, default=0)
-    horas_indisponibilidad = Column(Float, default=0)
-    horas_paros = Column(Float, default=0)
-    tiempo_ideal = Column(Float, default=0)
-    perdidas_rend = Column(Float, default=0)
-    piezas_totales = Column(Integer, default=0)
-    piezas_malas = Column(Integer, default=0)
-    piezas_recuperadas = Column(Integer, default=0)
-    buenas_finales = Column(Integer, default=0)
-    disponibilidad_pct = Column(Float, default=0)
-    rendimiento_pct = Column(Float, default=0)
-    calidad_pct = Column(Float, default=0)
-    oee_pct = Column(Float, default=0)
-
-
-class ReferenciaStats(Base):
-    __tablename__ = "referencias"
-    __table_args__ = {"schema": "oee"}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("oee.ejecuciones.id"), nullable=False)
-    recurso = Column(String(50))
-    referencia = Column(String(50))
-    ciclo_ideal = Column(Float)
-    ciclo_real = Column(Float)
-    cantidad = Column(Integer, default=0)
-    horas = Column(Float, default=0)
-
-
-class IncidenciaResumen(Base):
-    __tablename__ = "incidencias"
-    __table_args__ = {"schema": "oee"}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ejecucion_id = Column(Integer, ForeignKey("oee.ejecuciones.id"), nullable=False)
-    recurso = Column(String(50))
-    nombre = Column(String(200))
-    tipo = Column(String(20))
-    horas = Column(Float, default=0)
-
-
-# ── Mapa seccion ──────────────────────────────────────────────────────────────
-
-SECTION_MAP = {
-    "luk1": "LINEAS", "luk2": "LINEAS", "luk3": "LINEAS", "luk6": "LINEAS",
-    "coroa": "LINEAS", "vw1": "LINEAS", "omr": "LINEAS", "t48": "TALLADORAS",
-}
-
-
-# ── Init ──────────────────────────────────────────────────────────────────────
+# -- Init ---------------------------------------------------------------------
 
 def init_db() -> None:
     """Verifica conexion y carga datos iniciales si tablas vacias."""
