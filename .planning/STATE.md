@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 2 of 7 — Identidad (in progress)
-Plan: (Phase 2) 3/4 complete (02-01 ✓, 02-02 ✓, 02-03 ✓)
-Status: Plan 02-03 cerrado el 2026-04-19 (PERMISSION_MAP 24 entries + require_permission factory + retrofit en 14 routers + 7 tests integración + apéndice AUTH_MODEL.md). Gate duro 6/6 automático pasado. Siguiente: `/gsd-execute-phase 2 --interactive` para arrancar Plan 02-04 (AuditMiddleware + /ajustes/usuarios + /ajustes/auditoria + gate IDENT-06).
-Last activity: 2026-04-19 — Plan 02-03 ejecutado (4 commits atómicos, uno por tarea). Hitos A+B+C confirmados. `02-03-SUMMARY.md` escrito.
+Phase: 2 of 7 — Identidad (COMPLETA pendiente verify-work manual)
+Plan: (Phase 2) 4/4 complete (02-01 ✓, 02-02 ✓, 02-03 ✓, 02-04 ✓)
+Status: Plan 02-04 cerrado el 2026-04-19 (AuditMiddleware + rol nexo_app para gate IDENT-06 Opción A + CRUD usuarios + UI auditoría filtrable con CSV + hub /ajustes + sidebar condicional). Gate duro 6/6 automático. Los 6 success criteria de Phase 2 cumplidos. Pendiente: test manual end-to-end en navegador (propietario + usuario rrhh) como cierre final de fase.
+Last activity: 2026-04-19 — Plan 02-04 ejecutado (5 commits atómicos). Hitos A+B+C confirmados. `02-04-SUMMARY.md` escrito.
 
-Progress: [████░░░░░░] 25% (1/7 phases + 3/4 plans de Phase 2)
+Progress: [█████░░░░░] 29% (1/7 phases + 4/4 plans de Phase 2 → cierre inminente)
 
 ## Plans de Phase 2 (estado)
 
 - [x] 02-01 — schema-engine-bootstrap ✓ 2026-04-18
 - [x] 02-02 — auth-middleware-login ✓ 2026-04-19
 - [x] 02-03 — rbac-retrofit-routers ✓ 2026-04-19
-- [ ] 02-04 — audit-middleware-ajustes-ui (siguiente)
+- [x] 02-04 — audit-middleware-ajustes-ui ✓ 2026-04-19
 
 ## Performance Metrics
 
@@ -82,6 +82,6 @@ Items explícitamente diferidos o pendientes de decisión posterior:
 
 ## Session Continuity
 
-Last session: 2026-04-19 (ejecución Plans 02-02 y 02-03 en misma sesión)
-Stopped at: Plan 02-03 cerrado. 4 commits atómicos (0c4f34b, 229ca44, 3a158a6, 2ff742d). PERMISSION_MAP 24 entries + require_permission + retrofit 14 routers + 7 tests integración (6 pass, 1 skip) + apéndice AUTH_MODEL.md. Gate duro 6/6 automático.
-Resume file: None (plan cerrado, siguiente ejecución arranca Plan 02-04 — último de la fase, incluye gate IDENT-06)
+Last session: 2026-04-19 (maratón — Plans 02-02, 02-03 y 02-04 en misma sesión)
+Stopped at: Phase 2 cerrada tras Plan 02-04. 5 commits atómicos en 02-04 (de44777, 669ba32, 0be542f, d2abc1e + docs). Gate IDENT-06 resuelto con Opción A (rol nexo_app dedicado con GRANTs limitados). Suite tests/auth/: 11 passed, 1 skipped. Los 6 success criteria de Phase 2 cumplidos.
+Resume file: None. Siguiente: `/gsd-verify-work 2` para validación UAT manual o avanzar a Phase 3 (capa de datos).
