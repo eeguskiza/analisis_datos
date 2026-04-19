@@ -11,8 +11,14 @@ from pathlib import Path
 from typing import Generator
 
 from api.config import settings
-from api.database import Ciclo, DatosProduccion, Ejecucion, InformeMeta, SessionLocal
+from api.database import SessionLocal
 from api.services import db as db_service
+from nexo.data.models_app import (  # Plan 03-03 Task 4.7 - ORM migration
+    Ciclo,
+    DatosProduccion,
+    Ejecucion,
+    InformeMeta,
+)
 
 from OEE.disponibilidad.main import generar_informes_disponibilidad
 from OEE.rendimiento.main import generar_informes_rendimiento
@@ -357,7 +363,8 @@ def _finalize(db, ejec_id: int, status: str, log_lines: list[str], n_pdfs: int) 
 
 def _save_metrics_to_db(db, ejec_id: int) -> None:
     """Calcula y guarda metricas OEE en tablas para Power BI."""
-    from api.database import MetricaOEE, ReferenciaStats, IncidenciaResumen
+    # Plan 03-03 Task 4.7 - ORM migration: path canonico
+    from nexo.data.models_app import IncidenciaResumen, MetricaOEE, ReferenciaStats
     from api.services.metrics import calcular_metrics_ejecucion
 
     result = calcular_metrics_ejecucion(db, ejec_id)
