@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 3 of 7 — Capa de datos (Ready to execute — 3 plans)
-Plan: (Phase 2) 4/4 complete ✓; (Phase 3) 0/3 — 03-01 foundation, 03-02 capa MES, 03-03 capa APP+NEXO
-Status: 2026-04-19 — /gsd-plan-phase 3 --chain ejecutado. RESEARCH.md (1740 LOC, validation arch + landmines), VALIDATION.md (Nyquist Wave 0 mapeado), PATTERNS.md (47 archivos clasificados, 44 con analog), 3 PLAN.md generados. Plan-checker iter 2/3: VERIFICATION PASSED tras revisión de 2 BLOCKERs (pipeline.py overlap → 03-03 exclusivo; RESEARCH Open Questions marked RESOLVED) + 7 WARNINGs (task ordering, grep fix, PDF fallback contract, DATA-05 ORM scope clarification). Auto-advance a /gsd-execute-phase 3 --auto.
-Last activity: 2026-04-19 — commit `c3fc3be` (revisiones), commit `4c220bf` (RESEARCH+VALIDATION).
+Phase: 3 of 7 — Capa de datos (Wave 1 ✓; Wave 2 pendiente)
+Plan: (Phase 2) 4/4 complete ✓; (Phase 3) 1/3 — ✓ 03-01 foundation; ☐ 03-02 capa MES; ☐ 03-03 capa APP+NEXO
+Status: 2026-04-19 — Plan 03-01 ejecutado autonomously (4 commits atómicos + 1 docs). Hard gate 11/11 PASS: engines+shim, schema_guard wired en lifespan, loader con lru_cache, DTOs frozen base, fixtures `db_nexo`/`db_app`/`engine_mes_mock`, Makefile `test-data`. `pytest tests/data/` 16 passed; `pytest tests/auth/` 11 passed/1 skipped (IDENT-06 verde). Requirements cubiertos: DATA-01, DATA-05, DATA-06, DATA-08, DATA-10, DATA-11. Wave 2 (03-02 MES + 03-03 APP+NEXO) pausado por decisión del operador — necesita acceso a SQL Server preprod para PDF baseline en 03-02 antes de continuar.
+Last activity: 2026-04-19 — commits `4325943` (engines), `bb6cd62` (loader+schema_guard+DTO), `9c81227` (lifespan+deps+Makefile), `5c70f0b` (tests/data), `1403da5` (SUMMARY).
 
-Progress: [█████░░░░░] 29% (2/7 phases completas + 3 plans Phase 3 listos para execute)
+Progress: [█████░░░░░] 31% (2/7 phases completas + Phase 3 Wave 1 ✓; Wave 2 pendiente)
 
 ## Plans de Phase 2 (estado)
 
@@ -82,6 +82,6 @@ Items explícitamente diferidos o pendientes de decisión posterior:
 
 ## Session Continuity
 
-Last session: 2026-04-19 — `/gsd-plan-phase 3 --chain` (research + planning + verify).
-Stopped at: 3 PLAN.md aprobados por plan-checker iter 2/3. Auto-advancing a /gsd-execute-phase 3 --auto.
-Resume file: `.planning/phases/03-capa-de-datos/03-01-PLAN.md`. Siguiente: ejecución de los 3 plans (03-01 foundation primero, después 03-02 ∥ 03-03 en paralelo).
+Last session: 2026-04-19 — `/gsd-execute-phase 3 --auto --no-transition` (Wave 1 only por elección del operador).
+Stopped at: Plan 03-01 cerrado con 5 commits y SUMMARY. `nexo/data/` package operativo con engines (3), loader, schema_guard wired en lifespan, DTOs base, fixtures de tests. Wave 1 verde. Wave 2 (03-02 + 03-03) en reposo hasta que el operador tenga acceso a SQL Server preprod para grabar PDF baseline (gate del PDF regression check, success criterion #5).
+Resume file: `.planning/phases/03-capa-de-datos/03-02-PLAN.md`. Siguiente: `/gsd-execute-phase 3 --wave 2` cuando estés en preprod (ejecuta 03-02 y 03-03 en paralelo).
