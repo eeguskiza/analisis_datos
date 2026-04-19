@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Consultar datos reales de producción (MES IZARO) y generar informes OEE fiables por máquina/turno/sección sin bloquear al operario y sin filtrar información entre departamentos.
-**Current focus:** Phase 3 CERRADA (Sprint 2 Mark-III completo) — ready for `/gsd-verify-work 3` + `/gsd-plan-phase 4`.
+**Current focus:** Phase 4 (Consultas pesadas) — CONTEXT.md capturado via /gsd-discuss-phase; ready for `/gsd-plan-phase 4`.
 
 ## Current Position
 
-Phase: 3 of 7 — Capa de datos ✓ CERRADA (los 3 plans cumplidos)
-Plan: (Phase 2) 4/4 ✓; (Phase 3) 3/3 ✓ — 03-01 foundation + 03-02 capa MES + 03-03 capa APP+NEXO
-Status: 2026-04-19 — Plan 03-03 ejecutado autonomous. 12 commits atómicos del plan + 1 fix Rule-1 (SQL Server compat RecursoRepo.list_activos + EjecucionRow date coercion). 9 repos creados (6 APP + 3 NEXO), 13 DTOs frozen (9 APP + 4 NEXO), 5 routers refactorizados (ciclos, recursos, historial, auditoria, usuarios), auth.py delegado a UserRepo, pipeline.py edit atómico Opción B (swap imports ORM al path canónico nexo.data.models_app). Modelos ORM migrados a `nexo/data/models_{app,nexo}.py` con shims transicionales (`api/database.py` re-exporta; `nexo/db/models.py` shim). `pytest tests/data/` + `tests/auth/` + OEE safety net = 109 passed / 11 skipped. AST-based meta-test detecta 0 `import pyodbc` en routers (bbdd.py documentado como excepción D-05). DATA-05 D-01 compliance: 0 archivos `.sql` APP/NEXO (ORM puro = representación canónica). 
-Last activity: 2026-04-19 — commits `d4a2a5f`..`2ccec36` (Plan 03-03), SUMMARY + este STATE pendientes de commit final.
+Phase: 4 of 7 — Consultas pesadas (discuss-phase completado, research+plan pendientes)
+Plan: (Phase 2) 4/4 ✓; (Phase 3) 3/3 ✓; (Phase 4) 0/? — 04-CONTEXT.md ready
+Status: 2026-04-19 — /gsd-discuss-phase 4 ejecutado interactivo. 8 gray areas discutidas (umbrales semilla, UX toast amber/red, query_log retención+PII, approval semantics, postflight alerts, matplotlib concurrency, hot-reload thresholds, preflight learning). 4 decisiones LOCKED explícitas del usuario (D-05 modal AMBER bloqueante, D-11 página /ajustes/rendimiento dedicada, D-16 usuario puede cancelar solicitud propia, D-19 cache thresholds + invalidate on edit LISTEN/NOTIFY). 16 decisiones delegadas al planner con defaults documentados. Commit `aca6807` (docs(04): capture phase context).
+Last activity: 2026-04-19 — commit `aca6807` (Phase 4 CONTEXT + DISCUSSION-LOG). Phase 3 SUMMARY + commits 54d711a..2ccec36 siguen pendientes de push (~23 commits locales).
 
 Progress: [██████████] 43% (3/7 phases completas) — Phase 3 CERRADA
 
