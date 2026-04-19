@@ -10,17 +10,17 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 2 of 7 — Identidad (in progress)
-Plan: (Phase 2) 1/4 complete (02-01 ✓)
-Status: Plan 02-01 cerrado el 2026-04-18 (schema Postgres + 8 tablas + engine_nexo + propietario bootstrap + argon2id smoke OK). Siguiente: retomar con `/gsd-execute-phase 2 --interactive` para arrancar Plan 02-02 (auth middleware + /login + /cambiar-password + lockout cableado).
-Last activity: 2026-04-18 — Plan 02-01 ejecutado (6 commits: 1 core + 5 out-of-plan por entorno), `02-01-SUMMARY.md` escrito. Sesión pausada al 78% de contexto antes de Plan 02-02.
+Plan: (Phase 2) 2/4 complete (02-01 ✓, 02-02 ✓)
+Status: Plan 02-02 cerrado el 2026-04-19 (AuthMiddleware + /login /logout /cambiar-password + lockout cableado + slowapi + helper render + topbar con email/Salir). Gate duro 9/9 automático pasado, test positivo manual confirmado por el operador. Siguiente: `/gsd-execute-phase 2 --interactive` para arrancar Plan 02-03 (RBAC retrofit en 15 routers).
+Last activity: 2026-04-19 — Plan 02-02 ejecutado (4 commits atómicos, uno por tarea). Hitos A+B+C confirmados. `02-02-SUMMARY.md` escrito.
 
-Progress: [██░░░░░░░░] 18% (1/7 phases + 1/4 plans de Phase 2)
+Progress: [███░░░░░░░] 21% (1/7 phases + 2/4 plans de Phase 2)
 
 ## Plans de Phase 2 (estado)
 
 - [x] 02-01 — schema-engine-bootstrap ✓ 2026-04-18
-- [ ] 02-02 — auth-middleware-login (siguiente)
-- [ ] 02-03 — rbac-retrofit-routers
+- [x] 02-02 — auth-middleware-login ✓ 2026-04-19
+- [ ] 02-03 — rbac-retrofit-routers (siguiente)
 - [ ] 02-04 — audit-middleware-ajustes-ui
 
 ## Performance Metrics
@@ -82,6 +82,6 @@ Items explícitamente diferidos o pendientes de decisión posterior:
 
 ## Session Continuity
 
-Last session: 2026-04-18 (sesión de ejecución Sprint 0)
-Stopped at: Phase 1 cerrada. 14 commits pusheables (13 del plan + 1 feedback operador post-commit 13 sobre sidebar).
-Resume file: None (flujo activo)
+Last session: 2026-04-19 (ejecución Plan 02-02)
+Stopped at: Plan 02-02 cerrado. 4 commits atómicos (c66b566, f81a18e, 15a0d76, f88f6b0). AuthMiddleware + login/logout/cambiar-password + topbar funcional. Gate duro 9/9 automático y test positivo manual confirmado por el operador.
+Resume file: None (plan cerrado, siguiente ejecución arranca Plan 02-03)
