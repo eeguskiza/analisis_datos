@@ -16,7 +16,7 @@ de phases GSD: Phase N = Sprint (N-1) del plan.
 
 - [x] **Phase 1: Naming + Higiene + CI** — Sprint 0: rebrand Nexo, limpieza, CI mínimo, exception handler sin traceback, audit de historial ✓ 2026-04-18
 - [ ] **Phase 2: Identidad (auth + RBAC + audit)** — Sprint 1: login, roles propietario/directivo/usuario + departamentos, middleware de auth y audit append-only
-- [ ] **Phase 3: Capa de datos** — Sprint 2: repositorios, `.sql` versionados, schema_guard, separación `engine_mes` / `engine_app` / `engine_nexo`
+- [x] **Phase 3: Capa de datos** — Sprint 2: repositorios, `.sql` versionados, schema_guard, separación `engine_mes` / `engine_app` / `engine_nexo` ✓ 2026-04-19
 - [ ] **Phase 4: Consultas pesadas** — Sprint 3: preflight + postflight + aprobación asíncrona + umbrales editables
 - [ ] **Phase 5: UI por roles** — Sprint 4: sidebar y páginas condicionadas al rol, split de `ajustes.html`
 - [ ] **Phase 6: Despliegue LAN HTTPS** — Sprint 5: `docker-compose.prod.yml`, Caddy con LE DNS-01 o cert interno, firewall, runbook de deploy
@@ -70,9 +70,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Foundation: engines + loader + schema_guard + DTO skeleton + fixtures (DATA-01, DATA-05, DATA-06, DATA-08, DATA-10, DATA-11)
-- [ ] 03-02-PLAN.md — Capa MES: MesRepository + 5 routers refactor + PDF regression gate + kill 3-part names (DATA-02, DATA-05, DATA-07, DATA-09)
-- [ ] 03-03-PLAN.md — Capa APP + NEXO: repos + routers APP + auth.py/auditoria.py/usuarios.py refactor (DATA-03, DATA-04, DATA-07, DATA-08, DATA-10)
+- [x] 03-01-PLAN.md — Foundation: engines + loader + schema_guard + DTO skeleton + fixtures (DATA-01, DATA-05, DATA-06, DATA-08, DATA-10, DATA-11) ✓ 2026-04-18
+- [x] 03-02-PLAN.md — Capa MES: MesRepository + 5 routers refactor + PDF regression gate + kill 3-part names (DATA-02, DATA-05, DATA-07, DATA-09) ✓ 2026-04-19 (PDF regression diferido a preprod, deadline 2026-04-26)
+- [x] 03-03-PLAN.md — Capa APP + NEXO: repos + routers APP + auth.py/auditoria.py/usuarios.py refactor (DATA-03, DATA-04, DATA-07, DATA-08, DATA-10) ✓ 2026-04-19
 
 ### Phase 4: Consultas pesadas
 **Goal**: Preflight estima coste antes de ejecutar pipeline/queries caras; postflight mide y alerta; aprobación asíncrona para rojos.

@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Consultar datos reales de producción (MES IZARO) y generar informes OEE fiables por máquina/turno/sección sin bloquear al operario y sin filtrar información entre departamentos.
-**Current focus:** Phase 3 — Capa de datos (Sprint 2 de Mark-III) — CONTEXT.md gathered, ready for /gsd-plan-phase 3.
+**Current focus:** Phase 3 CERRADA (Sprint 2 Mark-III completo) — ready for `/gsd-verify-work 3` + `/gsd-plan-phase 4`.
 
 ## Current Position
 
-Phase: 3 of 7 — Capa de datos (Wave 1 ✓; 03-02 ✓ con gate diferido; 03-03 pendiente)
-Plan: (Phase 2) 4/4 complete ✓; (Phase 3) 2/3 — ✓ 03-01 foundation; 🟡 03-02 capa MES (PDF regression diferido a preprod, deadline 2026-04-26); ☐ 03-03 capa APP+NEXO
-Status: 2026-04-19 — Plan 03-02 ejecutado en `--wave 2`. 9 commits del plan + 1 fix out-of-plan (script PDF). Refactor mecánico de 5 routers MES (centro_mando, capacidad, operarios, luk4, bbdd). 12 archivos `.sql` versionados en `nexo/data/sql/mes/`. Cero `import pyodbc` en routers refactorizados (bbdd mantiene pyodbc solo para metadata ops, justificado per D-05). Cero `dbizaro.admuser.*` 3-part names en `api/`. `MesRepository` con 5 métodos como wrapper delgado sobre `OEE/db/connector.py` (D-04). `api/services/pipeline.py` PRISTINO (handoff atómico a 03-03). `pytest tests/data/` 43 passed + tests/auth/ 11 passed/1 skipped. PDF regression check diferido a preprod (baseline se grabó pero se perdió al rebuild; bind-mount `./tests:/app/tests` añadido en compose para persistencia futura). 03-03 pendiente.
-Last activity: 2026-04-19 — commits `2d48d99`..`b255c8f` (Plan 03-02), bind-mount + SUMMARY pendiente de commit final.
+Phase: 3 of 7 — Capa de datos ✓ CERRADA (los 3 plans cumplidos)
+Plan: (Phase 2) 4/4 ✓; (Phase 3) 3/3 ✓ — 03-01 foundation + 03-02 capa MES + 03-03 capa APP+NEXO
+Status: 2026-04-19 — Plan 03-03 ejecutado autonomous. 12 commits atómicos del plan + 1 fix Rule-1 (SQL Server compat RecursoRepo.list_activos + EjecucionRow date coercion). 9 repos creados (6 APP + 3 NEXO), 13 DTOs frozen (9 APP + 4 NEXO), 5 routers refactorizados (ciclos, recursos, historial, auditoria, usuarios), auth.py delegado a UserRepo, pipeline.py edit atómico Opción B (swap imports ORM al path canónico nexo.data.models_app). Modelos ORM migrados a `nexo/data/models_{app,nexo}.py` con shims transicionales (`api/database.py` re-exporta; `nexo/db/models.py` shim). `pytest tests/data/` + `tests/auth/` + OEE safety net = 109 passed / 11 skipped. AST-based meta-test detecta 0 `import pyodbc` en routers (bbdd.py documentado como excepción D-05). DATA-05 D-01 compliance: 0 archivos `.sql` APP/NEXO (ORM puro = representación canónica). 
+Last activity: 2026-04-19 — commits `d4a2a5f`..`2ccec36` (Plan 03-03), SUMMARY + este STATE pendientes de commit final.
 
-Progress: [██████░░░░] 35% (2/7 phases completas + Phase 3 ⅔ plans cerrados; 03-03 pendiente)
+Progress: [██████████] 43% (3/7 phases completas) — Phase 3 CERRADA
 
 ## Plans de Phase 2 (estado)
 
@@ -35,6 +35,7 @@ Progress: [██████░░░░] 35% (2/7 phases completas + Phase 3 �
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Naming + Higiene + CI | 1/1 | ~3h | ~3h |
+| 3. Capa de datos (03-03 APP+NEXO) | 1/1 | ~17 min | ~17 min |
 
 **Recent Trend:**
 - Last 5 plans: [Phase 1 / Plan 01-01 ~3h]
@@ -90,6 +91,6 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-19 — `/gsd-execute-phase 3 --wave 2` (Plan 03-02 cerrado con gate diferido).
-Stopped at: Plan 03-02 ✓ con 9 commits del plan + 1 fix out-of-plan + bind-mount + SUMMARY (commit final pendiente). 5 routers MES refactorizados, 12 `.sql` versionados, MesRepository operativo. 03-03 pendiente — refactor de 3 routers APP (`historial`, `recursos`, `ciclos`), repos APP (RecursoRepo, CicloRepo, EjecucionRepo, MetricaRepo, LukRepo, ContactoRepo) + repos NEXO (UserRepo, RoleRepo, AuditRepo), migración de `nexo/services/auth.py` + `api/routers/{auditoria,usuarios}.py`, edit atómico de `api/services/pipeline.py` (Task 4.7).
-Resume file: `.planning/phases/03-capa-de-datos/03-03-PLAN.md`. Siguiente opciones: (a) `/gsd-execute-phase 3 --wave 2` retoma con 03-03 (autonomous, sin checkpoints humanos), o (b) ejecutar regression check del 03-02 pendiente cuando estés en preprod (ver "Deferred Verifications").
+Last session: 2026-04-19 — `/gsd-execute-phase 3` (Plan 03-03 cerrado autonomous; Phase 3 CERRADA).
+Stopped at: Phase 3 completa. 3 plans ejecutados (03-01 ✓ 2026-04-18, 03-02 ✓ 2026-04-19 con gate diferido, 03-03 ✓ 2026-04-19). Total 29 commits en Phase 3 (5 + 10 + 13 + 1 closing). 9 repos operativos (6 APP + 3 NEXO). 5 routers APP/NEXO refactorizados a repos. `api/services/pipeline.py` tocado una sola vez en Task 4.7 (atómico, Opción B). SUMMARY + STATE + ROADMAP + final commit pendientes. Blocker abierto: solo el PDF regression check de 03-02 (deadline 2026-04-26 en preprod).
+Resume file: `.planning/phases/03-capa-de-datos/03-03-SUMMARY.md`. Siguientes pasos recomendados: (a) `/gsd-verify-work 3` para validación integral de Phase 3, (b) `/gsd-plan-phase 4` para abrir Sprint 3 (consultas pesadas — preflight/postflight/umbrales), (c) ejecutar PDF regression check del 03-02 cuando estés en preprod (ver "Deferred Verifications").
