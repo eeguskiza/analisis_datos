@@ -1,4 +1,11 @@
-"""API del Centro de Mando — estado de maquinas en tiempo real desde IZARO fmesmic."""
+"""API del Centro de Mando — estado de maquinas en tiempo real desde IZARO fmesmic.
+
+Plan 03-02 Task 3.2: elimina la query inline con 3-part names hacia
+``admuser.fmesmic`` y el patron string-interpolation ``ct0,ct1,...``
+— todo eso pasa a ``MesRepository.centro_mando_fmesmic`` (2-part
+names + bindparam expanding, DATA-09). El router solo orquesta
+cache y shape de respuesta.
+"""
 from __future__ import annotations
 
 import logging
@@ -6,10 +13,10 @@ import time
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
-from api.database import Recurso, engine, get_db
+from api.database import Recurso
+from api.deps import DbApp, EngineMes
+from nexo.data.repositories.mes import MesRepository
 from nexo.services.auth import require_permission
 
 router = APIRouter(
@@ -35,60 +42,37 @@ def _fecha_produccion() -> date:
     return (now - timedelta(days=1)).date() if now.hour < 6 else now.date()
 
 
-def _query_fmesmic(ct_codes: list[int]) -> dict[int, dict]:
-    """Consulta fmesmic en dbizaro para el estado actual de las maquinas.
-
-    Devuelve {ct_code: {piezas_hoy, ultimo_evento, referencia}} para las
-    maquinas que tienen actividad hoy.
+def _rows_to_cache_shape(rows: list[dict]) -> dict[int, dict]:
+    """Convierte las filas de ``MesRepository.centro_mando_fmesmic`` al
+    shape dict-by-CT que consume el handler ``summary`` (equivalente al
+    retorno de ``_query_fmesmic`` pre-refactor).
     """
-    if not ct_codes:
-        return {}
+    data: dict[int, dict] = {}
+    ahora = datetime.now().time()
+    for r in rows:
+        ct = int(r["ct"])
+        ultimo = r.get("ultimo_evento")
+        if ultimo:
+            ultimo_dt = datetime.combine(date.today(), ultimo)
+            ahora_dt = datetime.combine(date.today(), ahora)
+            diff_min = (ahora_dt - ultimo_dt).total_seconds() / 60
+            activa = diff_min < 30
+        else:
+            activa = False
 
-    placeholders = ",".join(f":ct{i}" for i in range(len(ct_codes)))
-    params = {f"ct{i}": str(ct) for i, ct in enumerate(ct_codes)}
-
-    sql = text(f"""
-        SELECT
-            CAST(RTRIM(mi020) AS INT)          AS ct,
-            COUNT(*)                            AS piezas_hoy,
-            MAX(CAST(mi100 AS TIME))            AS ultimo_evento,
-            (SELECT TOP 1 RTRIM(m2.mi060)
-             FROM dbizaro.admuser.fmesmic m2
-             WHERE RTRIM(m2.mi020) = RTRIM(m.mi020)
-               AND CONVERT(DATE, m2.mi090) = CONVERT(DATE, GETDATE())
-             ORDER BY m2.mi050 DESC)            AS referencia
-        FROM dbizaro.admuser.fmesmic m
-        WHERE CONVERT(DATE, mi090) = CONVERT(DATE, GETDATE())
-          AND RTRIM(mi020) IN ({placeholders})
-        GROUP BY RTRIM(mi020)
-    """)
-
-    result = {}
-    with engine.connect() as conn:
-        rows = conn.execute(sql, params).fetchall()
-        for r in rows:
-            ct = int(r[0])
-            ultimo = r[2]
-            # Determinar si esta activa: ultimo evento hace menos de 30 min
-            ahora = datetime.now().time()
-            if ultimo:
-                ultimo_dt = datetime.combine(date.today(), ultimo)
-                ahora_dt = datetime.combine(date.today(), ahora)
-                diff_min = (ahora_dt - ultimo_dt).total_seconds() / 60
-                activa = diff_min < 30
-            else:
-                activa = False
-
-            result[ct] = {
-                "piezas_hoy": int(r[1]),
-                "ultimo_evento": str(ultimo)[:5] if ultimo else None,
-                "referencia": r[3] or "",
-                "activa_reciente": activa,
-            }
-    return result
+        data[ct] = {
+            "piezas_hoy": int(r.get("piezas_hoy") or 0),
+            "ultimo_evento": str(ultimo)[:5] if ultimo else None,
+            "referencia": r.get("referencia") or "",
+            "activa_reciente": activa,
+        }
+    return data
 
 
-def _get_cached_data(ct_codes: list[int]) -> tuple[dict, str | None, float]:
+def _get_cached_data(
+    ct_codes: list[int],
+    mes_repo: MesRepository,
+) -> tuple[dict, str | None, float]:
     now = time.time()
     hoy = _fecha_produccion()
 
@@ -98,7 +82,8 @@ def _get_cached_data(ct_codes: list[int]) -> tuple[dict, str | None, float]:
         return _cache["data"], _cache["error"], _cache["timestamp"]
 
     try:
-        data = _query_fmesmic(ct_codes)
+        rows = mes_repo.centro_mando_fmesmic(ct_codes)
+        data = _rows_to_cache_shape(rows)
         _cache["data"] = data
         _cache["fecha"] = hoy
         _cache["timestamp"] = now
@@ -114,8 +99,9 @@ def _get_cached_data(ct_codes: list[int]) -> tuple[dict, str | None, float]:
 
 
 @router.get("/summary")
-def summary(db: Session = Depends(get_db)):
+def summary(db: DbApp, engine_mes: EngineMes):
     hoy = _fecha_produccion()
+    mes_repo = MesRepository(engine=engine_mes)
 
     all_recursos = (
         db.query(Recurso)
@@ -124,7 +110,7 @@ def summary(db: Session = Depends(get_db)):
         .all()
     )
     ct_codes = [r.centro_trabajo for r in all_recursos]
-    mic_data, izaro_error, cache_ts = _get_cached_data(ct_codes)
+    mic_data, izaro_error, cache_ts = _get_cached_data(ct_codes, mes_repo)
 
     maquinas = []
     for rec in all_recursos:
