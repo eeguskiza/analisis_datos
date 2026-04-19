@@ -137,4 +137,66 @@ Especificación detallada en el PLAN.md de Phase 2. Resumen del modelo:
 
 ---
 
-*Última revisión: 2026-04-18 (sesión de arranque Sprint 0).*
+*Última revisión: 2026-04-19 (apéndice PERMISSION_MAP tras Plan 02-03).*
+
+---
+
+## Apéndice: PERMISSION_MAP (Phase 2 / Sprint 1)
+
+**Fuente de verdad:** `nexo/services/auth.py::PERMISSION_MAP`.
+
+Esta tabla es una instantánea al cierre de Plan 02-03 para trazabilidad.
+Cualquier cambio se hace en código; este apéndice se regenera en milestones
+posteriores (p. ej. Phase 5 cuando se añada filtrado de sidebar por rol).
+
+**Regla invariante:** el rol `propietario` **NO aparece** en el mapa.
+Tiene bypass hardcodeado en `require_permission()` — ignora departamentos y
+ve todos los módulos.
+
+**Convención:** valor `[]` (lista vacía) = "solo propietario".
+
+| Permiso | Departamentos autorizados | Routers / endpoints que lo aplican |
+|---------|---------------------------|------------------------------------|
+| `pipeline:read`      | ingenieria, produccion, gerencia | router `api/routers/pipeline.py` |
+| `pipeline:run`       | ingenieria, produccion           | `POST /api/pipeline/run` (estricto) |
+| `recursos:read`      | ingenieria, produccion           | router `api/routers/recursos.py` |
+| `recursos:edit`      | ingenieria                       | `PUT`/`POST`/auto-detectar en recursos |
+| `ciclos:read`        | ingenieria                       | router `api/routers/ciclos.py` |
+| `ciclos:edit`        | ingenieria                       | `PUT`/`POST`/`DELETE`/sync-csv en ciclos |
+| `centro_mando:read`  | produccion, ingenieria, gerencia | router `api/routers/centro_mando.py` (prefix `/api/dashboard`) |
+| `luk4:read`          | produccion, ingenieria, gerencia | router `api/routers/luk4.py` |
+| `capacidad:read`     | comercial, ingenieria, produccion, gerencia | router `api/routers/capacidad.py` |
+| `historial:read`     | ingenieria, produccion, comercial, gerencia, rrhh | router `api/routers/historial.py` |
+| `informes:read`      | ingenieria, produccion, comercial, gerencia, rrhh | router `api/routers/informes.py` |
+| `informes:delete`    | ingenieria                       | `DELETE /api/informes/{date_str}` (estricto) |
+| `datos:read`         | ingenieria, produccion           | router `api/routers/datos.py` |
+| `operarios:read`     | rrhh                             | router `api/routers/operarios.py` |
+| `operarios:export`   | rrhh                             | reservado — sin endpoint asignado en Mark-III |
+| `bbdd:read`          | ingenieria                       | router `api/routers/bbdd.py` (explorador SQL completo) |
+| `conexion:read`      | ingenieria                       | router `api/routers/conexion.py` |
+| `conexion:config`    | **[]** (solo propietario)        | `PUT /api/conexion/config` (estricto, toca credenciales) |
+| `email:send`         | rrhh, ingenieria, gerencia       | router `api/routers/email.py` |
+| `plantillas:read`    | ingenieria                       | router `api/routers/plantillas.py` |
+| `plantillas:edit`    | ingenieria                       | `PUT`/`POST`/`DELETE` en plantillas |
+| `ajustes:manage`     | **[]** (solo propietario)        | reservado — Plan 02-04 lo cableará a `/ajustes/usuarios` |
+| `auditoria:read`     | **[]** (solo propietario)        | reservado — Plan 02-04 lo cableará a `/ajustes/auditoria` |
+| `usuarios:manage`    | **[]** (solo propietario)        | reservado — Plan 02-04 lo cableará a CRUD de users |
+
+**Total:** 24 permisos. **Routers retrofit:** 14 (+ `api/routers/health.py` whitelisted en `AuthMiddleware`). **Ocurrencias de `require_permission` en `api/routers/`:** 34 (verificado post-plan 02-03).
+
+### Anti-patrones documentados
+
+- **NO** añadir `propietario` como valor en ninguna lista del mapa. El bypass es por rol, antes del lookup. Fuente: research §Anti-Patterns.
+- **NO** consultar `nexo.permissions` en runtime. Esa tabla es catálogo seed para Phase 5; el dict en código manda. Fuente: research §Stack Decision 2.
+- **NO** añadir decorator `@require_permission(...)` a nivel de función — usar `dependencies=[Depends(require_permission("..."))]` en el `APIRouter()` o en el endpoint. La factory devuelve un callable async que FastAPI inyecta como dependency.
+
+### Pendientes declarados
+
+- **Filtrado de sidebar por rol** (UI): la navegación lateral sigue mostrando todos los items para todos los roles; los que no tengan permiso verán errores/vacío en los paneles. Resolución en Phase 5 UIROL-02.
+- **Homepage por rol**: un `usuario` solo-rrhh entra en `/` y ve LUK4 vacío. Resolución en Phase 5 UIROL-02.
+- **Handler global de 403 en JS**: las fetches del front no muestran toast específico al recibir 403 — falla silenciosamente o muestra "Error de red". Phase 5 UIROL-02 lo resuelve como parte del rediseño por rol.
+- **Endpoint de export en `operarios`**: el permiso `operarios:export` está declarado pero no aplicado (no hay endpoint de export todavía). Se cableará cuando el endpoint aterrice.
+- **Historial mutaciones** (`DELETE /api/historial/{id}`, `POST /api/historial/{id}/regenerar`): quedan bajo `historial:read` por falta de `historial:edit`/`:delete` en el mapa. Iteración futura si se quiere tightening.
+- **Tests `@pytest.mark.integration` non-blocking en CI**: el job `test` de GitHub Actions tiene `continue-on-error: true` hasta Phase 7.
+
+*Apéndice generado 2026-04-19 como parte de `/gsd-execute-phase 2 --interactive` → Plan 02-03.*
