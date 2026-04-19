@@ -1,17 +1,23 @@
-"""CRUD de usuarios — solo accesible al propietario.
+"""CRUD de usuarios - solo accesible al propietario.
 
-Permission: ``usuarios:manage`` (lista vacia en PERMISSION_MAP → bypass
+Plan 03-03 Task 4.6: eliminado ``get_nexo_db`` local duplicado, ahora
+usa ``DbNexo`` de ``api.deps``. Los queries de lectura se delegan a
+``UserRepo`` / ``RoleRepo`` (``nexo.data.repositories.nexo``). Las
+mutations (add/edit/delete) siguen con ORM inline porque es clarity
+local - D-02 acepta ORM intra-services cuando es mas legible.
+
+Permission: ``usuarios:manage`` (lista vacia en PERMISSION_MAP -> bypass
 del propietario, todos los demas roles reciben 403).
 
 Endpoints:
-- ``GET  /ajustes/usuarios``              → lista
-- ``POST /ajustes/usuarios/crear``        → crear nuevo usuario
-- ``POST /ajustes/usuarios/{id}/editar``  → cambia rol, departamentos, active
-- ``POST /ajustes/usuarios/{id}/reset-password`` → rehashes password +
+- ``GET  /ajustes/usuarios``              -> lista
+- ``POST /ajustes/usuarios/crear``        -> crear nuevo usuario
+- ``POST /ajustes/usuarios/{id}/editar``  -> cambia rol, departamentos, active
+- ``POST /ajustes/usuarios/{id}/reset-password`` -> rehashes password +
   invalida sesiones
-- ``POST /ajustes/usuarios/{id}/desactivar`` → active=False + revoca sesiones
+- ``POST /ajustes/usuarios/{id}/desactivar`` -> active=False + revoca sesiones
 
-Todo via forms HTML + RedirectResponse 303. Sin JSON en este router —
+Todo via forms HTML + RedirectResponse 303. Sin JSON en este router -
 la UI es pura Jinja2/Alpine.
 """
 from __future__ import annotations
@@ -24,9 +30,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.deps import render
-from nexo.db.engine import SessionLocalNexo
-from nexo.db.models import NexoDepartment, NexoUser
+from api.deps import DbNexo, render
+from nexo.data.models_nexo import NexoDepartment, NexoUser
+from nexo.data.repositories.nexo import RoleRepo
 from nexo.services.auth import (
     hash_password,
     require_permission,
@@ -45,14 +51,6 @@ router = APIRouter(
 MIN_PASSWORD_LEN = 12
 VALID_ROLES = frozenset({"propietario", "directivo", "usuario"})
 VALID_DEPT_CODES = frozenset({"rrhh", "comercial", "ingenieria", "produccion", "gerencia"})
-
-
-def get_nexo_db():
-    db = SessionLocalNexo()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def _serialize_user(u: NexoUser) -> dict:
@@ -77,9 +75,7 @@ def _render_list(
     edit_id: Optional[int] = None,
 ) -> HTMLResponse:
     users = db.execute(select(NexoUser).order_by(NexoUser.email)).scalars().all()
-    depts = db.execute(
-        select(NexoDepartment).order_by(NexoDepartment.code)
-    ).scalars().all()
+    depts = RoleRepo(db).list_departments()
     return render(
         "ajustes_usuarios.html",
         request,
@@ -99,7 +95,7 @@ def _render_list(
 @router.get("", response_class=HTMLResponse)
 async def listar(
     request: Request,
-    db: Session = Depends(get_nexo_db),
+    db: DbNexo,
     error: Optional[str] = None,
     ok: Optional[str] = None,
 ):
@@ -109,19 +105,18 @@ async def listar(
 @router.post("/crear")
 async def crear(
     request: Request,
+    db: DbNexo,
     email: str = Form(...),
     password: str = Form(...),
     password_repetir: str = Form(...),
     role: str = Form(...),
     departments: list[str] = Form(default=[]),
-    db: Session = Depends(get_nexo_db),
 ):
     email_norm = email.strip().lower()
 
     # Validaciones
     if role not in VALID_ROLES:
-        return _render_list(request, db, error=f"Rol no valido: {role}", open_create=True, status_code=400) \
-            if False else _render_list(request, db, error=f"Rol no valido: {role}", open_create=True)
+        return _render_list(request, db, error=f"Rol no valido: {role}", open_create=True)
     if password != password_repetir:
         return _render_list(request, db, error="Las contrasenas no coinciden.", open_create=True)
     if len(password) < MIN_PASSWORD_LEN:
@@ -164,10 +159,10 @@ async def crear(
 async def editar(
     user_id: int,
     request: Request,
+    db: DbNexo,
     role: str = Form(...),
     departments: list[str] = Form(default=[]),
     active: str = Form(default="off"),
-    db: Session = Depends(get_nexo_db),
 ):
     user = db.get(NexoUser, user_id)
     if user is None:
@@ -210,7 +205,7 @@ async def editar(
     user.active = new_active
     db.commit()
 
-    # Si rebaja de rol o desactiva → revocar sesiones activas del target
+    # Si rebaja de rol o desactiva -> revocar sesiones activas del target
     # para que la proxima request use los nuevos privilegios.
     if role_changed or deactivated_now:
         revoke_all_sessions(db, user.id)
@@ -229,8 +224,8 @@ async def editar(
 async def reset_password(
     user_id: int,
     request: Request,
+    db: DbNexo,
     password_nueva: str = Form(...),
-    db: Session = Depends(get_nexo_db),
 ):
     user = db.get(NexoUser, user_id)
     if user is None:
@@ -257,7 +252,7 @@ async def reset_password(
 async def desactivar(
     user_id: int,
     request: Request,
-    db: Session = Depends(get_nexo_db),
+    db: DbNexo,
 ):
     user = db.get(NexoUser, user_id)
     if user is None:
