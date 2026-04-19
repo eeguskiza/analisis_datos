@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from api.database import engine
+from nexo.data.engines import engine_app as engine
 from api.services.turnos import (
     get_jornada_start,
     get_turno_actual,
