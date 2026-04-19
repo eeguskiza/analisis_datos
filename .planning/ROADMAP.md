@@ -67,7 +67,12 @@ Plans:
   4. `schema_guard` en lifespan: si falta `nexo.users` (o cualquier tabla crítica), el arranque falla con mensaje claro
   5. Pipeline OEE sigue generando PDFs idénticos a Mark-II tras el refactor (sin regresión en el núcleo de cálculo)
   6. Tests de repositorios pasan en CI contra un Postgres dedicado
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Foundation: engines + loader + schema_guard + DTO skeleton + fixtures (DATA-01, DATA-05, DATA-06, DATA-08, DATA-10, DATA-11)
+- [ ] 03-02-PLAN.md — Capa MES: MesRepository + 5 routers refactor + PDF regression gate + kill 3-part names (DATA-02, DATA-05, DATA-07, DATA-09)
+- [ ] 03-03-PLAN.md — Capa APP + NEXO: repos + routers APP + auth.py/auditoria.py/usuarios.py refactor (DATA-03, DATA-04, DATA-07, DATA-08, DATA-10)
 
 ### Phase 4: Consultas pesadas
 **Goal**: Preflight estima coste antes de ejecutar pipeline/queries caras; postflight mide y alerta; aprobación asíncrona para rojos.
@@ -127,7 +132,7 @@ Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Naming + Higiene + CI | 1/1 | Complete | 2026-04-18 |
 | 2. Identidad | 0/? | Not started | - |
-| 3. Capa de datos | 0/? | Not started | - |
+| 3. Capa de datos | 0/3 | Not started | - |
 | 4. Consultas pesadas | 0/? | Not started | - |
 | 5. UI por roles | 0/? | Not started | - |
 | 6. Despliegue LAN HTTPS | 0/? | Not started | - |

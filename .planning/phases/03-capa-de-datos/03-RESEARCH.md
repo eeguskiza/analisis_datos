@@ -1273,22 +1273,22 @@ Todos los ejemplos ya en §Architecture Patterns y §Implementation Patterns Lib
 
 **If this table is non-empty:** Sí lo está (7 assumptions). El plan debe validar A1 (smoke pre-refactor) y A6 (smoke schema_guard con rol nexo_app) como tareas explícitas, no dejarlos implícitos.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Cómo gestionar `consulta_readonly` cuando el explorer `/bbdd` cambia de `database` dinámicamente.**
+1. **Cómo gestionar `consulta_readonly` cuando el explorer `/bbdd` cambia de `database` dinámicamente.** — RESOLVED.
    - What we know: Hoy `bbdd.py` construye conn strings on-the-fly para cada DB distinta (master, dbizaro, ecs_mobility).
    - What's unclear: `MesRepository.consulta_readonly(sql, database)` — ¿un engine por DB? ¿Un engine_mes fijo y ignorar el param database?
-   - Recommendation: en Mark-III, `consulta_readonly` usa `engine_mes` (fijo a dbizaro); las operaciones de metadata del explorer (`list_databases`, `preview` a otras DBs) quedan inline en `bbdd.py` con sus engines temporales (D-05 ya lo deja así). Documentar en el docstring que `consulta_readonly` solo cubre dbizaro.
+   - **RESOLVED:** en Mark-III, `consulta_readonly` usa `engine_mes` (fijo a dbizaro); las operaciones de metadata del explorer (`list_databases`, `preview` a otras DBs) quedan inline en `bbdd.py` con sus engines temporales (D-05 ya lo deja así). Documentar en el docstring que `consulta_readonly` solo cubre dbizaro.
 
-2. **¿El wrapper `MesRepository` debe exponer la config MES para tests o esconderla?**
+2. **¿El wrapper `MesRepository` debe exponer la config MES para tests o esconderla?** — RESOLVED.
    - What we know: `MesRepository.extraer_datos_produccion` lee `_get_mes_config()` cada vez — ineficiente pero aislado.
    - What's unclear: ¿inyectar `config` como atributo del repo para facilitar mocking?
-   - Recommendation: en Mark-III mantener `_get_mes_config()` como call interno; los tests mockean con `@patch("nexo.data.repositories.mes._legacy_extraer_datos")` (Patrón 2). Si en Mark-IV se rediseña la config, inyectarla entonces.
+   - **RESOLVED:** en Mark-III mantener `_get_mes_config()` como call interno; los tests mockean con `@patch("nexo.data.repositories.mes._legacy_extraer_datos")` (Patrón 2). Si en Mark-IV se rediseña la config, inyectarla entonces.
 
-3. **¿El schema_guard debe validar también `ecs_mobility.cfg.recursos` y `ecs_mobility.oee.*`?**
+3. **¿El schema_guard debe validar también `ecs_mobility.cfg.recursos` y `ecs_mobility.oee.*`?** — RESOLVED.
    - What we know: D-07 dice "solo schema nexo". Arquitectura dice `cfg.*` está fuera de control Nexo (Power BI los usa).
    - What's unclear: si alguien borra `cfg.recursos` accidentalmente, la app arranca pero falla la primera request a `/api/recursos`.
-   - Recommendation: mantener D-07 (solo nexo). Si en runtime falla una query a `cfg.*`, el error es claro (SQLAlchemy `NoSuchTableError`). No worth adding validation overhead ni alcance cruzado en Mark-III.
+   - **RESOLVED:** mantener D-07 (solo nexo). Si en runtime falla una query a `cfg.*`, el error es claro (SQLAlchemy `NoSuchTableError`). No worth adding validation overhead ni alcance cruzado en Mark-III.
 
 ## Environment Availability
 

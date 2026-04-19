@@ -39,6 +39,7 @@
 - **IN-clauses dinámicos**: `text(...).bindparams(bindparam("codes", expanding=True))`. Sin Jinja.
 - **Branching**: si una query necesita dos formas, dos archivos. `.sql` puros.
 - **Comentarios preservados**: el filtro T3 que cruza medianoche (en la query MES actual) va como header `-- NOTA T3: ...` del archivo correspondiente.
+- **Scope DATA-05** (clarificación): los archivos `.sql` versionados aplican a queries con `text()` (queries MES y queries APP/NEXO complejas o reutilizables). Las queries ORM puras vía `session.query(Model).filter(...)` NO requieren archivo `.sql` — el modelo declarativo SQLAlchemy ES la representación canónica. Repos APP/NEXO que solo hacen ORM (`RecursoRepo`, `CicloRepo`, `UserRepo`, etc.) cumplen DATA-05 sin generar archivos `.sql`. La intención del requisito es eliminar SQL hardcoded en strings de Python, no forzar `.sql` redundantes para ORM.
 
 ### D-02 — Repository shape (LOCKED)
 - **Sesión inyectada, repos sin transacción**. Cada repo recibe `Session` (para `engine_app`/`engine_nexo`) o `Engine` (para `engine_mes` read-only) en `__init__`.
