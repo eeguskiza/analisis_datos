@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Consultar datos reales de producción (MES IZARO) y generar informes OEE fiables por máquina/turno/sección sin bloquear al operario y sin filtrar información entre departamentos.
-**Current focus:** Phase 2 — Identidad: auth + RBAC + audit (Sprint 1 de Mark-III)
+**Current focus:** Phase 3 — Capa de datos (Sprint 2 de Mark-III) — CONTEXT.md gathered, ready for /gsd-plan-phase 3.
 
 ## Current Position
 
-Phase: 2 of 7 — Identidad (COMPLETA pendiente verify-work manual)
-Plan: (Phase 2) 4/4 complete (02-01 ✓, 02-02 ✓, 02-03 ✓, 02-04 ✓)
-Status: Plan 02-04 cerrado el 2026-04-19 (AuditMiddleware + rol nexo_app para gate IDENT-06 Opción A + CRUD usuarios + UI auditoría filtrable con CSV + hub /ajustes + sidebar condicional). Gate duro 6/6 automático. Los 6 success criteria de Phase 2 cumplidos. Pendiente: test manual end-to-end en navegador (propietario + usuario rrhh) como cierre final de fase.
-Last activity: 2026-04-19 — Plan 02-04 ejecutado (5 commits atómicos). Hitos A+B+C confirmados. `02-04-SUMMARY.md` escrito.
+Phase: 3 of 7 — Capa de datos (CONTEXT.md gathered, PLAN.md pendiente)
+Plan: (Phase 2) 4/4 complete ✓; (Phase 3) 0/3 previstos (foundation + capa MES + capa APP+NEXO)
+Status: 2026-04-19 — /gsd-discuss-phase 3 ejecutado. 4 gray areas aceptadas en bloque por el operador ("elige tu"): SQL loader + `.sql` layout (text+`:named`, un `.sql` por método, `bindparam` expanding), repository shape (sesión inyectada, DTOs `*Row` frozen en `nexo/data/dto/`, repos sin transacción), plan breakdown (03-01 foundation → 03-02 MES ∥ 03-03 APP+NEXO), pipeline+bbdd (wrapper delgado sobre `OEE/db/connector.py` + whitelist queda en `bbdd.py`). 11 REQ-IDs mapeados a los 3 plans.
+Last activity: 2026-04-19 — commit `5111cfe` con `03-CONTEXT.md` + `03-DISCUSSION-LOG.md`.
 
-Progress: [█████░░░░░] 29% (1/7 phases + 4/4 plans de Phase 2 → cierre inminente)
+Progress: [█████░░░░░] 29% (2/7 phases completas + CONTEXT.md de Phase 3 listo)
 
 ## Plans de Phase 2 (estado)
 
@@ -82,6 +82,6 @@ Items explícitamente diferidos o pendientes de decisión posterior:
 
 ## Session Continuity
 
-Last session: 2026-04-19 (maratón — Plans 02-02, 02-03 y 02-04 en misma sesión)
-Stopped at: Phase 2 cerrada tras Plan 02-04. 5 commits atómicos en 02-04 (de44777, 669ba32, 0be542f, d2abc1e + docs). Gate IDENT-06 resuelto con Opción A (rol nexo_app dedicado con GRANTs limitados). Suite tests/auth/: 11 passed, 1 skipped. Los 6 success criteria de Phase 2 cumplidos.
-Resume file: None. Siguiente: `/gsd-verify-work 2` para validación UAT manual o avanzar a Phase 3 (capa de datos).
+Last session: 2026-04-19 — `/gsd-discuss-phase 3` (CONTEXT.md para capa de datos).
+Stopped at: Phase 3 CONTEXT gathered. 4 gray areas aceptadas en bloque. 11 REQ-IDs DATA-01..DATA-11 mapeados a plans 03-01 (foundation), 03-02 (MES), 03-03 (APP+NEXO). Commit: `5111cfe`.
+Resume file: `.planning/phases/03-capa-de-datos/03-CONTEXT.md`. Siguiente: `/gsd-plan-phase 3`.
