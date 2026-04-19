@@ -127,10 +127,11 @@ async def favicon():
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 
-from api.routers import pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios, centro_mando, bbdd, datos, luk4, capacidad  # noqa: E402
+from api.routers import auth as auth_router, pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios, centro_mando, bbdd, datos, luk4, capacidad  # noqa: E402
 
 app.include_router(health.router, prefix="/api")
 app.include_router(centro_mando.router, prefix="/api")
+app.include_router(auth_router.router)  # /login, /logout, /cambiar-password
 app.include_router(pages.router)
 app.include_router(conexion.router, prefix="/api")
 app.include_router(recursos.router, prefix="/api")
