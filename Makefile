@@ -52,8 +52,13 @@ db-shell: ## Abre una shell psql en el Postgres de Nexo
 
 # ── Nexo: schema + bootstrap (Phase 2 / Plan 02-01) ─────────────────────────
 
-nexo-init: ## Crea schema nexo + 8 tablas + seed (idempotente)
+nexo-init: ## Crea schema nexo + 11 tablas + seeds (idempotente, requiere 'make up')
 	docker compose exec web python scripts/init_nexo_schema.py
+
+nexo-init-dev: ## Version 'make dev': corre init_nexo_schema.py desde el host contra localhost:5433
+	@docker compose up -d db >/dev/null 2>&1 || { echo "  ERROR: docker compose db no disponible"; exit 1; }
+	@until docker compose exec -T db pg_isready -U $${NEXO_PG_USER:-oee} >/dev/null 2>&1; do sleep 1; done
+	NEXO_PG_HOST=localhost NEXO_PG_PORT=$${NEXO_PG_HOST_PORT:-5433} python3 scripts/init_nexo_schema.py
 
 nexo-owner: ## Crea el primer usuario 'propietario' (interactivo)
 	docker compose exec -it web python scripts/create_propietario.py

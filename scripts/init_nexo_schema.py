@@ -42,11 +42,28 @@ from pathlib import Path
 # Permite ejecutar el script directo sin pip install -e .
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sqlalchemy import text  # noqa: E402
+from sqlalchemy import create_engine, text  # noqa: E402
 
 from api.config import settings  # noqa: E402
-from nexo.db.engine import engine_nexo  # noqa: E402
 from nexo.db.models import NexoBase  # noqa: E402
+
+
+# Engine dedicado al bootstrap: usa ``pg_user`` / ``pg_password`` (owner,
+# normalmente ``oee``), NO ``effective_pg_user`` (que preferiria
+# ``NEXO_PG_APP_USER=nexo_app`` si esta definido — rol con GRANTs
+# limitados que NO puede CREATE SCHEMA ni CREATE TABLE).
+#
+# Landmine descubierto en Plan 04-01: antes el script importaba
+# ``engine_nexo`` del modulo runtime, que en entornos con
+# ``nexo_app`` configurado fallaba con ``permission denied for database``
+# al intentar CREATE SCHEMA. El docstring ya decia "el rol Postgres que
+# corre este script es owner del schema/tabla" pero la implementacion
+# no lo enforzaba.
+_dsn_owner = (
+    f"postgresql+psycopg2://{settings.pg_user}:{settings.pg_password}"
+    f"@{settings.pg_host}:{settings.pg_port}/{settings.pg_db}"
+)
+engine_nexo = create_engine(_dsn_owner, future=True)
 
 
 NEXO_SCHEMA = "nexo"
