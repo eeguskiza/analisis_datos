@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 05-01 cerrado (can() helper + Jinja global)
-last_updated: "2026-04-20T18:08:59.573Z"
+stopped_at: Plan 05-02 cerrado (sidebar can()-based)
+last_updated: "2026-04-20T18:16:02.665Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 17
-  completed_plans: 13
-  percent: 76
+  completed_plans: 14
+  percent: 82
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 05 (ui-por-roles) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-20
 
-Progress: [████████░░] 76%
+Progress: [████████░░] 82%
 
 ## Plans de Phase 2 (estado)
 
@@ -64,6 +64,7 @@ Progress: [████████░░] 76%
 
 *Updated after each plan completion*
 | Phase 05 P01 | 30min | 4 tasks | 4 files |
+| Phase 05 P02 | 25min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,7 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - D-20: factor_auto_refresh 1er Monday del mes 03:10 UTC (filter `now.day <= 7`) si factor_updated_at > NEXO_AUTO_REFRESH_STALE_DAYS=60 días. Reusa compute_factor (DRY con recalibrate manual). Audit log con path='__auto_refresh__'.
 - Rule 1 fix: `thresholds_cache.notify_changed` usaba `engine_nexo.raw_connection()` + `set_isolation_level(AUTOCOMMIT)` que devolvía la conexión al pool SQLAlchemy con nivel alterado → siguientes tests con `yield_per=500` fallaban con "can't use a named cursor outside of transactions". Fix: psycopg2.connect() dedicado, descartado tras NOTIFY. No toca el pool.
 - Plan 05-01: can(user, permission) -> bool extraído como fuente de verdad pura en nexo.services.auth; require_permission refactorizado como trampoline; registrado como Jinja global en api/deps.py sin tocar render() ni current_user (import-time registration, D-03/D-09)
+- Plan 05-02: base.html nav_items migrated to permission-based filtering via can() — visible_to strings removed; Solicitudes badge gate refactored to can(current_user, 'aprobaciones:manage'); 5 integration tests cover propietario/ingenieria-directivo/produccion-usuario/rrhh-usuario/anon with W-03 anchored-regex assertions
 
 ### Pending Todos
 
@@ -143,7 +145,7 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-20T18:08:59.566Z
-Stopped at: Plan 05-01 cerrado (can() helper + Jinja global)
+Last session: 2026-04-20T18:15:57.133Z
+Stopped at: Plan 05-02 cerrado (sidebar can()-based)
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: None

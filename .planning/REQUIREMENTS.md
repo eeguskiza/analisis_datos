@@ -73,7 +73,8 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 
 - [x] **UIROL-01
 **: `request.state.user` inyectado en templates vía `Jinja2Templates` globals o dependency en `pages.py`
-- [ ] **UIROL-02**: `base.html` filtra `nav_items` según permisos; propietario ve todo; directivo ve módulos de sus departamentos; usuario ve subset reducido
+- [x] **UIROL-02
+**: `base.html` filtra `nav_items` según permisos; propietario ve todo; directivo ve módulos de sus departamentos; usuario ve subset reducido
 - [ ] **UIROL-03**: `templates/ajustes.html` dividido en `ajustes_conexion.html`, `ajustes_smtp.html`, `ajustes_usuarios.html`, `ajustes_auditoria.html`, `ajustes_limites.html`, `ajustes_solicitudes.html`, + hub `ajustes.html`
 - [ ] **UIROL-04**: `static/js/app.js` oculta botones sensibles ("Ejecutar pipeline", "Borrar ejecución", "Sincronizar recursos") según permiso del usuario cargado en contexto
 - [ ] **UIROL-05**: Verificación manual E2E: login como propietario/directivo (un departamento)/usuario (un departamento), capturar sidebar y páginas accesibles de cada rol
