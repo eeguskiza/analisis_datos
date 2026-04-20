@@ -107,7 +107,7 @@ Plans:
 Plans:
 - [x] 05-01: Wave 1 — extract `can()` helper + trampoline `require_permission` + register `can` as Jinja global ✓ 2026-04-20
 - [x] 05-02: Wave 2 — sidebar/menu filtering por permiso (UIROL-02) ✓ 2026-04-20
-- [ ] 05-03: Wave 3 — ocultación de 11 botones sensibles server-side (UIROL-04)
+- [x] 05-03: Wave 3 — forbidden UX + flash pipeline (FlashMiddleware + 403 redirect+toast, JSON contract estable) (UIROL-02) ✓ 2026-04-20
 - [ ] 05-04: Wave 4 — split de `ajustes.html` en 6 sub-páginas + hub (UIROL-03)
 - [ ] 05-05: Wave 5 — verificación manual E2E con 3 roles (UIROL-05)
 
