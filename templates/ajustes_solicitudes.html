@@ -37,7 +37,7 @@
         {% for s in pending %}
           <tr class="border-t border-surface-100">
             <td class="px-3 py-2 font-mono text-gray-500">#{{ s.id }}</td>
-            <td class="px-3 py-2">user#{{ s.user_id }}</td>
+            <td class="px-3 py-2">{{ users_map.get(s.user_id) or 'user#%d' % s.user_id }}</td>
             <td class="px-3 py-2 font-mono">{{ s.endpoint }}</td>
             <td class="px-3 py-2 font-mono">{{ s.estimated_ms }}</td>
             <td class="px-3 py-2 text-gray-500">{{ s.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
@@ -88,7 +88,7 @@
         {% for s in historico %}
           <tr class="border-t border-surface-100">
             <td class="px-3 py-2 font-mono text-gray-500">#{{ s.id }}</td>
-            <td class="px-3 py-2">user#{{ s.user_id }}</td>
+            <td class="px-3 py-2">{{ users_map.get(s.user_id) or 'user#%d' % s.user_id }}</td>
             <td class="px-3 py-2 font-mono">{{ s.endpoint }}</td>
             <td class="px-3 py-2">
               {% set badge_cls = {

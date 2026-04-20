@@ -43,7 +43,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field, field_validator
 
 from api.deps import DbNexo, render
-from nexo.data.repositories.nexo import ApprovalRepo, AuditRepo
+from nexo.data.repositories.nexo import ApprovalRepo, AuditRepo, UserRepo
 from nexo.services import approvals as svc
 from nexo.services.auth import require_permission
 from nexo.services.thresholds_cache import ALLOWED_ENDPOINTS
@@ -323,6 +323,12 @@ def page_solicitudes(
     pending = repo.list_pending()
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     historico = repo.list_recent_non_pending(cutoff)
+
+    # H-03 fix: precargar email por user_id para que la tabla muestre el
+    # actor real en vez del opaco "user#N". Mismo patrón que
+    # /ajustes/auditoria (que usa outerjoin en AuditRepo.list_filtered).
+    users_map = {u.id: u.email for u in UserRepo(db).list_all()}
+
     return render(
         "ajustes_solicitudes.html",
         request,
@@ -330,6 +336,7 @@ def page_solicitudes(
             "page": "ajustes",
             "pending": pending,
             "historico": historico,
+            "users_map": users_map,
             "ok": ok,
             "error": error,
         },
