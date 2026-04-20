@@ -422,3 +422,148 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 300);
   }, 2500);
 }
+
+
+// ── Preflight modal (Phase 4 / Plan 04-02) ──────────────────────────────────
+// Humanizes milliseconds into operator-friendly strings.
+//
+// Examples:
+//   humanize_ms(500)    -> "~500ms"
+//   humanize_ms(12000)  -> "~12s"
+//   humanize_ms(125000) -> "~2 min 5s"
+//   humanize_ms(4000000) -> "~1h 6 min"
+function humanize_ms(ms) {
+  if (ms == null || isNaN(ms)) return '~?';
+  if (ms < 1000) return `~${Math.round(ms)}ms`;
+  if (ms < 60000) return `~${Math.round(ms / 1000)}s`;
+  if (ms < 3600000) {
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.round((ms % 60000) / 1000);
+    return `~${mins} min ${secs}s`;
+  }
+  const hours = Math.floor(ms / 3600000);
+  const mins = Math.floor((ms % 3600000) / 60000);
+  return `~${hours}h ${mins} min`;
+}
+
+
+// Alpine component factory — register on document ready so Alpine.data is available.
+// Register preflightModal globally so any page can `<div x-data="preflightModal">`.
+//
+// Flow:
+//   1. User clicks "Ejecutar" button; page calls attempt(endpoint, params, executeFn).
+//   2. attempt POSTs /api/<endpoint>/preflight to obtain Estimation.
+//   3a. Green: executes immediately (executeFn(false, null)).
+//   3b. Amber/Red: stores state, opens corresponding modal.
+//   4. Amber [Continuar] calls confirmRun → executeFn(true, null) (force=true).
+//   5. Red [Solicitar aprobacion] POSTs /api/approvals → toast + modal close.
+//
+// URL re-dispatch (D-15 / PC-04-02): if URL has `?approval_id=<N>`, the first
+// attempt() auto-executes with force=true + approval_id if preflight returns red,
+// bypassing the modal. This is the happy path after user clicks "Ejecutar ahora"
+// from /mis-solicitudes.
+document.addEventListener('alpine:init', () => {
+  if (!window.Alpine) return;
+  Alpine.data('preflightModal', () => ({
+    modalLevel: null,        // null | 'amber' | 'red'
+    estimation: null,        // Estimation DTO from backend
+    currentParams: null,     // payload that triggered preflight
+    currentEndpoint: null,   // 'pipeline' | 'bbdd' | 'capacidad' | 'operarios'
+    currentExecuteFn: null,  // callback(force, approvalId) -> Promise
+    pendingApprovalId: null, // From URL ?approval_id=<N> (user re-dispatch)
+
+    init() {
+      const params = new URLSearchParams(window.location.search);
+      const aid = params.get('approval_id');
+      this.pendingApprovalId = aid ? parseInt(aid, 10) : null;
+    },
+
+    humanize(ms) {
+      return humanize_ms(ms);
+    },
+
+    async attempt(endpoint, params, executeFn) {
+      // Store for later use (modal callbacks + toast routing).
+      this.currentParams = params;
+      this.currentEndpoint = endpoint;
+      this.currentExecuteFn = executeFn;
+
+      let est;
+      try {
+        const res = await fetch(`/api/${endpoint}/preflight`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
+        });
+        if (!res.ok) {
+          // Fallback: preflight endpoint not implemented (e.g. bbdd/query
+          // keeps its gate in-route). Skip modal and execute directly — the
+          // route itself will return 428/403 if needed.
+          return await executeFn(false, null);
+        }
+        est = await res.json();
+      } catch (err) {
+        // Network error — fail open to execute (route will gate properly).
+        return await executeFn(false, null);
+      }
+
+      this.estimation = est;
+
+      // URL re-dispatch (user clicked "Ejecutar ahora" from /mis-solicitudes):
+      // if URL carries approval_id and preflight says red, auto-execute with
+      // force=true + that approval_id, skipping modal entirely.
+      if (this.pendingApprovalId && est.level === 'red') {
+        const aid = this.pendingApprovalId;
+        this.pendingApprovalId = null;
+        return await executeFn(true, aid);
+      }
+
+      if (est.level === 'green') {
+        return await executeFn(false, null);
+      }
+      // amber or red → open modal; user decides.
+      this.modalLevel = est.level;
+    },
+
+    async confirmRun() {
+      // AMBER path: close modal, execute with force=true.
+      this.modalLevel = null;
+      await this.currentExecuteFn(true, null);
+    },
+
+    async requestApproval() {
+      // RED path: POST /api/approvals (stub until Plan 04-03). Backend
+      // returns { approval_id, status }. Show toast with link to /mis-solicitudes.
+      try {
+        const res = await fetch('/api/approvals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: this.currentEndpoint,
+            params: this.currentParams,
+            estimated_ms: this.estimation ? this.estimation.estimated_ms : null,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const approvalId = data.approval_id != null ? data.approval_id : '?';
+          showToast(`Solicitud enviada. Ver en /mis-solicitudes (#${approvalId}).`, 'info');
+        } else {
+          // Until Plan 04-03 lands, /api/approvals may 404 or 501.
+          // Inform the user clearly instead of silently failing.
+          showToast('Aprobaciones aun no disponibles (Plan 04-03).', 'error');
+        }
+      } catch (err) {
+        showToast('Error enviando la solicitud.', 'error');
+      }
+      this.modalLevel = null;
+    },
+
+    cancel() {
+      this.modalLevel = null;
+      this.estimation = null;
+      this.currentParams = null;
+      this.currentExecuteFn = null;
+    },
+  }));
+});

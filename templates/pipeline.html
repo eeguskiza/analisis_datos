@@ -3,6 +3,7 @@
 {% block page_title %}OEE{% endblock %}
 
 {% block content %}
+<div x-data="preflightModal">
 <div x-data="pipelineWizard()" :class="step === 5 ? 'h-[calc(100vh-130px)]' : 'max-w-3xl mx-auto'">
 
   <!-- ── Step indicator ──────────────────────────────────────────────── -->
@@ -307,10 +308,73 @@ function pipelineWizard() {
         if (this.source === 'db') {
           payload.recursos = this.selectedResources;
         }
-        runPipeline(payload);
+
+        // Phase 4: preflight modal attempt. The Alpine `preflightModal` data
+        // component is the nearest ancestor on this page (wraps the whole
+        // pipelineWizard). Reach it via Alpine.$data on the outer element.
+        const modalEl = document.querySelector('[x-data="preflightModal"]');
+        const modalData = modalEl ? Alpine.$data(modalEl) : null;
+        const executeFn = (force, approvalId) => {
+          const finalPayload = { ...payload, force: !!force };
+          if (approvalId != null) finalPayload.approval_id = approvalId;
+          runPipeline(finalPayload);
+        };
+        if (modalData && typeof modalData.attempt === 'function') {
+          modalData.attempt('pipeline', payload, executeFn);
+        } else {
+          // Fallback: direct execute if the modal component is missing.
+          executeFn(false, null);
+        }
       });
     }
   };
 }
 </script>
+
+<!-- ── Phase 4: Preflight modals (AMBER / RED) ──────────────────────── -->
+<!-- AMBER modal: D-05 bloqueante + D-07 texto jerárquico 3 líneas. -->
+<div x-show="modalLevel === 'amber'" x-cloak x-transition.opacity
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6"
+       @click.outside="cancel()">
+    <h3 class="text-lg font-bold text-amber-700 mb-2">Esta operación puede tardar</h3>
+    <p class="text-2xl font-bold text-gray-800" x-text="humanize(estimation ? estimation.estimated_ms : 0)"></p>
+    <p class="text-sm text-gray-500 mt-1" x-text="estimation ? estimation.breakdown : ''"></p>
+    <p class="text-sm text-gray-500 mt-2">La UI seguirá respondiendo mientras la operación corre. Los demás módulos no se bloquearán.</p>
+    <div class="flex justify-end gap-2 pt-4">
+      <button type="button" @click="cancel()"
+              class="px-4 py-2 rounded-lg border border-surface-300 text-gray-700 hover:bg-surface-50 text-sm">
+        Cancelar
+      </button>
+      <button type="button" @click="confirmRun()"
+              class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium">
+        Continuar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- RED modal: D-06 bloqueante con [Solicitar aprobacion]+[Cancelar]. -->
+<div x-show="modalLevel === 'red'" x-cloak x-transition.opacity
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 border-t-4 border-red-600"
+       @click.outside="cancel()">
+    <h3 class="text-lg font-bold text-red-700 mb-2">Operación requiere aprobación</h3>
+    <p class="text-2xl font-bold text-gray-800" x-text="humanize(estimation ? estimation.estimated_ms : 0)"></p>
+    <p class="text-sm text-gray-500 mt-1" x-text="estimation ? estimation.reason : ''"></p>
+    <p class="text-sm text-gray-500 mt-2">Enviaremos una solicitud al propietario. Cuando apruebe, podrás ejecutar desde /mis-solicitudes.</p>
+    <div class="flex justify-end gap-2 pt-4">
+      <button type="button" @click="cancel()"
+              class="px-4 py-2 rounded-lg border border-surface-300 text-gray-700 hover:bg-surface-50 text-sm">
+        Cancelar
+      </button>
+      <button type="button" @click="requestApproval()"
+              class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium">
+        Solicitar aprobación
+      </button>
+    </div>
+  </div>
+</div>
+
+</div>
 {% endblock %}
