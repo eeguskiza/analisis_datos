@@ -49,6 +49,13 @@ Ver `docs/AUTH_MODEL.md` para detalle.
 - **Postflight** — medición **después de ejecutar** que graba `actual_ms` en `nexo.query_log` y alerta si excede `warn_ms × 1.5`. Sprint 3.
 - **query_log** — tabla `nexo.query_log` con una fila por ejecución medida (endpoint, user, params, estimated_ms, actual_ms, rows, status). Sprint 3.
 - **query_thresholds** — tabla `nexo.query_thresholds` con umbrales editables por endpoint (`warn_ms`, `block_ms`). Sprint 3.
+- **estimated_ms** — coste estimado (en ms) por el preflight antes de ejecutar. Se calcula con heurística `n_recursos × n_días × factor_ms` para pipeline, o `factor_ms × n_días` para capacidad/operarios. Se persiste en `nexo.query_log.estimated_ms`.
+- **actual_ms** — coste real (en ms) medido por el middleware `query_timing` al terminar la request. Se persiste en `nexo.query_log.actual_ms`. Phase 4 / Plan 04-02.
+- **slow_query** — ejecución donde `actual_ms > warn_ms × 1.5`. Se marca con `status='slow'` en `query_log` y dispara `log.warning` (D-17). Propietario las ve filtrando en `/ajustes/rendimiento`.
+- **divergence_pct** — `(avg_actual - avg_estimated) / avg_estimated × 100` por endpoint en una ventana temporal. >50% = factor mal calibrado (recalcular vía `/ajustes/limites`). 0 si `avg_estimated` es nulo.
+- **thresholds_cache** — cache in-memory de `nexo.query_thresholds` (módulo `nexo/services/thresholds_cache.py`). D-19: `LISTEN/NOTIFY` propaga edits en <1s cross-worker; safety-net refresca si `loaded_at > 5 min` si el listener cae. Phase 4 / Plans 04-01 + 04-04.
+- **factor_auto_refresh** — cron que el 1er Monday de cada mes (03:10 UTC) recalcula `factor_ms` por endpoint si `factor_updated_at > NEXO_AUTO_REFRESH_STALE_DAYS` (default 60d). Doble safety-net sobre el botón manual "Recalcular" (D-04 / D-20).
+- **query_log_cleanup** — job Monday 03:00 UTC que borra filas de `nexo.query_log` con `ts < now() - NEXO_QUERY_LOG_RETENTION_DAYS` (default 90d; 0 = forever). Graba audit_log con `path='__cleanup_query_log__'` (D-10).
 - **SSE** (Server-Sent Events) — mecanismo de streaming que usa `/api/pipeline/run` para empujar progreso al navegador mientras corre el pipeline.
 
 ## Infraestructura

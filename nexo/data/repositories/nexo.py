@@ -427,6 +427,51 @@ class QueryLogRepo:
                 "ip": log.ip,
             })
 
+    def timeseries(
+        self,
+        *,
+        endpoint: str,
+        date_from: datetime,
+        date_to: datetime,
+    ) -> tuple[list[dict], str]:
+        """Bucketiza ``nexo.query_log`` para la grafica de ``/ajustes/rendimiento`` (D-11).
+
+        Granularity automatica (Plan 04-04 / Pitfall 8):
+          - Rango <= 7 dias -> ``date_trunc('hour', ts)``.
+          - Rango > 7 dias  -> ``date_trunc('day', ts)``.
+
+        Devuelve ``(points, granularity)`` donde ``points`` es
+        ``[{ts, estimated_ms, actual_ms}, ...]`` ordenado ascendente
+        por bucket. ``granularity`` es ``'hour'`` o ``'day'``.
+
+        Los buckets sin filas se omiten (no zero-fill) — Chart.js
+        tolera gaps en el eje X y evita explotar la serie si el user
+        escogio un rango con poca actividad.
+        """
+        rango = date_to - date_from
+        granularity = "hour" if rango.total_seconds() <= 7 * 24 * 3600 else "day"
+        sql = text(
+            f"SELECT date_trunc('{granularity}', ts) AS bucket, "
+            "       AVG(estimated_ms)::integer AS avg_est, "
+            "       AVG(actual_ms)::integer AS avg_actual "
+            "FROM nexo.query_log "
+            "WHERE endpoint = :ep AND ts >= :df AND ts < :dt "
+            "GROUP BY bucket "
+            "ORDER BY bucket ASC"
+        )
+        rows = self._db.execute(
+            sql, {"ep": endpoint, "df": date_from, "dt": date_to},
+        ).mappings().all()
+        points = [
+            {
+                "ts": r["bucket"].isoformat() if r["bucket"] is not None else None,
+                "estimated_ms": r["avg_est"] or 0,
+                "actual_ms": r["avg_actual"] or 0,
+            }
+            for r in rows
+        ]
+        return points, granularity
+
     def summary(
         self,
         endpoint: str,

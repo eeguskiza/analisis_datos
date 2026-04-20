@@ -210,7 +210,7 @@ async def favicon():
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 
-from api.routers import auth as auth_router, auditoria as auditoria_router, pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios, centro_mando, bbdd, datos, luk4, capacidad, usuarios as usuarios_router, approvals as approvals_router, limites as limites_router  # noqa: E402
+from api.routers import auth as auth_router, auditoria as auditoria_router, pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios, centro_mando, bbdd, datos, luk4, capacidad, usuarios as usuarios_router, approvals as approvals_router, limites as limites_router, rendimiento as rendimiento_router  # noqa: E402
 
 app.include_router(health.router, prefix="/api")
 app.include_router(centro_mando.router, prefix="/api")
@@ -232,3 +232,4 @@ app.include_router(luk4.router, prefix="/api")
 app.include_router(capacidad.router, prefix="/api")
 app.include_router(approvals_router.router)  # Plan 04-03: /api/approvals/*, /ajustes/solicitudes, /mis-solicitudes
 app.include_router(limites_router.router)  # Plan 04-04: /ajustes/limites + /api/thresholds/*
+app.include_router(rendimiento_router.router)  # Plan 04-04: /ajustes/rendimiento + /api/rendimiento/*

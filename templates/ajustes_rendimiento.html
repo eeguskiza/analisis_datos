@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Rendimiento — {{ app_name }}{% endblock %}
+{% block page_title %}Ajustes · Rendimiento{% endblock %}
+
+{% block content %}
+
+{# ── Filtros ────────────────────────────────────────────────────── #}
+<form method="get" action="/ajustes/rendimiento"
+      class="bg-white rounded-xl shadow-sm border border-surface-200 p-4 mb-4">
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-sm">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Endpoint</label>
+      <select name="endpoint"
+              class="block w-full px-2.5 py-1.5 rounded-lg border border-surface-300 bg-white
+                     focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none">
+        <option value="">Todos</option>
+        {% for ep in endpoints %}
+          <option value="{{ ep }}" {% if filters.endpoint == ep %}selected{% endif %}>{{ ep }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Usuario</label>
+      <select name="user_id"
+              class="block w-full px-2.5 py-1.5 rounded-lg border border-surface-300 bg-white
+                     focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none">
+        <option value="">Todos</option>
+        {% for u in users %}
+          <option value="{{ u.id }}" {% if filters.user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+      <select name="status"
+              class="block w-full px-2.5 py-1.5 rounded-lg border border-surface-300 bg-white
+                     focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none">
+        <option value="">Todos</option>
+        {% for s in statuses %}
+          <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Rango</label>
+      <select name="rango"
+              class="block w-full px-2.5 py-1.5 rounded-lg border border-surface-300 bg-white
+                     focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none"
+              x-data x-ref="rango">
+        <option value="7d"     {% if filters.rango == '7d' %}selected{% endif %}>Últimos 7 días</option>
+        <option value="30d"    {% if filters.rango == '30d' %}selected{% endif %}>Últimos 30 días</option>
+        <option value="90d"    {% if filters.rango == '90d' %}selected{% endif %}>Últimos 90 días</option>
+        <option value="custom" {% if filters.rango == 'custom' %}selected{% endif %}>Personalizado</option>
+      </select>
+    </div>
+    <div class="flex items-end">
+      <button type="submit"
+              class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium w-full">
+        Filtrar
+      </button>
+    </div>
+  </div>
+  {% if filters.rango == 'custom' %}
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-sm mt-3">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Desde</label>
+      <input type="date" name="date_from" value="{{ filters.date_from }}"
+             class="block w-full px-2.5 py-1.5 rounded-lg border border-surface-300
+                    focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Hasta</label>
+      <input type="date" name="date_to" value="{{ filters.date_to }}"
+             class="block w-full px-2.5 py-1.5 rounded-lg border border-surface-300
+                    focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none">
+    </div>
+  </div>
+  {% endif %}
+</form>
+
+{# ── Tabla summary ──────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-surface-200 overflow-hidden mb-4">
+  <div class="px-4 py-3 border-b border-surface-200 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-brand-800">
+      Summary{% if filters.endpoint %} · <span class="font-mono">{{ filters.endpoint }}</span>{% endif %}
+    </h2>
+    <span class="text-xs text-gray-500">Rango: {{ filters.date_from }} → {{ filters.date_to }}</span>
+  </div>
+  <table class="w-full text-xs">
+    <thead class="bg-surface-100 text-gray-600 uppercase tracking-wide">
+      <tr>
+        <th class="text-left px-3 py-2 font-medium">Endpoint</th>
+        <th class="text-right px-3 py-2 font-medium">n_runs</th>
+        <th class="text-right px-3 py-2 font-medium">avg_estimated (ms)</th>
+        <th class="text-right px-3 py-2 font-medium">avg_actual (ms)</th>
+        <th class="text-right px-3 py-2 font-medium">divergencia %</th>
+        <th class="text-right px-3 py-2 font-medium">p95 actual (ms)</th>
+        <th class="text-right px-3 py-2 font-medium">n_slow</th>
+        <th class="text-right px-3 py-2 font-medium">warn / block</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in summaries %}
+      <tr class="border-t border-surface-200">
+        <td class="px-3 py-2 font-mono text-gray-800">{{ s.endpoint }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ s.n_runs }}</td>
+        <td class="px-3 py-2 text-right font-mono">
+          {% if s.avg_est is not none %}{{ s.avg_est|round(0) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-3 py-2 text-right font-mono">
+          {% if s.avg_actual is not none %}{{ s.avg_actual|round(0) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-3 py-2 text-right">
+          {% set div = s.divergence_pct %}
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-mono
+                 {% if div|abs < 20 %}bg-green-50 text-green-700
+                 {% elif div|abs < 50 %}bg-yellow-50 text-yellow-700
+                 {% else %}bg-red-50 text-red-700{% endif %}">
+            {{ '%+.1f'|format(div) }}%
+          </span>
+        </td>
+        <td class="px-3 py-2 text-right font-mono">
+          {% if s.p95 is not none %}{{ s.p95|round(0) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-3 py-2 text-right font-mono
+                   {% if s.n_slow > 0 %}text-red-600 font-semibold{% endif %}">
+          {{ s.n_slow }}
+        </td>
+        <td class="px-3 py-2 text-right text-gray-500 text-[11px] font-mono">
+          {{ s.warn_ms or '—' }} / {{ s.block_ms or '—' }}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="8" class="px-3 py-6 text-center text-gray-400 italic">
+          Sin datos para el rango seleccionado.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ── Gráfica Chart.js (D-12) ────────────────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-surface-200 p-4">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm font-semibold text-brand-800">
+      Timeseries · <span class="font-mono">{{ chart_endpoint }}</span>
+    </h2>
+    <span class="text-xs text-gray-500">Estimado (azul) vs Real (rojo)</span>
+  </div>
+
+  {# Fallback si Chart.js no cargó (D-12). Se oculta si window.Chart
+     existe; si no, muestra el mensaje y la tabla superior sigue accesible. #}
+  <div id="chartFallback" class="hidden text-sm text-yellow-800 p-3 bg-yellow-50 border border-yellow-200 rounded mb-2">
+    Chart.js no cargó (CDN caído); tabla superior sigue disponible.
+  </div>
+
+  <div class="chart-container" style="position: relative; height: 320px;">
+    <canvas id="timeseriesChart"></canvas>
+  </div>
+</div>
+
+<script>
+(function() {
+  const ENDPOINT = {{ chart_endpoint|tojson }};
+  const DATE_FROM = {{ chart_date_from_iso|tojson }};
+  const DATE_TO = {{ chart_date_to_iso|tojson }};
+
+  async function loadChart() {
+    // Fallback D-12: Chart.js puede no estar cargado (CDN bloqueado,
+    // offline, etc.). Mostramos aviso y salimos — la tabla superior
+    // sigue renderizada.
+    if (typeof Chart === 'undefined') {
+      const fb = document.getElementById('chartFallback');
+      if (fb) fb.classList.remove('hidden');
+      return;
+    }
+
+    try {
+      const url = `/api/rendimiento/timeseries?endpoint=${encodeURIComponent(ENDPOINT)}`
+                + `&date_from=${encodeURIComponent(DATE_FROM)}`
+                + `&date_to=${encodeURIComponent(DATE_TO)}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+
+      const canvas = document.getElementById('timeseriesChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      // Evitar doble instanciacion en re-render.
+      if (window.__perfChart) {
+        try { window.__perfChart.destroy(); } catch (_) {}
+        window.__perfChart = null;
+      }
+
+      const labels = data.points.map(p => p.ts);
+      const datasets = [
+        {
+          label: 'Estimado (ms)',
+          data: data.points.map(p => p.estimated_ms),
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          tension: 0.25,
+          fill: false,
+        },
+        {
+          label: 'Real (ms)',
+          data: data.points.map(p => p.actual_ms),
+          borderColor: '#dc2626',
+          backgroundColor: 'rgba(220,38,38,0.1)',
+          tension: 0.25,
+          fill: false,
+        },
+      ];
+
+      window.__perfChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: { mode: 'index', intersect: false },
+          },
+          interaction: { mode: 'nearest', intersect: false, axis: 'x' },
+          scales: {
+            x: {
+              type: 'category',
+              ticks: { autoSkip: true, maxTicksLimit: 12 },
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'ms' },
+            },
+          },
+        },
+      });
+    } catch (e) {
+      console.error('loadChart error', e);
+    }
+  }
+
+  // Chart.js se carga con defer -> puede no estar listo en DOMContentLoaded.
+  // load event garantiza que todos los scripts defer terminaron.
+  if (document.readyState === 'complete') {
+    loadChart();
+  } else {
+    window.addEventListener('load', loadChart);
+  }
+})();
+</script>
+
+{% endblock %}
