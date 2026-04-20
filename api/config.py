@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     host: str = Field("0.0.0.0", validation_alias=AliasChoices("NEXO_HOST", "OEE_HOST"))
     port: int = Field(8000, validation_alias=AliasChoices("NEXO_PORT", "OEE_PORT"))
     debug: bool = Field(False, validation_alias=AliasChoices("NEXO_DEBUG", "OEE_DEBUG"))
+    # SQL echo: desacoplado de debug. Con NEXO_DEBUG=true la app loguea rutas,
+    # templates y errores verbose, pero no floodea con SELECT/BEGIN/COMMIT.
+    # Para ver SQL en crudo: NEXO_LOG_SQL=true (solo dev, nunca en prod).
+    log_sql: bool = Field(False, validation_alias=AliasChoices("NEXO_LOG_SQL"))
 
     # ── SQL Server — APP (ecs_mobility) ──────────────────────────────────
     # Conjunto "APP" = BD propia de Nexo con tablas cfg/oee/luk4.

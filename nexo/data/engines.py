@@ -45,7 +45,7 @@ engine_nexo: Engine = create_engine(
     pool_timeout=10,
     pool_recycle=1800,
     pool_pre_ping=True,
-    echo=settings.debug,
+    echo=settings.log_sql,
 )
 
 SessionLocalNexo = sessionmaker(

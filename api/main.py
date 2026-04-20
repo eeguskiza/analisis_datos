@@ -21,12 +21,15 @@ from api.middleware.auth import AuthMiddleware
 from api.rate_limit import limiter
 from nexo.data import schema_guard
 from nexo.data.engines import engine_nexo
+from nexo.logging_config import configure_logging
 from nexo.middleware.query_timing import QueryTimingMiddleware
 from nexo.services import thresholds_cache
 from nexo.services.cleanup_scheduler import cleanup_loop
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("oee")
+# Configurar logging ANTES de cualquier getLogger para que los handlers
+# esten en su sitio cuando los modulos importados empiecen a emitir.
+configure_logging(level=logging.DEBUG if settings.debug else logging.INFO)
+logger = logging.getLogger("nexo.app")
 
 
 @asynccontextmanager
