@@ -39,6 +39,10 @@ CRITICAL_TABLES: tuple[str, ...] = (
     "sessions",
     "login_attempts",
     "audit_log",
+    # Phase 4 / Plan 04-01 — QUERY-01 + QUERY-02 foundation.
+    "query_log",
+    "query_thresholds",
+    "query_approvals",
 )
 
 

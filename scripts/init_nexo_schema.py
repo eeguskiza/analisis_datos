@@ -71,6 +71,20 @@ DEPARTMENTS_SEED: list[tuple[str, str]] = [
 # queda como referencia para la UI de Phase 5.
 # Tupla: (module, action, role_code, department_code or None)
 # department_code=None → propietario global (ignora departamento).
+# Phase 4 / Plan 04-01 — seed de umbrales iniciales (D-01, D-02, D-03, D-04).
+# Tupla: (endpoint, warn_ms, block_ms, factor_ms)
+#   - pipeline/run:  D-01 (2min/10min), D-04 factor 2000ms por recurso·dia.
+#   - bbdd/query:    D-02 (3s/30s),     factor baseline 1000ms para SQL libre.
+#   - capacidad:     D-03 (3s/30s),     factor 50ms por dia (rango >90d).
+#   - operarios:     D-03 (3s/30s),     factor 50ms por dia (rango >90d).
+QUERY_THRESHOLDS_SEED: list[tuple[str, int, int, float]] = [
+    ("pipeline/run", 120_000, 600_000, 2000.0),
+    ("bbdd/query",     3_000,  30_000, 1000.0),
+    ("capacidad",      3_000,  30_000,   50.0),
+    ("operarios",      3_000,  30_000,   50.0),
+]
+
+
 PERMISSIONS_SEED: list[tuple[str, str, str, str | None]] = [
     # Propietario — acceso global (department_code NULL)
     ("pipeline", "read", "propietario", None),
@@ -140,7 +154,7 @@ def create_schema() -> None:
 
 
 def create_tables() -> None:
-    _log("create_all() sobre NexoBase.metadata (8 tablas)")
+    _log("create_all() sobre NexoBase.metadata (11 tablas — Phase 2 + Phase 4)")
     NexoBase.metadata.create_all(engine_nexo)
 
 
@@ -167,6 +181,34 @@ def seed_departments() -> None:
                     "ON CONFLICT (code) DO NOTHING"
                 ),
                 {"c": code, "n": name},
+            )
+
+
+def seed_query_thresholds() -> None:
+    """Seed inicial de ``nexo.query_thresholds`` (Phase 4 / D-01..D-04).
+
+    Idempotente via ON CONFLICT (endpoint) DO NOTHING. Re-correr el
+    script no duplica ni sobrescribe valores editados por el propietario
+    en ``/ajustes/limites``.
+    """
+    _log(f"Seed de {len(QUERY_THRESHOLDS_SEED)} thresholds (D-01..D-04)")
+    with engine_nexo.begin() as conn:
+        for endpoint, warn_ms, block_ms, factor_ms in QUERY_THRESHOLDS_SEED:
+            conn.execute(
+                text(
+                    "INSERT INTO nexo.query_thresholds "
+                    "(endpoint, warn_ms, block_ms, factor_ms, updated_at, "
+                    " updated_by, factor_updated_at) "
+                    "VALUES (:endpoint, :warn_ms, :block_ms, :factor_ms, "
+                    "        now(), NULL, NULL) "
+                    "ON CONFLICT (endpoint) DO NOTHING"
+                ),
+                {
+                    "endpoint": endpoint,
+                    "warn_ms": warn_ms,
+                    "block_ms": block_ms,
+                    "factor_ms": factor_ms,
+                },
             )
 
 
@@ -214,6 +256,7 @@ def main() -> int:
     seed_roles()
     seed_departments()
     seed_permissions()
+    seed_query_thresholds()
     grant_audit_log_privileges()
     _log("OK — schema nexo listo.")
     _log(
