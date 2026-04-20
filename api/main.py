@@ -1,6 +1,7 @@
 """FastAPI application factory."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import traceback
 import uuid
@@ -20,6 +21,7 @@ from api.rate_limit import limiter
 from nexo.data import schema_guard
 from nexo.data.engines import engine_nexo
 from nexo.middleware.query_timing import QueryTimingMiddleware
+from nexo.services.cleanup_scheduler import cleanup_loop
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("oee")
@@ -47,7 +49,21 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error(f"Error inicializando BD: {exc}")
         logger.error(traceback.format_exc())
-    yield
+
+    # 3. Plan 04-03: scheduler asyncio para cleanup jobs
+    #    (approvals_cleanup Mon 03:05; Plan 04-04 añadirá 2 jobs más).
+    cleanup_task = asyncio.create_task(cleanup_loop())
+    logger.info("cleanup_scheduler task started")
+
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except (asyncio.CancelledError, Exception):
+            pass
+        logger.info("cleanup_scheduler task cancelled")
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
