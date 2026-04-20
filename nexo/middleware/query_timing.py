@@ -90,20 +90,32 @@ class QueryTimingMiddleware(BaseHTTPMiddleware):
         if user is None:
             return await call_next(request)
 
-        estimated_ms: Optional[int] = getattr(request.state, "estimated_ms", None)
-        approval_id: Optional[int] = getattr(request.state, "approval_id", None)
-        params_snapshot: Optional[str] = getattr(request.state, "params_json", None)
-
-        # Rango <=90d en capacidad/operarios: router NO pobló estimated_ms
-        # (short-circuit per D-03). Saltamos el log: ese tráfico es barato
-        # y no queremos inflar ``query_log`` con filas triviales.
-        if estimated_ms is None and endpoint_key in ("capacidad", "operarios"):
-            return await call_next(request)
-
         t0 = time.monotonic()
         try:
             response = await call_next(request)
             actual_ms = int((time.monotonic() - t0) * 1000)
+
+            # IMPORTANTE: leemos request.state DESPUÉS de call_next.
+            # El router pobla estimated_ms/approval_id/params_json durante
+            # la ejecución del handler (dentro de call_next). Leer antes
+            # siempre da None para esos campos.
+            estimated_ms: Optional[int] = getattr(
+                request.state, "estimated_ms", None
+            )
+            approval_id: Optional[int] = getattr(
+                request.state, "approval_id", None
+            )
+            params_snapshot: Optional[str] = getattr(
+                request.state, "params_json", None
+            )
+
+            # Rango <=90d en capacidad/operarios: router NO pobló
+            # estimated_ms (short-circuit per D-03). Saltamos el log:
+            # ese tráfico es barato y no queremos inflar ``query_log``
+            # con filas triviales.
+            if estimated_ms is None and endpoint_key in ("capacidad", "operarios"):
+                return response
+
             query_status = _classify_status(
                 actual_ms=actual_ms,
                 endpoint_key=endpoint_key,
@@ -135,15 +147,18 @@ class QueryTimingMiddleware(BaseHTTPMiddleware):
             return response
         except Exception:
             actual_ms = int((time.monotonic() - t0) * 1000)
+            # Re-read state en el except por si call_next levantó ANTES de
+            # que asignáramos las locals. Si el router no llegó a setear
+            # state, los getattr devuelven None — aceptable en error path.
             _persist(
                 user_id=user.id,
                 endpoint=endpoint_key,
-                params_json=params_snapshot,
-                estimated_ms=estimated_ms,
+                params_json=getattr(request.state, "params_json", None),
+                estimated_ms=getattr(request.state, "estimated_ms", None),
                 actual_ms=actual_ms,
                 rows=None,
                 status="error",
-                approval_id=approval_id,
+                approval_id=getattr(request.state, "approval_id", None),
                 ip=request.client.host if request.client else "unknown",
             )
             raise
