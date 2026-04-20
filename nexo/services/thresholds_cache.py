@@ -1,39 +1,53 @@
-"""In-memory cache de ``nexo.query_thresholds`` (Phase 4 — Plan 04-01).
+"""In-memory cache de ``nexo.query_thresholds`` (Phase 4 — Plans 04-01 + 04-04).
 
 D-19 ("cache + invalidate on edit") se implementa en dos planes:
 
-- **04-01 (este)**: skeleton con ``_cache`` dict + ``full_reload`` +
+- **04-01**: skeleton con ``_cache`` dict + ``full_reload`` +
   ``reload_one`` + ``get`` con safety-net (re-lee BD si
-  ``loaded_at_global`` esta stale > 5min). Tambien expone
-  ``notify_changed(endpoint)`` para que el CRUD endpoint de
-  thresholds (Plan 04-04) pueda emitir NOTIFY — la emision de NOTIFY
-  vive aqui porque la interfaz quedara estable across plans.
-- **04-04 (siguiente)**: ``listen_loop`` + ``start_listener`` con un
-  thread que hace ``LISTEN nexo_thresholds_changed`` y reacciona en <1s
-  a los NOTIFY enviados desde el CRUD.
+  ``loaded_at_global`` esta stale > 5min). Tambien ``notify_changed(endpoint)``
+  para que el CRUD endpoint emita NOTIFY.
+- **04-04 (este plan)**: ``_blocking_listen_forever`` + ``start_listener``.
+  Un worker thread abre una conexion psycopg2 dedicada (AUTOCOMMIT) con
+  ``LISTEN nexo_thresholds_changed`` y reacciona en <1s a cada NOTIFY.
+  El thread es ejecutado via ``asyncio.to_thread`` dentro del lifespan de
+  FastAPI para no bloquear el event loop.
 
-Contrato estable de 04-01 hacia 04-02:
+Contrato estable hacia 04-02:
   ``thresholds_cache.get(endpoint) -> Optional[ThresholdEntry]``
 
 Los preflight services (Plan 04-02) consumen solo ``get`` — no dependen
 del mecanismo de invalidacion.
 
 Concurrencia:
-- Reader path (`get`): sync, llamado desde middleware + routers. Usa
-  ``threading.Lock`` (no ``asyncio.Lock``) para proteger el dict.
+
+- Reader path (``get``): sync, llamado desde middleware + routers. Usa
+  ``threading.Lock`` para proteger el dict.
 - Refresh path (``full_reload`` / ``reload_one``): sync, abre Session
   propia. Thread-safe.
+- Listener path (``_blocking_listen_forever``): corre en thread pool
+  (``asyncio.to_thread``). Reacciona a NOTIFY llamando ``reload_one``.
+  Shutdown graceful via ``threading.Event``.
+
+LISTEN/NOTIFY es best-effort (Postgres no encola mensajes perdidos). El
+safety-net de 5 min en ``get()`` cubre caidas silenciosas del listener.
+Reconexion automatica: si ``psycopg2.connect`` falla, retry tras 5s.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import select
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import Lock
 from typing import Optional
 
+import psycopg2
+import psycopg2.extensions
 from sqlalchemy import text
 
+from api.config import settings
 from nexo.data.engines import SessionLocalNexo, engine_nexo
 from nexo.data.repositories.nexo import ThresholdRepo
 
@@ -182,16 +196,115 @@ def notify_changed(endpoint: str) -> None:
     log.info("thresholds_cache NOTIFY emitted for endpoint=%s", endpoint)
 
 
-# NOTE: LISTEN/NOTIFY listener (``listen_loop`` / ``start_listener``)
-# es implementado en Plan 04-04. En 04-01 solo emitimos NOTIFY y
-# confiamos en el safety-net de 5min del ``get``.
+# ── LISTEN/NOTIFY listener (Plan 04-04 — D-19 completo) ───────────────────
+
+
+# Timeout del select(). Permite revisar stop_event sin busy-spin.
+_LISTEN_SELECT_TIMEOUT_S = 5.0
+# Backoff tras fallo de conexion / loop caido.
+_LISTEN_RETRY_BACKOFF_S = 5.0
+
+
+def _blocking_listen_forever(stop_event: threading.Event) -> None:
+    """Worker sincrono — LISTEN nexo_thresholds_changed hasta shutdown.
+
+    Abre una conexion psycopg2 dedicada en AUTOCOMMIT (requisito de
+    LISTEN/NOTIFY) y entra en un loop ``select()`` que despierta cada 5s
+    para revisar ``stop_event``. Cada NOTIFY recibido dispara
+    ``reload_one(endpoint)`` (o ``full_reload`` si payload vacio).
+
+    Reconexion automatica: si ``psycopg2.connect`` falla, retry tras
+    ``_LISTEN_RETRY_BACKOFF_S`` segundos. El retry es interruptible via
+    ``stop_event.wait(timeout=...)``.
+
+    Thread-safe: no comparte la conexion; cada reintento abre una nueva.
+    Se ejecuta dentro de ``asyncio.to_thread`` para no bloquear el event
+    loop del lifespan.
+    """
+    while not stop_event.is_set():
+        conn = None
+        try:
+            conn = psycopg2.connect(
+                host=settings.pg_host,
+                port=settings.pg_port,
+                user=settings.effective_pg_user,
+                password=settings.effective_pg_password,
+                dbname=settings.pg_db,
+            )
+            conn.set_isolation_level(
+                psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
+            )
+            cur = conn.cursor()
+            cur.execute("LISTEN nexo_thresholds_changed")
+            cur.close()
+            log.info("thresholds_cache LISTEN activo (nexo_thresholds_changed)")
+
+            while not stop_event.is_set():
+                # select() con timeout 5s: permite revisar stop_event sin
+                # busy-spin. El FD de la conn se despierta cuando llega
+                # un NOTIFY async.
+                if select.select([conn], [], [], _LISTEN_SELECT_TIMEOUT_S) == (
+                    [], [], [],
+                ):
+                    # Timeout sin actividad; revisa stop y continua.
+                    continue
+                conn.poll()
+                while conn.notifies:
+                    notify = conn.notifies.pop(0)
+                    endpoint = notify.payload or ""
+                    log.info(
+                        "thresholds_cache NOTIFY recibido endpoint=%r",
+                        endpoint,
+                    )
+                    try:
+                        if endpoint:
+                            reload_one(endpoint)
+                        else:
+                            full_reload()
+                    except Exception:
+                        log.exception(
+                            "thresholds_cache error en reload tras NOTIFY",
+                        )
+        except Exception:
+            log.exception(
+                "thresholds_cache LISTEN loop caido — reintentando en %.0fs",
+                _LISTEN_RETRY_BACKOFF_S,
+            )
+            # stop_event.wait es interruptible, no bloquea shutdown.
+            stop_event.wait(timeout=_LISTEN_RETRY_BACKOFF_S)
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    log.info("thresholds_cache LISTEN worker detenido (stop_event)")
+
+
+async def start_listener(stop_event: threading.Event) -> None:
+    """Arranca el worker de LISTEN en el thread pool de asyncio.
+
+    Llamado desde ``api/main.py::lifespan`` via
+    ``asyncio.create_task(start_listener(stop_event))``. Al cerrar la
+    app, el lifespan debe:
+
+      1. ``stop_event.set()``  -> termina el while interno del worker.
+      2. ``task.cancel()``    -> termina el to_thread wrapper.
+
+    psycopg2 LISTEN es sincrono (select() nativo sobre el FD de la conn)
+    por lo que vive en thread pool para no bloquear el event loop.
+    """
+    await asyncio.to_thread(_blocking_listen_forever, stop_event)
 
 
 __all__ = [
     "FALLBACK_REFRESH_SECONDS",
     "ThresholdEntry",
+    "_blocking_listen_forever",
     "full_reload",
     "get",
     "notify_changed",
     "reload_one",
+    "start_listener",
 ]

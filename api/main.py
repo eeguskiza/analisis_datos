@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import traceback
 import uuid
 from contextlib import asynccontextmanager
@@ -21,6 +22,7 @@ from api.rate_limit import limiter
 from nexo.data import schema_guard
 from nexo.data.engines import engine_nexo
 from nexo.middleware.query_timing import QueryTimingMiddleware
+from nexo.services import thresholds_cache
 from nexo.services.cleanup_scheduler import cleanup_loop
 
 logging.basicConfig(level=logging.INFO)
@@ -50,14 +52,50 @@ async def lifespan(app: FastAPI):
         logger.error(f"Error inicializando BD: {exc}")
         logger.error(traceback.format_exc())
 
-    # 3. Plan 04-03: scheduler asyncio para cleanup jobs
-    #    (approvals_cleanup Mon 03:05; Plan 04-04 añadirá 2 jobs más).
+    # 3. Plan 04-04: hidratar cache de thresholds antes de cualquier
+    #    request. Los routers de preflight (pipeline/bbdd/capacidad/
+    #    operarios) hacen thresholds_cache.get(...) desde el primer hit;
+    #    sin full_reload inicial caeria al safety-net 5min en cada worker.
+    try:
+        thresholds_cache.full_reload()
+    except Exception:
+        # No tumbamos el arranque: el safety-net de get() hara full_reload
+        # on-demand en la primera lectura.
+        logger.exception(
+            "thresholds_cache full_reload inicial fallido (se reintentara on-demand)",
+        )
+
+    # 4. Plan 04-04: listener LISTEN/NOTIFY (D-19 completo). Thread
+    #    dedicado wrappeado en asyncio.to_thread; graceful shutdown via
+    #    stop_event.set() + task.cancel() en el finally.
+    listener_stop_event = threading.Event()
+    listener_task = asyncio.create_task(
+        thresholds_cache.start_listener(listener_stop_event),
+    )
+    logger.info("thresholds_cache listener task started")
+
+    # 5. Plan 04-03: scheduler asyncio para cleanup jobs.
+    #    Plan 04-03 registra approvals_cleanup (Mon 03:05).
+    #    Plan 04-04 añade query_log_cleanup (Mon 03:00) y
+    #    factor_auto_refresh (1er Mon del mes 03:10) al mismo loop.
     cleanup_task = asyncio.create_task(cleanup_loop())
     logger.info("cleanup_scheduler task started")
 
     try:
         yield
     finally:
+        # Orden de shutdown (Plan 04-04):
+        # 1. stop_event.set() termina el while interno del worker LISTEN.
+        # 2. listener_task.cancel() termina el wrapper to_thread.
+        # 3. cleanup_task.cancel() termina el scheduler.
+        listener_stop_event.set()
+        listener_task.cancel()
+        try:
+            await listener_task
+        except (asyncio.CancelledError, Exception):
+            pass
+        logger.info("thresholds_cache listener task cancelled")
+
         cleanup_task.cancel()
         try:
             await cleanup_task
