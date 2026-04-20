@@ -23,7 +23,7 @@ import pytest
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse
+from starlette.responses import PlainTextResponse, Response
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
@@ -45,10 +45,33 @@ async def _peek(request: Request) -> PlainTextResponse:
     return PlainTextResponse(f"FLASH:{flash}")
 
 
+async def _reemit(request: Request) -> Response:
+    """Endpoint dummy que simula el 403 encadenado (HI-01).
+
+    Vuelve a emitir la cookie ``nexo_flash`` con un mensaje nuevo antes de
+    que ``FlashMiddleware`` procese la response. Replica el flujo de
+    ``http_exception_handler_403`` (api/main.py): el cliente llega con
+    ``nexo_flash=msg_A`` y el handler responde con ``set_cookie("msg_B")``.
+    """
+    response = PlainTextResponse("REEMIT")
+    response.set_cookie(
+        _FLASH_COOKIE,
+        "mensaje_nuevo",
+        max_age=60,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
 def _build_app() -> Starlette:
-    """Mini-app con SOLO FlashMiddleware montado sobre /peek."""
+    """Mini-app con SOLO FlashMiddleware montado sobre /peek y /reemit."""
     return Starlette(
-        routes=[Route("/peek", _peek)],
+        routes=[
+            Route("/peek", _peek),
+            Route("/reemit", _reemit),
+        ],
         middleware=[Middleware(FlashMiddleware)],
     )
 
@@ -127,3 +150,47 @@ def test_flash_multiple_requests_read_and_clear_sequence():
     assert r2.text == "NONE"
     set_cookie_r2 = r2.headers.get("set-cookie", "")
     assert _FLASH_COOKIE not in set_cookie_r2
+
+
+# ── HI-01 regression ───────────────────────────────────────────────────────
+
+
+def test_flash_does_not_clobber_newly_set_cookie_chained_403():
+    """HI-01: si el handler re-emite ``nexo_flash``, el middleware NO lo borra.
+
+    Escenario chained-403:
+
+    1. Request llega con ``nexo_flash=mensaje_viejo`` (de un 403 anterior).
+    2. Handler (simulando ``http_exception_handler_403``) setea
+       ``nexo_flash=mensaje_nuevo`` en la response.
+    3. ``FlashMiddleware`` debe detectar el re-emit y NO añadir un
+       ``Set-Cookie: nexo_flash=; Max-Age=0`` que lo sobreescriba.
+
+    Bug pre-fix: el middleware hacía ``delete_cookie`` ciegamente; el UA
+    recibía dos ``Set-Cookie`` (primero el nuevo con Max-Age=60, luego el
+    delete con Max-Age=0) y "last one wins" → el mensaje se perdía.
+    """
+    client = _build_client()
+    client.cookies.set(_FLASH_COOKIE, "mensaje_viejo")
+
+    response = client.get("/reemit")
+    assert response.status_code == 200
+    assert response.text == "REEMIT"
+
+    set_cookie_headers = response.headers.get_list("set-cookie")
+
+    # Debe existir exactamente UN Set-Cookie: nexo_flash=...
+    nexo_headers = [h for h in set_cookie_headers if _FLASH_COOKIE in h]
+    assert len(nexo_headers) == 1, (
+        f"Esperaba 1 Set-Cookie para {_FLASH_COOKIE}, obtuve {len(nexo_headers)}: "
+        f"{nexo_headers!r}"
+    )
+
+    # Y ese único Set-Cookie debe llevar el valor nuevo (no Max-Age=0).
+    only = nexo_headers[0].lower()
+    assert "mensaje_nuevo" in only, (
+        f"Set-Cookie no lleva el valor nuevo: {only!r}"
+    )
+    assert "max-age=0" not in only, (
+        f"Set-Cookie tiene Max-Age=0 (clobber detected): {only!r}"
+    )

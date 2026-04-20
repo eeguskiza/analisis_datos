@@ -30,5 +30,19 @@ class FlashMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         if flash is not None:
-            response.delete_cookie(_FLASH_COOKIE, path="/")
+            # HI-01: no pisar un Set-Cookie nexo_flash emitido por el handler
+            # (p.ej. ``http_exception_handler_403`` en 403 encadenado). Sin
+            # este guard, ``delete_cookie`` añade un segundo Set-Cookie con
+            # ``Max-Age=0`` y el UA (RFC 6265 §4.1.2: "last one wins")
+            # borra el mensaje recién puesto. Comparación case-insensitive
+            # porque HTTP header names no distinguen mayúsculas, pero el
+            # cookie-name sí — ``_FLASH_COOKIE`` es literal, así que el
+            # prefix match es exacto.
+            prefix = f"{_FLASH_COOKIE}="
+            already_set = any(
+                header.lstrip().startswith(prefix)
+                for header in response.headers.getlist("set-cookie")
+            )
+            if not already_set:
+                response.delete_cookie(_FLASH_COOKIE, path="/")
         return response
