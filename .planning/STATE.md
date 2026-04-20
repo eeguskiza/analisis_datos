@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: "Phase 3 completa. 3 plans ejecutados (03-01 ✓ 2026-04-18, 03-02 ✓ 2026-04-19 con gate diferido, 03-03 ✓ 2026-04-19). Total 29 commits en Phase 3 (5 + 10 + 13 + 1 closing). 9 repos operativos (6 APP + 3 NEXO). 5 routers APP/NEXO refactorizados a repos. `api/services/pipeline.py` tocado una sola vez en Task 4.7 (atómico, Opción B). SUMMARY + STATE + ROADMAP + final commit pendientes. Blocker abierto: solo el PDF regression check de 03-02 (deadline 2026-04-26 en preprod)."
+last_updated: "2026-04-20T06:50:26.890Z"
+last_activity: 2026-04-20 -- Phase 04 execution started
+progress:
+  total_phases: 7
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 8
+  percent: 67
+---
+
 # Project State
 
 ## Project Reference
@@ -5,14 +21,14 @@
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Consultar datos reales de producción (MES IZARO) y generar informes OEE fiables por máquina/turno/sección sin bloquear al operario y sin filtrar información entre departamentos.
-**Current focus:** Phase 4 (Consultas pesadas) — 4 plans READY TO EXECUTE (verified iter 2).
+**Current focus:** Phase 04 — consultas-pesadas
 
 ## Current Position
 
-Phase: 4 of 7 — Consultas pesadas (discuss+research+plan completados)
-Plan: (Phase 2) 4/4 ✓; (Phase 3) 3/3 ✓; (Phase 4) 4/4 PLAN.md ready (0/4 ejecutados)
-Status: 2026-04-19 — Pipeline discuss→research→plan completo. Artefactos: 04-CONTEXT.md (20 decisiones), 04-RESEARCH.md (1868 LOC), 04-PATTERNS.md (27 files classified, 24 analogs), 04-VALIDATION.md (10 Wave 0 tests + 6 manual verifications), 04-{01,02,03,04}-PLAN.md (wave 1→4 serialized). plan-checker iter 1 dio 2 BLOCKERS + 5 WARNINGS + 1 INFO; revision iter 1 los resolvió; iter 2 PASSED clean. 4 LOCKED decisiones honradas (D-05, D-11, D-16, D-19). Commits: `aca6807` (CONTEXT+LOG), `948f993` (RESEARCH+VALIDATION), `72320dc` (PATTERNS), `9580957` (4 PLANs post-revision).
-Last activity: 2026-04-19 — commit `9580957` (plan iter 2 verified). --chain activo, auto-advance a /gsd-execute-phase 4.
+Phase: 04 (consultas-pesadas) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 04
+Last activity: 2026-04-20 -- Phase 04 execution started
 
 Progress: [██████████] 43% (3/7 phases completas) — Phase 3 CERRADA
 
@@ -26,6 +42,7 @@ Progress: [██████████] 43% (3/7 phases completas) — Phase 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 1
 - Average duration: ~3h (sesión única, interactive mode)
 - Total execution time: ~3.0 horas
@@ -38,6 +55,7 @@ Progress: [██████████] 43% (3/7 phases completas) — Phase 
 | 3. Capa de datos (03-03 APP+NEXO) | 1/1 | ~17 min | ~17 min |
 
 **Recent Trend:**
+
 - Last 5 plans: [Phase 1 / Plan 01-01 ~3h]
 - Trend: n/a (1 sola muestra)
 
