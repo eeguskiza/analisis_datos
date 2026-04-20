@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Límites — {{ app_name }}{% endblock %}
+{% block page_title %}Ajustes · Límites{% endblock %}
+
+{% block content %}
+
+<div x-data="limitesPage()" class="max-w-5xl mx-auto space-y-4">
+
+  <div class="bg-white rounded-xl shadow-sm border border-surface-200 p-4">
+    <div class="flex items-start justify-between">
+      <div>
+        <h2 class="text-sm font-semibold text-brand-800">Umbrales por endpoint</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Editar <span class="font-mono">warn_ms</span> / <span class="font-mono">block_ms</span> sin reiniciar. El
+          <span class="font-mono">factor_ms</span> aprendido se recalcula desde los últimos 30 runs pulsando
+          <span class="font-semibold">Recalcular</span>. Los cambios se propagan a todos los workers vía LISTEN/NOTIFY en &lt;1s.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-surface-200 overflow-hidden">
+    <table class="w-full text-xs">
+      <thead class="bg-surface-100 text-gray-600 uppercase tracking-wide">
+        <tr>
+          <th class="text-left px-3 py-2 font-medium w-40">Endpoint</th>
+          <th class="text-left px-3 py-2 font-medium">warn_ms (amber)</th>
+          <th class="text-left px-3 py-2 font-medium">block_ms (red)</th>
+          <th class="text-left px-3 py-2 font-medium">factor_ms</th>
+          <th class="text-left px-3 py-2 font-medium">N runs</th>
+          <th class="text-left px-3 py-2 font-medium">Actualizado</th>
+          <th class="text-right px-3 py-2 font-medium w-64">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in thresholds %}
+        {% set n_runs = n_runs_by_endpoint.get(t.endpoint, 0) %}
+        <tr class="border-t border-surface-200 align-top"
+            x-data="rowModel({
+              endpoint: {{ t.endpoint|tojson }},
+              warnMs: {{ t.warn_ms }},
+              blockMs: {{ t.block_ms }},
+              factorMs: {{ t.factor_ms if t.factor_ms is not none else 'null' }},
+              nRuns: {{ n_runs }}
+            })">
+          <td class="px-3 py-2 font-mono text-gray-800">{{ t.endpoint }}</td>
+          <td class="px-3 py-2">
+            <input type="number" min="0" x-model.number="warnMs"
+                   class="w-28 px-2 py-1 rounded border border-surface-300 font-mono text-xs
+                          focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-500">
+          </td>
+          <td class="px-3 py-2">
+            <input type="number" min="0" x-model.number="blockMs"
+                   class="w-28 px-2 py-1 rounded border border-surface-300 font-mono text-xs
+                          focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-500">
+          </td>
+          <td class="px-3 py-2 font-mono text-gray-600">
+            <span x-text="factorMs !== null ? factorMs.toFixed(1) : '—'"></span>
+            <span class="text-[10px] text-gray-400 block">editable vía Recalcular</span>
+          </td>
+          <td class="px-3 py-2 font-mono text-gray-600" x-text="nRuns"></td>
+          <td class="px-3 py-2 text-gray-500 text-[11px]">
+            {% if t.updated_at %}{{ t.updated_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}
+            {% if t.factor_updated_at %}
+              <div class="text-[10px] text-gray-400">
+                factor: {{ t.factor_updated_at.strftime('%Y-%m-%d') }}
+              </div>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2">
+            <div class="flex justify-end gap-2">
+              <button @click="save()" :disabled="saving"
+                      class="px-2.5 py-1 rounded-md bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs disabled:opacity-50">
+                <span x-show="!saving">Guardar</span>
+                <span x-show="saving">Guardando…</span>
+              </button>
+              <button @click="previewRecalc()" :disabled="recalcing || nRuns < 10"
+                      :title="nRuns < 10 ? 'Necesitas al menos 10 runs para recalibrar' : 'Recalcular factor desde últimos 30 runs'"
+                      class="px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="!recalcing">Recalcular</span>
+                <span x-show="recalcing">Calculando…</span>
+              </button>
+            </div>
+
+            {# ── Modal preview Recalcular ─────────────────────────── #}
+            <div x-show="showPreview" x-cloak x-transition.opacity
+                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                 @keydown.escape.window="showPreview = false">
+              <div class="bg-white rounded-xl shadow-xl p-5 max-w-md w-full m-4"
+                   @click.away="showPreview = false">
+                <h3 class="font-bold text-gray-800 text-base">Recalcular factor · <span class="font-mono" x-text="endpoint"></span></h3>
+                <p class="text-xs text-gray-500 mt-1">Muestras utilizadas: <span x-text="preview.sample_size"></span> runs.</p>
+                <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div class="bg-surface-50 rounded-lg p-3">
+                    <div class="text-[10px] font-bold text-gray-400 uppercase">Factor actual</div>
+                    <div class="font-mono text-gray-700 mt-0.5" x-text="preview.factor_old !== null ? preview.factor_old.toFixed(1) : '—'"></div>
+                  </div>
+                  <div class="bg-green-50 rounded-lg p-3">
+                    <div class="text-[10px] font-bold text-green-700 uppercase">Factor nuevo</div>
+                    <div class="font-mono text-green-800 mt-0.5" x-text="preview.factor_new !== null ? preview.factor_new.toFixed(1) : '—'"></div>
+                  </div>
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                  <button @click="showPreview = false"
+                          class="px-3 py-1.5 rounded-lg border border-surface-300 text-gray-700 hover:bg-surface-50 text-xs">
+                    Cancelar
+                  </button>
+                  <button @click="confirmRecalc()" :disabled="recalcing"
+                          class="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium disabled:opacity-50">
+                    <span x-show="!recalcing">Confirmar y persistir</span>
+                    <span x-show="recalcing">Guardando…</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="px-3 py-6 text-center text-gray-400 italic">
+            Sin filas en <span class="font-mono">nexo.query_thresholds</span>. Ejecuta <span class="font-mono">scripts/init_nexo_schema.py</span> para seed inicial.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+function limitesPage() {
+  return {
+    init() {},
+  };
+}
+
+function rowModel({ endpoint, warnMs, blockMs, factorMs, nRuns }) {
+  return {
+    endpoint, warnMs, blockMs, factorMs, nRuns,
+    saving: false, recalcing: false,
+    showPreview: false,
+    preview: { factor_old: null, factor_new: null, sample_size: 0 },
+
+    async save() {
+      if (this.warnMs >= this.blockMs) {
+        window.showToast && window.showToast('incidence', 'warn_ms >= block_ms', 'warn_ms debe ser menor que block_ms');
+        return;
+      }
+      this.saving = true;
+      try {
+        const resp = await fetch(`/api/thresholds/${encodeURIComponent(this.endpoint)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ warn_ms: this.warnMs, block_ms: this.blockMs }),
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          window.showToast && window.showToast('incidence', 'Error al guardar', body.detail || `HTTP ${resp.status}`);
+          return;
+        }
+        window.showToast && window.showToast('producing', 'Umbrales guardados', `${this.endpoint} actualizado`);
+      } catch (e) {
+        window.showToast && window.showToast('incidence', 'Error de red', String(e));
+      } finally {
+        this.saving = false;
+      }
+    },
+
+    async previewRecalc() {
+      this.recalcing = true;
+      try {
+        const resp = await fetch(`/api/thresholds/${encodeURIComponent(this.endpoint)}/recalibrate?confirm=false`, {
+          method: 'POST',
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          window.showToast && window.showToast('incidence', 'No se puede recalcular', body.detail || `HTTP ${resp.status}`);
+          return;
+        }
+        this.preview = await resp.json();
+        this.showPreview = true;
+      } catch (e) {
+        window.showToast && window.showToast('incidence', 'Error de red', String(e));
+      } finally {
+        this.recalcing = false;
+      }
+    },
+
+    async confirmRecalc() {
+      this.recalcing = true;
+      try {
+        const resp = await fetch(`/api/thresholds/${encodeURIComponent(this.endpoint)}/recalibrate?confirm=true`, {
+          method: 'POST',
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          window.showToast && window.showToast('incidence', 'Error al recalcular', body.detail || `HTTP ${resp.status}`);
+          return;
+        }
+        const data = await resp.json();
+        this.factorMs = data.factor_new;
+        this.showPreview = false;
+        window.showToast && window.showToast('producing', 'Factor recalibrado', `${this.endpoint}: ${data.factor_new.toFixed(1)} ms`);
+      } catch (e) {
+        window.showToast && window.showToast('incidence', 'Error de red', String(e));
+      } finally {
+        this.recalcing = false;
+      }
+    },
+  };
+}
+</script>
+
+{% endblock %}

@@ -227,6 +227,8 @@ PERMISSION_MAP: dict[str, list[str]] = {
     "auditoria:read":     [],
     "usuarios:manage":    [],
     "aprobaciones:manage": [],  # Plan 04-03 (QUERY-06) — propietario-only
+    "limites:manage":     [],   # Plan 04-04 (QUERY-02) — propietario-only
+    "rendimiento:read":   [],   # Plan 04-04 (D-11) — propietario-only
 }
 
 
