@@ -103,6 +103,21 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 - [ ] **DEVEX-06**: `docs/RELEASE.md` con checklist de release (tag semver, deploy, smoke test)
 - [ ] **DEVEX-07**: `CLAUDE.md` actualizado con convenciones Mark-III completas tras Sprint 6
 
+### UIREDO — Phase 8 / Sprint 7 (rediseño UI modo claro moderno)
+
+Rediseño visual completo tras consolidar backend + permisos + deploy + devex.
+Discussion window-by-window con propuestas visuales antes de tocar código.
+Centro de Mando se mantiene en estructura; todo lo demás se reinterpreta.
+
+- [ ] **UIREDO-01**: Tema claro tokenizado — paleta definida en `docs/BRANDING.md` (neutros, acentos Nexo/ECS, semánticos success/warn/error) traducida a variables CSS `:root` en `static/css/tokens.css`. Tailwind config consume los tokens. Sin colores hardcoded en templates.
+- [ ] **UIREDO-02**: Sidebar convertida en drawer/popup colapsable — estado por defecto colapsado en desktop (solo icono rail); expandido como overlay con animación ≤200ms. En móvil siempre drawer. Honra `prefers-reduced-motion`. Preserva la lista de nav_items + permisos de Phase 5 (no regresión).
+- [ ] **UIREDO-03**: Centro de Mando (`/`) conserva layout de tarjetas pero adopta nuevo tema claro + tipografía + espaciados. Single source of truth: los datos/endpoints no cambian.
+- [ ] **UIREDO-04**: Cada pantalla funcional rediseñada individualmente con proceso "propuesta → selección → implementación": pipeline, bbdd, capacidad, operarios, recursos, ciclos-calc, historial, datos, ajustes hub + 5 sub-páginas (conexion, usuarios, auditoria, limites, rendimiento, solicitudes). Mínimo 2 propuestas visuales por pantalla antes de commit de implementación.
+- [ ] **UIREDO-05**: Animaciones sutiles donde aporten (transiciones de panel, fade en toasts, skeleton en loading states). Sin animaciones gratuitas ni parallax. Duración total efectos ≤300ms por interacción. Respeta `prefers-reduced-motion`.
+- [ ] **UIREDO-06**: Permisos + RBAC de Phase 5 intactos — `can()` sigue filtrando nav_items en el drawer; 11 botones siguen gated con `{% if can() %}`; 8 HTML GETs siguen guarded; flash toast de D-07/D-08 se reestiliza pero mantiene contract. Test suite Phase 5 sigue en verde al cerrar cada pantalla.
+- [ ] **UIREDO-07**: Propuestas de secciones nuevas (si emergen durante discuss ventana-a-ventana) se validan contra scope Mark-III antes de añadir. Scope creep se deriva a backlog (`/gsd-add-backlog`) o a Mark-IV. Nada se añade silenciosamente al rediseño.
+- [ ] **UIREDO-08**: Accesibilidad mínima: contraste AA (WCAG 2.1) verificado por herramienta automática en CI; focus visible en todos los elementos interactivos; navegación completa por teclado (Tab + Enter + Esc cierra drawers/modales); `aria-label` en icon-only buttons.
+
 ## v2 Requirements (Mark-IV+)
 
 Diferidas explícitamente. No se planifican en Mark-III.
@@ -220,10 +235,18 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | DEVEX-05 | Phase 7 | Pending |
 | DEVEX-06 | Phase 7 | Pending |
 | DEVEX-07 | Phase 7 | Pending |
+| UIREDO-01 | Phase 8 | Pending |
+| UIREDO-02 | Phase 8 | Pending |
+| UIREDO-03 | Phase 8 | Pending |
+| UIREDO-04 | Phase 8 | Pending |
+| UIREDO-05 | Phase 8 | Pending |
+| UIREDO-06 | Phase 8 | Pending |
+| UIREDO-07 | Phase 8 | Pending |
+| UIREDO-08 | Phase 8 | Pending |
 
 **Coverage:**
-- v1 requirements: 66 total
-- Mapped to phases: 66
+- v1 requirements: 74 total (66 Mark-III inicial + 8 UIREDO añadidos 2026-04-20)
+- Mapped to phases: 74
 - Unmapped: 0 ✓
 
 ---

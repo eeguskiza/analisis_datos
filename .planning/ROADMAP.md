@@ -21,6 +21,7 @@ de phases GSD: Phase N = Sprint (N-1) del plan.
 - [x] **Phase 5: UI por roles** — Sprint 4: sidebar y páginas condicionadas al rol, split de `ajustes.html` ✓ 2026-04-20
 - [ ] **Phase 6: Despliegue LAN HTTPS** — Sprint 5: `docker-compose.prod.yml`, Caddy con LE DNS-01 o cert interno, firewall, runbook de deploy
 - [ ] **Phase 7: DevEx hardening** — Sprint 6: pre-commit, CI ampliado con cobertura, `docs/ARCHITECTURE.md`, `docs/RUNBOOK.md`, `docs/RELEASE.md`
+- [ ] **Phase 8: Rediseño UI (modo claro moderno)** — Sprint 7: rediseño visual completo manteniendo Centro de Mando; sidebar collapsible/drawer; animaciones; tema claro; ventana a ventana con propuestas; secciones nuevas si aplican
 
 ## Phase Details
 
@@ -136,10 +137,25 @@ Plans:
   6. `docs/RELEASE.md` define checklist reproducible para un release versionado
 **Plans**: TBD
 
+### Phase 8: Rediseño UI (modo claro moderno)
+**Goal**: Rediseño visual completo de la aplicación manteniendo el Centro de Mando como ancla. Look&feel moderno en tema claro, fácil de leer, no sobrecargado. Sidebar colapsable tipo drawer/popup en lugar de barra lateral siempre visible. Animaciones sutiles donde aporten. Discussion window-by-window con propuestas visuales antes de tocar código; propuestas de secciones nuevas que mejoren el flujo si se detectan gaps.
+**Depends on**: Phase 5 (permisos y filtrado estables — el rediseño NO puede regresionar la capa de autorización), Phase 6 (despliegue existente para validar en LAN antes/después), Phase 7 (DevEx para iterar rápido durante el rediseño)
+**Requirements**: UIREDO-01, UIREDO-02, UIREDO-03, UIREDO-04, UIREDO-05, UIREDO-06, UIREDO-07, UIREDO-08
+**Success Criteria** (what must be TRUE):
+  1. Tema claro aplicado consistentemente en todas las páginas rediseñadas (paleta definida en `docs/BRANDING.md` actualizado; variables CSS tokenizadas)
+  2. Sidebar convertida en drawer/popup colapsable: por defecto colapsado en desktop, siempre drawer en móvil; animación de apertura/cierre fluida (≤200ms, respetando `prefers-reduced-motion`)
+  3. Centro de Mando (`/`) mantiene su estructura actual (datos, layout de tarjetas) pero hereda el nuevo sistema de tokens/tema claro
+  4. Cada pantalla rediseñada (pipeline, bbdd, capacidad, operarios, recursos, ciclos, historial, datos, ajustes + sub-páginas) se discute individualmente con al menos 2 propuestas visuales antes de implementar
+  5. Permisos/RBAC de Phase 5 intactos: `can()` + `require_permission` + 11 botones gated + 8 HTML GETs guarded siguen funcionando en el UI rediseñado
+  6. Secciones nuevas propuestas (si las hay) validadas contra scope Mark-III antes de añadir al roadmap — nada se añade silenciosamente
+  7. Transición sin regresión funcional: cada página rediseñada pasa su smoke test de Phase anterior antes de mergear
+  8. Accesibilidad mínima: contraste AA, focus visible, navegación por teclado funcional en drawer + modales
+**Plans**: TBD (se discute ventana a ventana; el plan-phase emite 1 plan atómico por pantalla o grupo de pantallas)
+
 ## Progress
 
 **Execution Order:**
-Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -150,3 +166,4 @@ Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 5. UI por roles | 5/5 | Complete | 2026-04-20 |
 | 6. Despliegue LAN HTTPS | 0/? | Not started | - |
 | 7. DevEx hardening | 0/? | Not started | - |
+| 8. Rediseño UI (modo claro moderno) | 0/? | Not started | - |
