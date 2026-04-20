@@ -15,6 +15,10 @@ pytest-cov==6.0.0
 # httpx lo necesita fastapi.testclient (Starlette 1.x usa httpx como backend
 # real en TestClient; no viene como dep transitiva de fastapi).
 httpx==0.28.1
+# Phase 4 / Plan 04-01 — necesario para tests asyncio.to_thread (QUERY-08 /
+# pipeline lock) y para el listener LISTEN/NOTIFY (QUERY-02 / D-19 que
+# aterriza en Plan 04-04).
+pytest-asyncio==0.24.0
 
 # Escaneo de secretos. Nota: gitleaks es binario Go, no se instala por pip;
 # se ejecuta desde el workflow de GitHub Actions via gitleaks/gitleaks-action.
