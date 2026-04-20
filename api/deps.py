@@ -52,6 +52,10 @@ def render(
     ctx: dict[str, Any] = {
         "request": request,
         "current_user": getattr(request.state, "user", None),
+        # Plan 05-03: flash_message lo puebla ``FlashMiddleware`` leyendo
+        # la cookie ``nexo_flash`` (D-07/D-08). Puede ser ``None`` en
+        # request limpios; ``base.html`` hace ``{% if flash_message %}``.
+        "flash_message": getattr(request.state, "flash", None),
     }
     if extra:
         ctx.update(extra)

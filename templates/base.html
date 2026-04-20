@@ -232,6 +232,19 @@ function toastSystem() {
 }
 </script>
 
+{% if flash_message %}
+<script>
+  // Flash toast (D-07/D-08) — dispara el sistema existente. Debe esperar
+  // a DOMContentLoaded porque showToast() se define arriba pero el
+  // contenedor Alpine (toastSystem) puede no estar listo aun.
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof showToast === 'function') {
+      showToast('info', 'Aviso', {{ flash_message|tojson }});
+    }
+  });
+</script>
+{% endif %}
+
 <script src="/static/js/app.js"></script>
 </body>
 </html>
