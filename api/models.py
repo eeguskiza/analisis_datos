@@ -37,6 +37,12 @@ class PipelineRequest(BaseModel):
     modulos: list[str] = ["disponibilidad", "rendimiento", "calidad", "oee_secciones"]
     source: str = "db"  # "db", "excel", "csv_only"
     recursos: Optional[list[str]] = None  # nombres de recursos a procesar (None = todos)
+    # Phase 4 / Plan 04-01 (QUERY-06, D-15): preflight bypass con approval
+    # previamente concedido. ``force=True`` requiere ``approval_id`` valido
+    # (user_id match, status='approved', consumed_at IS NULL, params_json
+    # match). Backwards-compatible: defaults a False / None.
+    force: bool = False
+    approval_id: Optional[int] = None
 
 
 class PipelineResult(BaseModel):
