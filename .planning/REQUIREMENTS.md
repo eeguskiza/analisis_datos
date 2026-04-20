@@ -75,7 +75,8 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 **: `request.state.user` inyectado en templates vía `Jinja2Templates` globals o dependency en `pages.py`
 - [x] **UIROL-02
 **: `base.html` filtra `nav_items` según permisos; propietario ve todo; directivo ve módulos de sus departamentos; usuario ve subset reducido
-- [ ] **UIROL-03**: `templates/ajustes.html` dividido en `ajustes_conexion.html`, `ajustes_smtp.html`, `ajustes_usuarios.html`, `ajustes_auditoria.html`, `ajustes_limites.html`, `ajustes_solicitudes.html`, + hub `ajustes.html`
+- [x] **UIROL-03
+**: `templates/ajustes.html` dividido en `ajustes_conexion.html`, `ajustes_smtp.html`, `ajustes_usuarios.html`, `ajustes_auditoria.html`, `ajustes_limites.html`, `ajustes_solicitudes.html`, + hub `ajustes.html`
 - [ ] **UIROL-04**: `static/js/app.js` oculta botones sensibles ("Ejecutar pipeline", "Borrar ejecución", "Sincronizar recursos") según permiso del usuario cargado en contexto
 - [ ] **UIROL-05**: Verificación manual E2E: login como propietario/directivo (un departamento)/usuario (un departamento), capturar sidebar y páginas accesibles de cada rol
 
@@ -199,7 +200,7 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | QUERY-08 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
 | UIROL-01 | Phase 5 / Plan 05-01 | Complete (2026-04-20) |
 | UIROL-02 | Phase 5 | Pending |
-| UIROL-03 | Phase 5 | Pending |
+| UIROL-03 | Phase 5 / Plan 05-04 | Complete (2026-04-20) |
 | UIROL-04 | Phase 5 | Pending |
 | UIROL-05 | Phase 5 | Pending |
 | DEPLOY-01 | Phase 6 | Pending |
