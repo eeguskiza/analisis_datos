@@ -232,19 +232,44 @@ PERMISSION_MAP: dict[str, list[str]] = {
 }
 
 
+def can(user: NexoUser | None, permission: str) -> bool:
+    """True si ``user`` tiene ``permission``. Puro, sin side effects.
+
+    Reglas (idénticas a ``require_permission`` — esta función ES la fuente
+    de verdad; ``require_permission`` trampoliniza sobre ella):
+
+    - ``user is None`` → False.
+    - ``user.role == 'propietario'`` → True (bypass global, no consulta
+      ``PERMISSION_MAP``).
+    - Intersecta ``{d.code for d in user.departments}`` con
+      ``PERMISSION_MAP[permission]``. True si hay intersección.
+
+    Safe desde templates (Jinja global, D-03 / D-09) y tests — sin async,
+    sin HTTPException. Un permiso desconocido devuelve ``[]`` → False.
+    """
+    if user is None:
+        return False
+    if user.role == "propietario":
+        return True
+    allowed = PERMISSION_MAP.get(permission, [])
+    user_depts = {d.code for d in user.departments}
+    return bool(user_depts.intersection(allowed))
+
+
 def require_permission(permission: str):
     """Factory que devuelve un Dependency de FastAPI.
+
+    Trampoline sobre :func:`can` (Plan 05-01 / D-03): ``can`` es la fuente
+    de verdad pura; este dependency añade las responsabilidades específicas
+    de FastAPI (leer ``request.state.user`` y levantar HTTPException).
 
     Validacion en runtime:
 
     1. ``request.state.user`` poblado por ``AuthMiddleware`` (Plan 02-02).
        Si falta, 401 (defensivo — el middleware deberia haber cortado antes).
-    2. ``role == "propietario"`` → bypass inmediato, devuelve user sin
-       consultar el mapa (research §Anti-Patterns: propietario nunca en el
-       mapa).
-    3. Intersecta ``{d.code for d in user.departments}`` con
-       ``PERMISSION_MAP[permission]``. Si hay interseccion → pasa;
-       si no → 403 con detail explicando el permiso pedido.
+    2. Si ``can(user, permission)`` es False → 403 con detail explicando el
+       permiso pedido. ``can`` maneja internamente el bypass de propietario
+       y la intersección ``user.departments ∩ PERMISSION_MAP[permission]``.
 
     Nota: el middleware eager-loadea ``user.departments`` antes de cerrar
     la sesion ORM para evitar DetachedInstanceError al llegar aqui.
@@ -256,11 +281,7 @@ def require_permission(permission: str):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated",
             )
-        if user.role == "propietario":
-            return user
-        allowed = PERMISSION_MAP.get(permission, [])
-        user_depts = {d.code for d in user.departments}
-        if not user_depts.intersection(allowed):
+        if not can(user, permission):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permiso requerido: {permission}",
