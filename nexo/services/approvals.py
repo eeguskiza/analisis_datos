@@ -35,6 +35,14 @@ from nexo.data.models_nexo import NexoQueryApproval
 from nexo.data.repositories.nexo import ApprovalRepo
 
 
+# H-05 fix: listas que el contrato declara como "conjuntos no ordenados".
+# Pydantic no normaliza list order; el frontend puede re-serializar con
+# orden distinto (p.ej. <select multiple> en un orden y alfabético en
+# otro). Canonicalizamos ordenando estos campos para que la equality
+# ``params_json = :pj`` del CAS no genere falsos 403.
+_CANONICAL_SET_FIELDS: frozenset[str] = frozenset({"recursos", "modulos"})
+
+
 def _canonical_json(obj: dict) -> str:
     """Serializa dict a JSON con sort_keys=True + ensure_ascii=False.
 
@@ -43,8 +51,30 @@ def _canonical_json(obj: dict) -> str:
     hayan insertado en orden distinto. Parte de la mitigación
     T-04-01-03 (params tampering) — el CAS en ``ApprovalRepo.consume``
     compara ``params_json = :pj`` textualmente.
+
+    H-05 fix: además de ``sort_keys``, ordenamos los valores de los
+    campos listados en ``_CANONICAL_SET_FIELDS`` (``recursos``,
+    ``modulos``) para que listas lógicamente equivalentes con diferente
+    orden produzcan el mismo canonical string. Otros listas (p.ej.
+    ``columns`` que sí son ordenadas) se dejan intactas.
     """
-    return json.dumps(obj, sort_keys=True, ensure_ascii=False)
+    normalized: dict = {}
+    for key, value in obj.items():
+        if (
+            key in _CANONICAL_SET_FIELDS
+            and isinstance(value, list)
+            and all(isinstance(x, (str, int, float, bool)) for x in value)
+        ):
+            # Solo ordenamos listas de primitivos comparables; si hay
+            # dicts u otros objetos mezclados, skip ordering para no
+            # levantar TypeError.
+            try:
+                normalized[key] = sorted(value)
+            except TypeError:
+                normalized[key] = value
+        else:
+            normalized[key] = value
+    return json.dumps(normalized, sort_keys=True, ensure_ascii=False)
 
 
 def create_approval(

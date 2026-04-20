@@ -166,6 +166,34 @@ def test_create_canonicalizes_params(db_nexo, user_factory):
     assert r1.params_json == r2.params_json == '{"a": 1, "b": 2}'
 
 
+def test_consume_approval_tolerates_reordered_recursos(db_nexo, user_factory):
+    """H-05 fix: recursos / modulos se canonicalizan ordenados.
+
+    Un usuario solicita aprobación con ``recursos=["A", "B"]`` y luego
+    ejecuta con ``recursos=["B", "A"]`` (mismo conjunto lógico,
+    orden distinto). Antes del fix, el CAS devolvía 0 rows y
+    diagnóstico "Parámetros cambiaron". Ahora ambos producen el mismo
+    canonical JSON y el consume funciona.
+    """
+    u = user_factory("consume-reorder")
+    params_create = {
+        "recursos": ["A", "B"],
+        "modulos": ["oee", "rendimiento"],
+        "fecha_desde": "2025-01-01",
+    }
+    params_execute = {
+        "recursos": ["B", "A"],              # reordered
+        "modulos": ["rendimiento", "oee"],   # reordered
+        "fecha_desde": "2025-01-01",
+    }
+    aid = _mk_approved(db_nexo, u.id, params_create, endpoint="pipeline/run")
+    result = svc.consume_approval(
+        db_nexo, approval_id=aid, user_id=u.id, current_params=params_execute,
+    )
+    assert result is not None
+    assert result.status == "consumed"
+
+
 # ── CONSUME ───────────────────────────────────────────────────────────────
 
 def _mk_approved(db, user_id: int, params: dict, endpoint: str = "bbdd/query") -> int:
