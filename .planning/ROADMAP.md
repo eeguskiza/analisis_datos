@@ -17,7 +17,7 @@ de phases GSD: Phase N = Sprint (N-1) del plan.
 - [x] **Phase 1: Naming + Higiene + CI** — Sprint 0: rebrand Nexo, limpieza, CI mínimo, exception handler sin traceback, audit de historial ✓ 2026-04-18
 - [ ] **Phase 2: Identidad (auth + RBAC + audit)** — Sprint 1: login, roles propietario/directivo/usuario + departamentos, middleware de auth y audit append-only
 - [x] **Phase 3: Capa de datos** — Sprint 2: repositorios, `.sql` versionados, schema_guard, separación `engine_mes` / `engine_app` / `engine_nexo` ✓ 2026-04-19
-- [ ] **Phase 4: Consultas pesadas** — Sprint 3: preflight + postflight + aprobación asíncrona + umbrales editables
+- [x] **Phase 4: Consultas pesadas** — Sprint 3: preflight + postflight + aprobación asíncrona + umbrales editables ✓ 2026-04-20
 - [ ] **Phase 5: UI por roles** — Sprint 4: sidebar y páginas condicionadas al rol, split de `ajustes.html`
 - [ ] **Phase 6: Despliegue LAN HTTPS** — Sprint 5: `docker-compose.prod.yml`, Caddy con LE DNS-01 o cert interno, firewall, runbook de deploy
 - [ ] **Phase 7: DevEx hardening** — Sprint 6: pre-commit, CI ampliado con cobertura, `docs/ARCHITECTURE.md`, `docs/RUNBOOK.md`, `docs/RELEASE.md`
@@ -90,7 +90,7 @@ Plans:
 - [x] 04-01-PLAN.md — Foundation: 3 tablas (query_log, query_thresholds, query_approvals) + ORM + DTOs + repos skeleton + schema_guard extendido + seeds + thresholds_cache skeleton + Wave 0 tests (QUERY-01, QUERY-02) ✓ 2026-04-20
 - [x] 04-02-PLAN.md — Preflight + Middleware + asyncio.to_thread: preflight.py + pipeline_lock.py + query_timing.py + refactor 4 routers (pipeline/bbdd/capacidad/operarios) + modales amber/red Alpine (QUERY-03, QUERY-04, QUERY-05, QUERY-07, QUERY-08) ✓ 2026-04-20
 - [x] 04-03-PLAN.md — Approval flow: approvals.py service + /api/approvals/* router + páginas /mis-solicitudes + /ajustes/solicitudes + badge sidebar HTMX + cleanup_scheduler + job TTL 7d (QUERY-06) ✓ 2026-04-20
-- [ ] 04-04-PLAN.md — Observability UI + LISTEN/NOTIFY + learning: listen_loop completo + /ajustes/limites CRUD + /ajustes/rendimiento Chart.js + factor_learning helper + query_log retention job + factor_auto_refresh mensual (QUERY-02 complete, QUERY-07 complete, D-19, D-20)
+- [x] 04-04-PLAN.md — Observability UI + LISTEN/NOTIFY + learning: listen_loop completo + /ajustes/limites CRUD + /ajustes/rendimiento Chart.js + factor_learning helper + query_log retention job + factor_auto_refresh mensual (QUERY-02 complete, QUERY-07 complete, D-19, D-20) ✓ 2026-04-20
 
 ### Phase 5: UI por roles
 **Goal**: Sidebar y páginas muestran sólo lo que el rol del usuario puede ver; split de `ajustes.html`.
@@ -137,9 +137,9 @@ Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Naming + Higiene + CI | 1/1 | Complete | 2026-04-18 |
-| 2. Identidad | 0/? | Not started | - |
-| 3. Capa de datos | 0/3 | Not started | - |
-| 4. Consultas pesadas | 0/? | Not started | - |
+| 2. Identidad | 4/4 | Complete | 2026-04-19 |
+| 3. Capa de datos | 3/3 | Complete | 2026-04-19 |
+| 4. Consultas pesadas | 4/4 | Complete | 2026-04-20 |
 | 5. UI por roles | 0/? | Not started | - |
 | 6. Despliegue LAN HTTPS | 0/? | Not started | - |
 | 7. DevEx hardening | 0/? | Not started | - |

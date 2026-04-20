@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 04 casi cerrada. Plan 04-03 ✓ 2026-04-20 — 5 commits del plan. Approval flow end-to-end: service layer (6 funciones) + router (7 endpoints) + 2 templates + badge sidebar HTMX + scheduler asyncio + job cleanup Mon 03:05 + TTL 7d. PC-04-07 xfail removido (test_run_red_with_valid_approval_executes ahora green end-to-end). Tests: 174 pass / 18 skip / 0 xfail / 0 fail (+23 vs baseline 151). Siguiente: Plan 04-04 (observability UI + LISTEN/NOTIFY + learning)."
-last_updated: "2026-04-20T10:30:00.000Z"
-last_activity: 2026-04-20 -- Plan 04-03 completo (approval flow + cleanup scheduler + badge HTMX + PC-04-07 xfail removido)
+stopped_at: "Phase 04 CERRADA. Plan 04-04 ✓ 2026-04-20 — 5 commits del plan. Observability UI + LISTEN/NOTIFY + learning: listener real (_blocking_listen_forever + start_listener en lifespan) + /ajustes/limites CRUD (PUT + recalibrate con factor_learning helper + NOTIFY propagation) + /ajustes/rendimiento (tabla summary + Chart.js timeseries + fallback) + query_log_cleanup (Mon 03:00 + NEXO_QUERY_LOG_RETENTION_DAYS) + factor_auto_refresh (1er Mon del mes 03:10 + NEXO_AUTO_REFRESH_STALE_DAYS) + 2 env vars + 19 tests nuevos (9 thresholds_cache + 9 thresholds_crud + 1 listen_notify E2E). Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Fix Rule 1: notify_changed ahora usa psycopg2 dedicado (no pool SQLAlchemy) para evitar polución de isolation_level. Siguiente: Phase 5 (UI por roles)."
+last_updated: "2026-04-20T15:00:00.000Z"
+last_activity: 2026-04-20 -- Plan 04-04 completo (LISTEN/NOTIFY real + UI limites/rendimiento + cleanup jobs + Phase 4 cerrada)
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 12
-  completed_plans: 11
-  percent: 92
+  completed_plans: 12
+  percent: 57
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 04 (consultas-pesadas) — EXECUTING
-Plan: 4 of 4 (04-01 ✓ 2026-04-20, 04-02 ✓ 2026-04-20, 04-03 ✓ 2026-04-20, 04-04 next)
-Status: Wave 3 complete — 04-03 approval flow end-to-end + scheduler asyncio + badge HTMX. 174 tests green (+23 nuevos), 0 xfails. Import-guard _APPROVALS_AVAILABLE=True activado en 4 routers. Siguiente: Plan 04-04 (observability UI + LISTEN/NOTIFY real + learning).
-Last activity: 2026-04-20 -- Plan 04-03 cerrado (approvals + scheduler + badge + PC-04-07 xfail removido)
+Phase: 04 (consultas-pesadas) — COMPLETE ✓ 2026-04-20
+Plan: 4 of 4 ALL COMPLETE (04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓ — todos 2026-04-20)
+Status: **Phase 4 cerrada**. Wave 4 entregó observability UI + LISTEN/NOTIFY real + learning + Phase 4 complete. 173 tests green (+19 nuevos vs 04-03) / 28 skipped / 4 SQL Server infra pre-existing deselected. Siguiente: Phase 5 (UI por roles) — no planificada aún, requiere `/gsd-plan-phase 5`.
+Last activity: 2026-04-20 -- Plan 04-04 cerrado (LISTEN/NOTIFY listener + /ajustes/limites + /ajustes/rendimiento + cleanup jobs + factor_auto_refresh)
 
-Progress: [██████████] 43% (3/7 phases completas) — Phase 4 en curso (3/4 plans)
+Progress: [████████░░] 57% (4/7 phases completas) — Phase 4 cerrada con 4/4 plans
 
 ## Plans de Phase 2 (estado)
 
@@ -43,9 +43,9 @@ Progress: [██████████] 43% (3/7 phases completas) — Phase 
 
 **Velocity:**
 
-- Total plans completed in current session: 2 (Plan 04-02, Plan 04-03)
-- Average duration: ~55 min (execute-plan sequential agent)
-- Total execution time Plan 04-03: ~55 min
+- Total plans completed in current session: 3 (Plan 04-02, Plan 04-03, Plan 04-04)
+- Average duration: ~75 min (execute-plan sequential agent)
+- Total execution time Plan 04-04: ~110 min (listener + 2 routers + 2 templates + 2 services + 19 tests + infra bug fix)
 
 **By Phase:**
 
@@ -55,11 +55,12 @@ Progress: [██████████] 43% (3/7 phases completas) — Phase 
 | 3. Capa de datos (03-03 APP+NEXO) | 1/1 | ~17 min | ~17 min |
 | 4. Consultas pesadas (04-02 preflight+middleware+asyncio) | 1/1 | ~60 min | ~60 min |
 | 4. Consultas pesadas (04-03 approvals + scheduler + badge) | 1/1 | ~55 min | ~55 min |
+| 4. Consultas pesadas (04-04 observability + LISTEN/NOTIFY + learning) | 1/1 | ~110 min | ~110 min |
 
 **Recent Trend:**
 
-- Last 5 plans: [Phase 3 / Plan 03-03 ~17 min, Phase 4 / Plan 04-01 ~3h, Phase 4 / Plan 04-02 ~60 min, Phase 4 / Plan 04-03 ~55 min]
-- Trend: Phase 4 plans promedio ~90 min; foundation (04-01) la más larga por Wave 0 tests + DB bootstrap; plans secundarios ~55-60 min.
+- Last 5 plans: [Phase 3 / Plan 03-03 ~17 min, Phase 4 / Plan 04-01 ~3h, Phase 4 / Plan 04-02 ~60 min, Phase 4 / Plan 04-03 ~55 min, Phase 4 / Plan 04-04 ~110 min]
+- Trend: Phase 4 plans promedio ~90 min; foundation (04-01) y último (04-04, observability + tests E2E) más largos; plans intermedios ~55-60 min.
 
 *Updated after each plan completion*
 
@@ -91,6 +92,16 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - PC-04-02: link "Ejecutar ahora" en /mis-solicitudes con `?approval_id={{ s.id }}` por endpoint.
 - PC-04-07: xfail removido de test_run_red_with_valid_approval_executes; test extendido con create+approve+run end-to-end.
 - Deviation: rate limiter slowapi 20/min en /login acumulaba 429 entre módulos; fix con `limiter.reset()` en autouse fixtures de los 3 test suites que hacen login.
+
+**Plan 04-04 decisions implementadas (2026-04-20):**
+
+- D-04: botón manual "Recalcular" en /ajustes/limites + helper compartido `nexo/services/factor_learning.compute_factor` (median con outlier filter >500ms, min 10 samples). Para pipeline/run usa `actual_ms / (n_recursos × n_dias)`; para otros usa `median(actual_ms)`.
+- D-10: query_log_cleanup Monday 03:00 UTC + NEXO_QUERY_LOG_RETENTION_DAYS=90 (0=forever). Audit log con path='__cleanup_query_log__'.
+- D-11: /ajustes/rendimiento página dedicada (propietario-only) con filtros endpoint/user/status/rango + tabla summary (divergencia color-coded) + Chart.js canvas.
+- D-12: Chart.js vía CDN + fallback tabla si CDN cae (`typeof Chart === 'undefined'` check inline) + `maintainAspectRatio: false` responsive.
+- D-19 complete: `_blocking_listen_forever` con psycopg2 conn dedicado AUTOCOMMIT + `LISTEN nexo_thresholds_changed` + `select()` loop 5s. Wrappeado en `asyncio.to_thread` dentro del lifespan. Reconexión automática backoff 5s. Safety-net 5min de 04-01 sigue operativo como 2a defensa.
+- D-20: factor_auto_refresh 1er Monday del mes 03:10 UTC (filter `now.day <= 7`) si factor_updated_at > NEXO_AUTO_REFRESH_STALE_DAYS=60 días. Reusa compute_factor (DRY con recalibrate manual). Audit log con path='__auto_refresh__'.
+- Rule 1 fix: `thresholds_cache.notify_changed` usaba `engine_nexo.raw_connection()` + `set_isolation_level(AUTOCOMMIT)` que devolvía la conexión al pool SQLAlchemy con nivel alterado → siguientes tests con `yield_per=500` fallaban con "can't use a named cursor outside of transactions". Fix: psycopg2.connect() dedicado, descartado tras NOTIFY. No toca el pool.
 
 ### Pending Todos
 
@@ -130,6 +141,7 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-20 — `/gsd-execute-phase 4` (Plan 04-03 cerrado sequential autonomous; Wave 3 completa).
-Stopped at: Phase 4 casi cerrada (3/4 plans). Plan 04-03 entregó approval flow end-to-end: service (6 funciones) + router (7 endpoints) + templates (ajustes_solicitudes + mis_solicitudes) + badge HTMX 30s + cleanup_scheduler asyncio (Mon 03:05 UTC) + job approvals_cleanup + TTL 7d. 174 tests green / 18 skip / 0 xfail / 0 fail (+23 vs baseline 151). PC-04-07 xfail removido; test_run_red_with_valid_approval_executes ahora ejerce el flujo completo end-to-end.
-Resume file: `.planning/phases/04-consultas-pesadas/04-03-SUMMARY.md`. Siguientes pasos recomendados: (a) `/gsd-execute-phase 4` para Plan 04-04 (último de la phase: observability UI /ajustes/rendimiento + LISTEN/NOTIFY listener real + /ajustes/limites CRUD + factor_auto_refresh + query_log cleanup); (b) smoke manual pendiente del Task 6 de 04-03 (auto-aprobado): 2-browser owner+user concurrent flow + verificación ocular de badge HTMX refresh.
+Last session: 2026-04-20 — `/gsd-execute-phase 4` (Plan 04-04 cerrado sequential autonomous; Wave 4 completa + Phase 4 cerrada).
+Stopped at: **Phase 4 CERRADA (4/4 plans)**. Plan 04-04 entregó observability + hot-reload completo: listener LISTEN/NOTIFY real (`_blocking_listen_forever` + `start_listener` cableado en lifespan) + `/ajustes/limites` CRUD (PUT + recalibrate manual con factor_learning helper + NOTIFY propagation) + `/ajustes/rendimiento` (filtros + tabla summary + Chart.js timeseries + fallback CDN) + `query_log_cleanup` (Mon 03:00 UTC) + `factor_auto_refresh` (1er Mon del mes 03:10 UTC, filter `day <= 7`) + 2 env vars nuevas (NEXO_QUERY_LOG_RETENTION_DAYS=90, NEXO_AUTO_REFRESH_STALE_DAYS=60) + 19 tests nuevos (9 thresholds_cache integration + 9 thresholds_crud + 1 listen_notify E2E).
+Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
+Resume file: `.planning/phases/04-consultas-pesadas/04-04-SUMMARY.md`. Siguientes pasos recomendados: (a) `/gsd-verify-work 4` — verificación final de Phase 4; (b) `/gsd-plan-phase 5` — planificar Phase 5 (UI por roles, Sprint 4); (c) smoke manual pendiente del Task 6 de 04-04 (auto-aprobado): Chart.js render + LISTEN <1s (2 pestañas) + modal red E2E completo + scheduler 3 jobs al arrancar.
