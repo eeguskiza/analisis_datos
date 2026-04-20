@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 04 CERRADA. Plan 04-04 ✓ 2026-04-20 — 5 commits del plan. Observability UI + LISTEN/NOTIFY + learning: listener real (_blocking_listen_forever + start_listener en lifespan) + /ajustes/limites CRUD (PUT + recalibrate con factor_learning helper + NOTIFY propagation) + /ajustes/rendimiento (tabla summary + Chart.js timeseries + fallback) + query_log_cleanup (Mon 03:00 + NEXO_QUERY_LOG_RETENTION_DAYS) + factor_auto_refresh (1er Mon del mes 03:10 + NEXO_AUTO_REFRESH_STALE_DAYS) + 2 env vars + 19 tests nuevos (9 thresholds_cache + 9 thresholds_crud + 1 listen_notify E2E). Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Fix Rule 1: notify_changed ahora usa psycopg2 dedicado (no pool SQLAlchemy) para evitar polución de isolation_level. Siguiente: Phase 5 (UI por roles)."
-last_updated: "2026-04-20T15:00:00.000Z"
-last_activity: 2026-04-20 -- Plan 04-04 completo (LISTEN/NOTIFY real + UI limites/rendimiento + cleanup jobs + Phase 4 cerrada)
+stopped_at: "**Phase 4 CERRADA (4/4 plans)**. Plan 04-04 entregó observability + hot-reload completo: listener LISTEN/NOTIFY real (`_blocking_listen_forever` + `start_listener` cableado en lifespan) + `/ajustes/limites` CRUD (PUT + recalibrate manual con factor_learning helper + NOTIFY propagation) + `/ajustes/rendimiento` (filtros + tabla summary + Chart.js timeseries + fallback CDN) + `query_log_cleanup` (Mon 03:00 UTC) + `factor_auto_refresh` (1er Mon del mes 03:10 UTC, filter `day <= 7`) + 2 env vars nuevas (NEXO_QUERY_LOG_RETENTION_DAYS=90, NEXO_AUTO_REFRESH_STALE_DAYS=60) + 19 tests nuevos (9 thresholds_cache integration + 9 thresholds_crud + 1 listen_notify E2E)."
+last_updated: "2026-04-20T18:01:27.347Z"
+last_activity: 2026-04-20 -- Phase 05 execution started
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 12
+  total_plans: 17
   completed_plans: 12
-  percent: 57
+  percent: 71
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Consultar datos reales de producción (MES IZARO) y generar informes OEE fiables por máquina/turno/sección sin bloquear al operario y sin filtrar información entre departamentos.
-**Current focus:** Phase 04 — consultas-pesadas
+**Current focus:** Phase 05 — ui-por-roles
 
 ## Current Position
 
-Phase: 04 (consultas-pesadas) — COMPLETE ✓ 2026-04-20
-Plan: 4 of 4 ALL COMPLETE (04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓ — todos 2026-04-20)
-Status: **Phase 4 cerrada** + code review (19 findings) + 6 CRITICAL+HIGH fixes (a709035..f9a8849) + VERIFICATION.md (5/5 must-haves + 8/8 QUERY-* requirements). Status verification: `human_needed` hasta que operador haga el smoke manual de 7 items (AMBER modal, RED gate flow, UI no-congela, sidebar badge, hot-reload limites, rendimiento, scheduler 3 jobs). 141 tests green (Postgres-only subset) / 22 skipped / 4 SQL Server infra pre-existing. Siguiente: Phase 5 (UI por roles) — requiere `/gsd-plan-phase 5`.
-Last activity: 2026-04-20 -- Phase 04 cerrada (4 plans + code review + fixes + verification)
+Phase: 05 (ui-por-roles) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 05
+Last activity: 2026-04-20 -- Phase 05 execution started
 
 Progress: [████████░░] 57% (4/7 phases completas) — Phase 4 cerrada con 4/4 plans
 
