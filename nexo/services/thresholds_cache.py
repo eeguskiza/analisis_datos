@@ -176,23 +176,40 @@ def notify_changed(endpoint: str) -> None:
     UPDATE. Requiere AUTOCOMMIT porque NOTIFY fuera de una transaccion
     explicita necesita commit inmediato (psycopg2 quirk).
 
+    **Pool hygiene (Plan 04-04 fix)**: NO reutilizar la conexion del
+    pool de SQLAlchemy. Si pedimos un ``raw_connection`` y cambiamos su
+    ``isolation_level`` a AUTOCOMMIT, al cerrarla vuelve al pool con el
+    nivel alterado -> el siguiente uso (ej. ``db_nexo`` fixture con
+    ``yield_per`` + named cursor) falla con "can't use a named cursor
+    outside of transactions". En su lugar abrimos una conexion psycopg2
+    dedicada que se descarta (no va al pool).
+
     La interfaz vive aqui para que:
       - 04-02 (preflight) pueda llamarla si alguna vez actualiza
         factor tras recomputacion sin pasar por el CRUD.
-      - 04-04 (CRUD endpoint) tenga un punto central.
-
-    NOTE: el listener que REACCIONA a este NOTIFY (LISTEN loop) se
-    implementa en Plan 04-04. En 04-01 solo emitimos; el safety-net
-    de ``get`` cubre el gap de 5 min.
+      - 04-04 (CRUD endpoint + factor_auto_refresh) tenga un punto central.
     """
-    raw = engine_nexo.raw_connection()
+    # Conexion dedicada fuera del pool SQLAlchemy. psycopg2 lee los
+    # mismos parametros que el engine_nexo original (settings).
+    # Import local para evitar coste al importar el modulo.
+    conn = psycopg2.connect(
+        host=settings.pg_host,
+        port=settings.pg_port,
+        user=settings.effective_pg_user,
+        password=settings.effective_pg_password,
+        dbname=settings.pg_db,
+    )
     try:
-        raw.set_isolation_level(0)  # AUTOCOMMIT para NOTIFY
-        cur = raw.cursor()
-        cur.execute("SELECT pg_notify('nexo_thresholds_changed', %s)", (endpoint,))
-        cur.close()
+        conn.set_isolation_level(
+            psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT,
+        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT pg_notify('nexo_thresholds_changed', %s)",
+                (endpoint,),
+            )
     finally:
-        raw.close()
+        conn.close()
     log.info("thresholds_cache NOTIFY emitted for endpoint=%s", endpoint)
 
 
