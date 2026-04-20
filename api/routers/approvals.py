@@ -40,12 +40,13 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from api.deps import DbNexo, render
 from nexo.data.repositories.nexo import ApprovalRepo, AuditRepo
 from nexo.services import approvals as svc
 from nexo.services.auth import require_permission
+from nexo.services.thresholds_cache import ALLOWED_ENDPOINTS
 
 logger = logging.getLogger("nexo.approvals")
 
@@ -114,11 +115,26 @@ def _audit_approval_event(
 class CreateApprovalBody(BaseModel):
     """Body del POST /api/approvals — disparado por el modal RED del
     frontend (static/js/app.js::preflightModal::requestApproval).
+
+    H-02 fix: ``endpoint`` se valida contra ``ALLOWED_ENDPOINTS`` para
+    evitar que clientes creen solicitudes con strings arbitrarios
+    (p.ej. "../admin/wipe_db") que pollutan la tabla.
+    ``estimated_ms`` debe ser >= 0.
     """
 
     endpoint: str
     params: dict
-    estimated_ms: int
+    estimated_ms: int = Field(ge=0)
+
+    @field_validator("endpoint")
+    @classmethod
+    def _endpoint_in_allowlist(cls, v: str) -> str:
+        if v not in ALLOWED_ENDPOINTS:
+            raise ValueError(
+                f"endpoint {v!r} no está en la allowlist "
+                f"({sorted(ALLOWED_ENDPOINTS)})"
+            )
+        return v
 
 
 # ── POST /api/approvals ───────────────────────────────────────────────────

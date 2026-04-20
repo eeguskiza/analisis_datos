@@ -62,6 +62,22 @@ log = logging.getLogger("nexo.thresholds_cache")
 FALLBACK_REFRESH_SECONDS = 300
 
 
+# H-02 / H-04 fix — canonical source of truth para los endpoints con
+# preflight/postflight. Comparten allowlist:
+#   - POST /api/approvals (H-02): evita pollution de la tabla con
+#     endpoints arbitrarios (p.ej. "../admin/wipe_db").
+#   - PUT/POST /api/thresholds/{endpoint:path} (H-04): evita que un
+#     propietario mistype/construct endpoints inexistentes.
+#   - QueryTimingMiddleware._TIMED_PATHS.values() debe coincidir
+#     (duplicated literal; si divergen, se detecta en tests).
+ALLOWED_ENDPOINTS: frozenset[str] = frozenset({
+    "pipeline/run",
+    "bbdd/query",
+    "capacidad",
+    "operarios",
+})
+
+
 @dataclass(frozen=True)
 class ThresholdEntry:
     """Snapshot inmutable de una fila de ``nexo.query_thresholds``.
