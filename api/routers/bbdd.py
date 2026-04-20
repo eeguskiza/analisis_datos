@@ -9,6 +9,13 @@ router). El whitelist se expone como funcion module-level
 ``_validate_sql`` para poder ejercerlo desde un contract test
 (tests/data/test_bbdd_whitelist.py).
 
+Plan 04-02: el POST /query ahora corre preflight ANTES de ``_validate_sql``
+(feedback UX primero, security despues — research §Architecture Diagram
+lines 221-227). Acepta ``force`` + ``approval_id`` en el body. Gate por
+level igual que pipeline.py (green ejecuta, amber sin force -> 428, red
+sin approval -> 403). ``consume_approval`` se importa bajo guard hasta
+que Plan 04-03 aterrice.
+
 Limitacion Mark-III: el explorer queda restringido a ``dbizaro``
 porque ``engine_mes`` tiene el catalog baked en el DSN (DATA-09).
 Mark-IV podra construir engines ad-hoc por catalog si se necesita
@@ -16,15 +23,27 @@ navegar otras BDs del servidor.
 """
 from __future__ import annotations
 
+import json
 import re
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from sqlalchemy import text
 
-from api.deps import EngineMes
+from api.deps import DbNexo, EngineMes
 from nexo.data.repositories.mes import MesRepository
 from nexo.data.sql.loader import load_sql
 from nexo.services.auth import require_permission
+from nexo.services.preflight import estimate_cost
+
+
+# ── Import-guard para Plan 04-03 (approvals) ─────────────────────────────
+try:
+    from nexo.services.approvals import consume_approval  # type: ignore[import-not-found]
+
+    _APPROVALS_AVAILABLE = True
+except ImportError:
+    _APPROVALS_AVAILABLE = False
+
 
 router = APIRouter(
     prefix="/bbdd",
@@ -494,7 +513,10 @@ def explorar_rutas_detalle(
 @router.post("/query")
 def query_readonly(
     engine_mes: EngineMes,
+    request: Request,
+    db: DbNexo,
     payload: dict = Body(...),
+    user=Depends(require_permission("bbdd:read")),
 ):
     """
     Ejecuta una consulta SELECT de solo lectura en la BBDD indicada.
@@ -503,22 +525,80 @@ def query_readonly(
         {
           "database": "dbizaro",
           "sql": "SELECT TOP 10 * FROM admuser.fprorut",
-          "max_rows": 500  // opcional, por defecto 500, tope 5000
+          "max_rows": 500,        // opcional, por defecto 500, tope 5000
+          "force": false,         // Plan 04-02: confirmacion amber
+          "approval_id": null     // Plan 04-02: id approval aprobado (red)
         }
 
-    Valida que la sentencia sea SELECT/WITH (CTE) pura. Rechaza cualquier
-    palabra reservada de DML/DDL para garantizar solo consulta.
+    Flujo:
+      1. Preflight (Plan 04-02): estima coste → gate por level.
+      2. Whitelist (D-05): valida SELECT/WITH puro.
+      3. Ejecuta via MesRepository.consulta_readonly.
     """
     database = payload.get("database") or _get_default_db()
     sql = (payload.get("sql") or "").strip()
     max_rows = int(payload.get("max_rows") or 500)
     max_rows = max(1, min(max_rows, 5000))
+    force = bool(payload.get("force", False))
+    approval_id = payload.get("approval_id")
+    if approval_id is not None:
+        approval_id = int(approval_id)
 
     if not re.match(r"^[\w]+$", database):
         raise HTTPException(400, "Nombre de BBDD invalido")
     _guard_mark3_db_scope(database)
 
-    # Whitelist (D-05) ANTES de construir el repo.
+    # ── Preflight (Plan 04-02) ─────────────────────────────────────────
+    # user_provided=True: el SQL viene completo del usuario (D-09);
+    # sanitizado por _validate_sql más abajo pero sin truncar en el log.
+    params = {
+        "sql": sql,
+        "database": database,
+        "max_rows": max_rows,
+        "user_provided": True,
+    }
+    params_json_str = json.dumps(params, sort_keys=True, ensure_ascii=False)
+    est = estimate_cost("bbdd/query", params)
+    request.state.estimated_ms = est.estimated_ms
+    request.state.params_json = params_json_str
+
+    # Gate por level (mismo patron que pipeline.py — D-15).
+    if est.level == "red":
+        if not (force and approval_id is not None):
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "estimation": est.model_dump(),
+                    "action": "request_approval",
+                },
+            )
+        if not _APPROVALS_AVAILABLE:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Flujo de aprobación no disponible aún — esperar Plan 04-03"
+                ),
+            )
+        approval = consume_approval(
+            db,
+            approval_id=approval_id,
+            user_id=user.id,
+            current_params=params,
+        )
+        request.state.approval_id = approval.id
+    elif est.level == "amber":
+        if not force:
+            raise HTTPException(
+                status_code=428,
+                detail={
+                    "estimation": est.model_dump(),
+                    "action": "confirm_amber",
+                },
+            )
+
+    # Whitelist (D-05) DESPUES del preflight: UX primero (el usuario ve
+    # coste), security despues. Si el SQL es invalido, igual rechazamos
+    # con 400 antes de ejecutar.
     _validate_sql(sql)
 
     try:

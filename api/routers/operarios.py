@@ -6,18 +6,35 @@ extraidas a ``nexo/data/sql/mes/operarios_*.sql``. La ficha detalle
 mantiene tres queries inline parametrizadas con ``:codigo`` /
 ``:fecha_inicio`` / ``:fecha_fin`` (sus agregaciones eran monolithic
 y no requieren `.sql` versionado por separado — D-01 scope).
+
+Plan 04-02: preflight condicional por D-03 — si ``rango_dias > 90`` se
+estima coste y se aplica gate en ``/operarios/{codigo}``. El endpoint
+de listado (``GET /operarios``) no tiene rango asociado y pasa directo.
 """
 from __future__ import annotations
 
+import json
 from datetime import date, timedelta
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import text
 
-from api.deps import EngineMes
+from api.deps import DbNexo, EngineMes
 from api.services import db as mes_service
 from nexo.data.sql.loader import load_sql
 from nexo.services.auth import require_permission
+from nexo.services.preflight import estimate_cost
+
+
+# ── Import-guard para Plan 04-03 (approvals) ─────────────────────────────
+try:
+    from nexo.services.approvals import consume_approval  # type: ignore[import-not-found]
+
+    _APPROVALS_AVAILABLE = True
+except ImportError:
+    _APPROVALS_AVAILABLE = False
+
 
 router = APIRouter(
     prefix="/operarios",
@@ -56,8 +73,13 @@ def listar_operarios(engine_mes: EngineMes, activos: bool = True):
 def ficha_operario(
     codigo: int,
     engine_mes: EngineMes,
+    request: Request,
+    db: DbNexo,
     desde: date = Query(None),
     hasta: date = Query(None),
+    force: bool = Query(False),
+    approval_id: Optional[int] = Query(None),
+    user=Depends(require_permission("operarios:read")),
 ):
     """
     Ficha completa de un operario con estadísticas de rendimiento.
@@ -65,6 +87,9 @@ def ficha_operario(
     Parámetros:
     - codigo: código del operario en IZARO
     - desde/hasta: rango de fechas (por defecto último mes)
+    - force/approval_id (Plan 04-02): confirmación amber / aprobación red
+
+    Plan 04-02: preflight condicional — sólo si ``rango_dias > 90``.
     """
     if hasta is None:
         hasta = date.today()
@@ -73,6 +98,51 @@ def ficha_operario(
 
     fi = desde.isoformat()
     fh = hasta.isoformat()
+
+    # ── Preflight condicional (D-03: solo rango > 90d) ──────────────────
+    rango_dias = (hasta - desde).days
+    if rango_dias > 90:
+        params = {
+            "codigo": codigo,
+            "fecha_desde": fi,
+            "fecha_hasta": fh,
+            "rango_dias": rango_dias,
+        }
+        params_json_str = json.dumps(params, sort_keys=True, ensure_ascii=False)
+        est = estimate_cost("operarios", params)
+        request.state.estimated_ms = est.estimated_ms
+        request.state.params_json = params_json_str
+
+        if est.level == "red":
+            if not (force and approval_id is not None):
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "estimation": est.model_dump(),
+                        "action": "request_approval",
+                    },
+                )
+            if not _APPROVALS_AVAILABLE:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Flujo de aprobación no disponible aún — esperar Plan 04-03",
+                )
+            approval = consume_approval(
+                db,
+                approval_id=approval_id,
+                user_id=user.id,
+                current_params=params,
+            )
+            request.state.approval_id = approval.id
+        elif est.level == "amber":
+            if not force:
+                raise HTTPException(
+                    status_code=428,
+                    detail={
+                        "estimation": est.model_dump(),
+                        "action": "confirm_amber",
+                    },
+                )
 
     with engine_mes.connect() as conn:
         # 1. Datos del operario

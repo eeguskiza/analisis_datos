@@ -12,17 +12,35 @@ donde ciclo_teorico = percentil 10 de los ciclos observados en los ultimos
 Plan 03-02 Task 3.3: elimina el bloque ``pyodbc.connect(...)`` + queries
 inline; ahora usa ``engine_mes`` (2-part names, DATA-09) + ``load_sql``
 sobre ``nexo/data/sql/mes/capacidad_*.sql``.
+
+Plan 04-02: preflight condicional por D-03 — si ``rango_dias > 90`` se
+estima coste y se aplica gate (green ejecuta, amber sin force -> 428,
+red sin approval -> 403). Rangos cortos saltan el preflight completamente
+(no modal, no query_log).
 """
 from __future__ import annotations
 
+import json
 from datetime import date
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import bindparam, text
 
-from api.deps import EngineMes
+from api.deps import DbNexo, EngineMes
 from nexo.data.sql.loader import load_sql
 from nexo.services.auth import require_permission
+from nexo.services.preflight import estimate_cost
+
+
+# ── Import-guard para Plan 04-03 (approvals) ─────────────────────────────
+try:
+    from nexo.services.approvals import consume_approval  # type: ignore[import-not-found]
+
+    _APPROVALS_AVAILABLE = True
+except ImportError:
+    _APPROVALS_AVAILABLE = False
+
 
 router = APIRouter(
     prefix="/capacidad",
@@ -42,8 +60,13 @@ def _p10(values: list[float]) -> float | None:
 @router.get("")
 def capacidad(
     engine_mes: EngineMes,
+    request: Request,
+    db: DbNexo,
     fecha_inicio: date = Query(...),
     fecha_fin: date = Query(...),
+    force: bool = Query(False),
+    approval_id: Optional[int] = Query(None),
+    user=Depends(require_permission("capacidad:read")),
 ):
     """Devuelve capacidad vs fabricado por referencia en el periodo."""
     if fecha_fin < fecha_inicio:
@@ -51,6 +74,52 @@ def capacidad(
 
     fi = fecha_inicio.strftime("%Y-%m-%d")
     ff = fecha_fin.strftime("%Y-%m-%d")
+
+    # ── Preflight condicional (D-03: solo rango > 90d) ──────────────────
+    # En rangos cortos, saltamos preflight completamente — no poblamos
+    # request.state.estimated_ms y el middleware no escribe query_log.
+    rango_dias = (fecha_fin - fecha_inicio).days
+    if rango_dias > 90:
+        params = {
+            "fecha_desde": fi,
+            "fecha_hasta": ff,
+            "rango_dias": rango_dias,
+        }
+        params_json_str = json.dumps(params, sort_keys=True, ensure_ascii=False)
+        est = estimate_cost("capacidad", params)
+        request.state.estimated_ms = est.estimated_ms
+        request.state.params_json = params_json_str
+
+        if est.level == "red":
+            if not (force and approval_id is not None):
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "estimation": est.model_dump(),
+                        "action": "request_approval",
+                    },
+                )
+            if not _APPROVALS_AVAILABLE:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Flujo de aprobación no disponible aún — esperar Plan 04-03",
+                )
+            approval = consume_approval(
+                db,
+                approval_id=approval_id,
+                user_id=user.id,
+                current_params=params,
+            )
+            request.state.approval_id = approval.id
+        elif est.level == "amber":
+            if not force:
+                raise HTTPException(
+                    status_code=428,
+                    detail={
+                        "estimation": est.model_dump(),
+                        "action": "confirm_amber",
+                    },
+                )
 
     try:
         with engine_mes.connect() as conn:
