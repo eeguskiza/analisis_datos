@@ -9,10 +9,19 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.exception_handlers import (
+    http_exception_handler as _default_http_handler,
+)
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.config import settings
 from api.database import init_db
@@ -22,6 +31,7 @@ from api.rate_limit import limiter
 from nexo.data import schema_guard
 from nexo.data.engines import engine_nexo
 from nexo.logging_config import configure_logging
+from nexo.middleware.flash import FlashMiddleware
 from nexo.middleware.query_timing import QueryTimingMiddleware
 from nexo.services import thresholds_cache
 from nexo.services.cleanup_scheduler import cleanup_loop
@@ -167,6 +177,92 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
+# ── Handler 403 HTML (D-07) — Accept-aware redirect + flash ──────────────────
+# Sibling del ``global_exception_handler`` de NAMING-07. El handler
+# ``@app.exception_handler(Exception)`` de arriba NO captura
+# ``HTTPException`` (FastAPI tiene handler default separado). Registrar
+# sobre ``StarletteHTTPException`` (padre de ``fastapi.HTTPException``)
+# para capturar ambas ramas (Pitfall 1 de 05-RESEARCH).
+#
+# Comportamiento:
+#   - status != 403 → delegar al default de FastAPI (no regresiona 401/404/422).
+#   - status == 403 + cliente JSON (/api/*, Accept JSON, HX-Request) →
+#     delegar (contract JSON estable).
+#   - status == 403 + HTML → RedirectResponse("/", 302) + cookie `nexo_flash`
+#     con mensaje user-friendly (leída y borrada por FlashMiddleware en el
+#     siguiente request).
+
+_PERMISSION_LABELS: dict[str, str] = {
+    "bbdd:read":           "el explorador de BBDD",
+    "pipeline:read":       "analisis",
+    "pipeline:run":        "ejecutar el pipeline",
+    "historial:read":      "el historial",
+    "capacidad:read":      "capacidad",
+    "recursos:read":       "recursos",
+    "recursos:edit":       "editar recursos",
+    "ciclos:read":         "calculo de ciclos",
+    "ciclos:edit":         "editar ciclos",
+    "operarios:read":      "operarios",
+    "datos:read":          "datos",
+    "ajustes:manage":      "la configuracion",
+    "auditoria:read":      "el log de auditoria",
+    "usuarios:manage":     "la gestion de usuarios",
+    "aprobaciones:manage": "solicitudes de aprobacion",
+    "limites:manage":      "limites de queries",
+    "rendimiento:read":    "metricas de rendimiento",
+    "conexion:config":     "la configuracion de conexion",
+    "conexion:read":       "la conexion",
+    "informes:read":       "informes",
+    "informes:delete":     "borrar informes",
+}
+
+
+def _friendly_permission_label(perm: str) -> str:
+    """Traduce ``modulo:accion`` a texto user-friendly para el toast.
+
+    Fallback: si el permiso no está en ``_PERMISSION_LABELS``, devuelve la
+    cadena raw — mejor mostrar "pipeline:run" que un placeholder vacío.
+    """
+    return _PERMISSION_LABELS.get(perm, perm)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler_403(
+    request: Request, exc: StarletteHTTPException
+):
+    """Negocia Accept para 403: HTML → redirect + flash; resto → default.
+
+    Para cualquier otro status code (401, 404, 422) delega al handler
+    default de FastAPI — preserva el contract JSON existente sin
+    regresion. El handler ``@app.exception_handler(Exception)`` de 500
+    (NAMING-07) queda intacto: actua sobre ``Exception``, no sobre
+    ``HTTPException``.
+    """
+    if exc.status_code != 403:
+        return await _default_http_handler(request, exc)
+
+    if _wants_json(request):
+        return await _default_http_handler(request, exc)
+
+    # HTML path: redirect + flash toast.
+    raw = str(exc.detail or "")
+    perm = raw.replace("Permiso requerido: ", "") if raw.startswith(
+        "Permiso requerido: "
+    ) else ""
+    friendly = _friendly_permission_label(perm) if perm else "esta seccion"
+    response = RedirectResponse("/", status_code=302)
+    response.set_cookie(
+        "nexo_flash",
+        f"No tienes permiso para acceder a {friendly}",
+        max_age=60,
+        httponly=True,
+        secure=not settings.debug,   # Pitfall 2: dev HTTP local
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
 # ── Rate limit global (slowapi) ──────────────────────────────────────────────
 # El ``limiter`` es una instancia compartida (definida en ``api.rate_limit``)
 # que los routers importan para decorar endpoints con ``@limiter.limit(...)``.
@@ -199,6 +295,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(QueryTimingMiddleware)  # innermost — ultima capa antes del handler
 app.add_middleware(AuditMiddleware)        # inner — segundo en ejecutar
+app.add_middleware(FlashMiddleware)        # Plan 05-03 — entre Audit y Auth (W-02)
 app.add_middleware(AuthMiddleware)         # outer — primero en ejecutar
 
 
