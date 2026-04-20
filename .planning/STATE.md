@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 04 en curso. Plan 04-01 ✓ 2026-04-20 — 9 commits (6 del plan + 3 fixes colaterales descubiertos al verificar: make dev DNS, conftest fixture scope, init_nexo_schema owner creds). Verificado contra Postgres real: 11 tablas en nexo.*, 4 seeds D-01..D-04, 123 tests pass / 25 skip / 0 fail. Siguiente: Wave 2 (Plan 04-02)."
-last_updated: "2026-04-20T10:00:00.000Z"
-last_activity: 2026-04-20 -- Plan 04-01 completo, arranca Wave 2 (04-02)
+stopped_at: "Phase 04 en curso. Plan 04-02 ✓ 2026-04-20 — 6 commits del plan. Preflight + middleware + asyncio.to_thread operativos; 4 routers (pipeline/bbdd/capacidad/operarios) gatean por level. Modal AMBER/RED en pipeline.html y bbdd.html. Bug resuelto: middleware leía request.state antes de call_next → fix para leer después. Tests: 151 pass / 22 skip / 1 xfail (04-03) / 0 fail. Siguiente: Plan 04-03 (approvals flow) ó Plan 04-04 (observability UI)."
+last_updated: "2026-04-20T07:45:00.000Z"
+last_activity: 2026-04-20 -- Plan 04-02 completo (preflight + middleware + asyncio.to_thread + modal frontend)
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 12
-  completed_plans: 9
-  percent: 75
+  completed_plans: 10
+  percent: 83
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 04 (consultas-pesadas) — EXECUTING
-Plan: 2 of 4 (04-01 ✓ 2026-04-20, 04-02 next)
-Status: Wave 1 complete — 04-01 verificado contra Postgres real (11 tablas, 4 seeds, 123 tests green)
-Last activity: 2026-04-20 -- Plan 04-01 cerrado, siguiente Wave 2 (04-02 preflight/postflight)
+Plan: 3 of 4 (04-01 ✓ 2026-04-20, 04-02 ✓ 2026-04-20, 04-03 next)
+Status: Wave 2 complete — 04-02 preflight + middleware + asyncio.to_thread + modal frontend operativos. 151 tests green (28 nuevos), 1 xfail aguardando Plan 04-03 consume_approval.
+Last activity: 2026-04-20 -- Plan 04-02 cerrado (preflight + middleware + modal frontend)
 
-Progress: [██████████] 43% (3/7 phases completas) — Phase 3 CERRADA
+Progress: [██████████] 43% (3/7 phases completas) — Phase 4 en curso (2/4 plans)
 
 ## Plans de Phase 2 (estado)
 
@@ -43,9 +43,9 @@ Progress: [██████████] 43% (3/7 phases completas) — Phase 
 
 **Velocity:**
 
-- Total plans completed: 1
-- Average duration: ~3h (sesión única, interactive mode)
-- Total execution time: ~3.0 horas
+- Total plans completed in current session: 1 (Plan 04-02)
+- Average duration: ~1h (execute-plan sequential agent)
+- Total execution time Plan 04-02: ~60 min
 
 **By Phase:**
 
@@ -53,11 +53,12 @@ Progress: [██████████] 43% (3/7 phases completas) — Phase 
 |-------|-------|-------|----------|
 | 1. Naming + Higiene + CI | 1/1 | ~3h | ~3h |
 | 3. Capa de datos (03-03 APP+NEXO) | 1/1 | ~17 min | ~17 min |
+| 4. Consultas pesadas (04-02 preflight+middleware+asyncio) | 1/1 | ~60 min | ~60 min |
 
 **Recent Trend:**
 
-- Last 5 plans: [Phase 1 / Plan 01-01 ~3h]
-- Trend: n/a (1 sola muestra)
+- Last 5 plans: [Phase 1 / Plan 01-01 ~3h, Phase 3 / Plan 03-03 ~17 min, Phase 4 / Plan 04-01 ~3h, Phase 4 / Plan 04-02 ~60 min]
+- Trend: Phase 4 plans promedio ~2h incluyendo Wave 0 tests + DB bootstrap
 
 *Updated after each plan completion*
 
@@ -70,6 +71,14 @@ bloqueantes de `docs/OPEN_QUESTIONS.md` resueltas + modelo de auth definido +
 reorden de sprints confirmado + **rotación de password SA ejecutada** durante Sprint 0.
 
 Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
+
+**Plan 04-02 decisions implementadas (2026-04-20):**
+
+- D-01..D-04: umbrales consumidos desde cache (seed de 04-01).
+- D-05/D-06/D-07: modales AMBER/RED bloqueantes con textos literales en `templates/pipeline.html` + `templates/bbdd.html`.
+- D-17: slow status cuando actual_ms > warn_ms*1.5 + log.warning con ratio.
+- D-18: semáforo(3) + timeout 900s soft + landmine documentado.
+- Bug fixed: middleware leía request.state antes de `await call_next` (siempre None). Fix: leer state DESPUÉS de call_next. Patrón documentado como comentario explícito en query_timing.py.
 
 ### Pending Todos
 
@@ -109,6 +118,6 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-19 — `/gsd-execute-phase 3` (Plan 03-03 cerrado autonomous; Phase 3 CERRADA).
-Stopped at: Phase 3 completa. 3 plans ejecutados (03-01 ✓ 2026-04-18, 03-02 ✓ 2026-04-19 con gate diferido, 03-03 ✓ 2026-04-19). Total 29 commits en Phase 3 (5 + 10 + 13 + 1 closing). 9 repos operativos (6 APP + 3 NEXO). 5 routers APP/NEXO refactorizados a repos. `api/services/pipeline.py` tocado una sola vez en Task 4.7 (atómico, Opción B). SUMMARY + STATE + ROADMAP + final commit pendientes. Blocker abierto: solo el PDF regression check de 03-02 (deadline 2026-04-26 en preprod).
-Resume file: `.planning/phases/03-capa-de-datos/03-03-SUMMARY.md`. Siguientes pasos recomendados: (a) `/gsd-verify-work 3` para validación integral de Phase 3, (b) `/gsd-plan-phase 4` para abrir Sprint 3 (consultas pesadas — preflight/postflight/umbrales), (c) ejecutar PDF regression check del 03-02 cuando estés en preprod (ver "Deferred Verifications").
+Last session: 2026-04-20 — `/gsd-execute-phase 4` (Plan 04-02 cerrado sequential autonomous; Wave 2 completa).
+Stopped at: Phase 4 en curso. Plans 04-01 + 04-02 completos. Plan 04-02 entregó preflight + middleware + asyncio.to_thread + modal frontend en 6 commits. 151 tests green / 22 skip / 1 xfail (04-03 awaiting) / 0 fail. Siguiente: Plan 04-03 (approval flow, nexo/services/approvals.py + /api/approvals/* + /mis-solicitudes + /ajustes/solicitudes) en paralelo, luego Plan 04-04 (observability UI + LISTEN/NOTIFY + learning).
+Resume file: `.planning/phases/04-consultas-pesadas/04-02-SUMMARY.md`. Siguientes pasos recomendados: (a) `/gsd-execute-phase 4` para Plan 04-03 approvals flow (puede arrancar en paralelo con 04-02 mergeado), (b) smoke manual pendiente de Task 7 (checkpoint auto-aprobado durante ejecución no-supervisada): modal amber E2E, UI no-congela, URL approval_id re-dispatch.

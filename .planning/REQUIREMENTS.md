@@ -62,12 +62,12 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 
 - [x] **QUERY-01**: Tabla `nexo.query_log` con `(id, ts, user_id, endpoint, params_json, estimated_ms, actual_ms, rows, status)` — Plan 04-01 ✓ 2026-04-20
 - [x] **QUERY-02**: Tabla `nexo.query_thresholds` con `(endpoint, warn_ms, block_ms, updated_at, updated_by)` editable desde UI — Plan 04-01 ✓ 2026-04-20 (schema + seeds; UI /ajustes/limites en Plan 04-04)
-- [ ] **QUERY-03**: `nexo/services/preflight.py` con `estimate_cost(endpoint, params) -> Estimation(ms, level, reason)`; heurística inicial `n_recursos × n_días × factor_por_modulo`; aprendizaje desde `nexo.query_log`
-- [ ] **QUERY-04**: Endpoints devuelven `Estimation` antes de ejecutar; `green`=directo, `amber`=confirmación UI, `red`=requiere aprobación propietario
-- [ ] **QUERY-05**: `nexo/middleware/query_timing.py` mide `time.monotonic()` y escribe `actual_ms` en `query_log`; alerta `logging.WARNING` si `actual > warn_ms × 1.5`
-- [ ] **QUERY-06**: Flujo approval asíncrono: `/ajustes/solicitudes` (propietario aprueba), usuario re-dispara con `force=true`
-- [ ] **QUERY-07**: `/ajustes/limites` edita umbrales; preflight aplicado en `pipeline/run`, `bbdd/query`, `capacidad` (rango > 90 días), `operarios` (rango > 90 días)
-- [ ] **QUERY-08**: Pipeline OEE corre en `asyncio.to_thread` para no bloquear worker uvicorn (matplotlib sigue síncrono internamente pero no congela el resto de la UI)
+- [x] **QUERY-03**: `nexo/services/preflight.py` con `estimate_cost(endpoint, params) -> Estimation(ms, level, reason)`; heurística inicial `n_recursos × n_días × factor_por_modulo`; aprendizaje desde `nexo.query_log` — Plan 04-02 ✓ 2026-04-20 (estimador puro + 13 unit tests; learning via botón manual de /ajustes/limites en Plan 04-04)
+- [x] **QUERY-04**: Endpoints devuelven `Estimation` antes de ejecutar; `green`=directo, `amber`=confirmación UI, `red`=requiere aprobación propietario — Plan 04-02 ✓ 2026-04-20 (4 routers gatean por level: 428 amber, 403 red; modal AMBER/RED Alpine en pipeline.html + bbdd.html)
+- [x] **QUERY-05**: `nexo/middleware/query_timing.py` mide `time.monotonic()` y escribe `actual_ms` en `query_log`; alerta `logging.WARNING` si `actual > warn_ms × 1.5` — Plan 04-02 ✓ 2026-04-20 (middleware innermost + D-17 slow status + log.warning con ratio)
+- [ ] **QUERY-06**: Flujo approval asíncrono: `/ajustes/solicitudes` (propietario aprueba), usuario re-dispara con `force=true` — Plan 04-03 (pending); import-guard `_APPROVALS_AVAILABLE` en 4 routers listo para activar automáticamente
+- [x] **QUERY-07**: `/ajustes/limites` edita umbrales; preflight aplicado en `pipeline/run`, `bbdd/query`, `capacidad` (rango > 90 días), `operarios` (rango > 90 días) — Plan 04-02 ✓ 2026-04-20 (preflight aplicado a los 4 endpoints; UI /ajustes/limites en Plan 04-04)
+- [x] **QUERY-08**: Pipeline OEE corre en `asyncio.to_thread` para no bloquear worker uvicorn (matplotlib sigue síncrono internamente pero no congela el resto de la UI) — Plan 04-02 ✓ 2026-04-20 (asyncio.Semaphore(3) + asyncio.to_thread + wait_for(timeout=900) con landmine soft-timeout documentado)
 
 ### UIROL — Phase 5 / Sprint 4 (UI por roles)
 
@@ -189,12 +189,12 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | DATA-11 | Phase 3 | Pending |
 | QUERY-01 | Phase 4 / Plan 04-01 | Complete (2026-04-20) |
 | QUERY-02 | Phase 4 / Plan 04-01 | Partial (schema + seeds complete; UI in Plan 04-04) |
-| QUERY-03 | Phase 4 | Pending |
-| QUERY-04 | Phase 4 | Pending |
-| QUERY-05 | Phase 4 | Pending |
-| QUERY-06 | Phase 4 | Pending |
-| QUERY-07 | Phase 4 | Pending |
-| QUERY-08 | Phase 4 | Pending |
+| QUERY-03 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
+| QUERY-04 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
+| QUERY-05 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
+| QUERY-06 | Phase 4 / Plan 04-03 | Pending |
+| QUERY-07 | Phase 4 / Plan 04-02 | Complete (2026-04-20) (UI /ajustes/limites en 04-04) |
+| QUERY-08 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
 | UIROL-01 | Phase 5 | Pending |
 | UIROL-02 | Phase 5 | Pending |
 | UIROL-03 | Phase 5 | Pending |
