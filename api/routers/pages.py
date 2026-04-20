@@ -109,3 +109,16 @@ def capacidad_page(request: Request):
 )
 def ajustes_page(request: Request):
     return render("ajustes.html", request, _common_extra("ajustes"))
+
+
+@router.get(
+    "/ajustes/conexion",
+    dependencies=[Depends(require_permission("conexion:config"))],
+)
+def ajustes_conexion_page(request: Request):
+    # Plan 05-04 / D-06: sub-pagina dedicada para Conexion SQL Server.
+    # Gateada por conexion:config ([] en PERMISSION_MAP = propietario-only,
+    # Pitfall 6). Los endpoints backend (/api/conexion/*) NO se modifican.
+    return render(
+        "ajustes_conexion.html", request, _common_extra("ajustes_conexion")
+    )
