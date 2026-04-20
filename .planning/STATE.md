@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 04 (consultas-pesadas) — COMPLETE ✓ 2026-04-20
 Plan: 4 of 4 ALL COMPLETE (04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓ — todos 2026-04-20)
-Status: **Phase 4 cerrada**. Wave 4 entregó observability UI + LISTEN/NOTIFY real + learning + Phase 4 complete. 173 tests green (+19 nuevos vs 04-03) / 28 skipped / 4 SQL Server infra pre-existing deselected. Siguiente: Phase 5 (UI por roles) — no planificada aún, requiere `/gsd-plan-phase 5`.
-Last activity: 2026-04-20 -- Plan 04-04 cerrado (LISTEN/NOTIFY listener + /ajustes/limites + /ajustes/rendimiento + cleanup jobs + factor_auto_refresh)
+Status: **Phase 4 cerrada** + code review (19 findings) + 6 CRITICAL+HIGH fixes (a709035..f9a8849) + VERIFICATION.md (5/5 must-haves + 8/8 QUERY-* requirements). Status verification: `human_needed` hasta que operador haga el smoke manual de 7 items (AMBER modal, RED gate flow, UI no-congela, sidebar badge, hot-reload limites, rendimiento, scheduler 3 jobs). 141 tests green (Postgres-only subset) / 22 skipped / 4 SQL Server infra pre-existing. Siguiente: Phase 5 (UI por roles) — requiere `/gsd-plan-phase 5`.
+Last activity: 2026-04-20 -- Phase 04 cerrada (4 plans + code review + fixes + verification)
 
 Progress: [████████░░] 57% (4/7 phases completas) — Phase 4 cerrada con 4/4 plans
 
