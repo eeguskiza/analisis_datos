@@ -34,6 +34,22 @@ from nexo.data.repositories.nexo import QueryLogRepo, ThresholdRepo
 from nexo.services import thresholds_cache
 from nexo.services.auth import require_permission
 from nexo.services.factor_learning import compute_factor
+from nexo.services.thresholds_cache import ALLOWED_ENDPOINTS
+
+
+def _assert_allowed_endpoint(endpoint: str) -> None:
+    """H-04 fix: rechaza endpoints fuera de la allowlist canónica.
+
+    ``path:`` converter admite slashes (``pipeline/run``), pero también
+    cualquier string arbitrario (typos, path traversal, inexistentes).
+    Si no está en la allowlist, devolvemos 404 antes de ejecutar
+    UPDATE / compute_factor (que es una query expensive).
+    """
+    if endpoint not in ALLOWED_ENDPOINTS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Endpoint {endpoint!r} no es editable (allowlist: {sorted(ALLOWED_ENDPOINTS)})",
+        )
 
 logger = logging.getLogger("nexo.limites")
 
@@ -98,6 +114,7 @@ def update(
     ``/recalibrate``. ``factor_touched=False`` preserva
     ``factor_updated_at``.
     """
+    _assert_allowed_endpoint(endpoint)
     user = request.state.user
     repo = ThresholdRepo(db)
     current = repo.get(endpoint)
@@ -156,6 +173,7 @@ def recalibrate(
     Levanta 400 si hay < 10 runs válidos tras filtrar outliers
     (Pitfall 6: actual_ms > 500ms).
     """
+    _assert_allowed_endpoint(endpoint)
     user = request.state.user
     repo = ThresholdRepo(db)
     current = repo.get(endpoint)
