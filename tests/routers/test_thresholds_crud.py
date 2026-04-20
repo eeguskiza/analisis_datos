@@ -421,13 +421,32 @@ def test_recalibrate_filters_outliers_under_500ms(client: TestClient):
 
 
 def test_get_limites_page_requires_propietario(client: TestClient):
-    """Non-propietario recibe 403 en GET /ajustes/limites."""
+    """Non-propietario:
+    - HTML GET → 302 a / + cookie nexo_flash (Plan 05-03 / D-07).
+    - JSON GET → 403 JSON intacto.
+    """
     email = f"get-user{TEST_DOMAIN}"
     _create_user(email, role="usuario", dept_codes=["ingenieria"])
     cookie = _login(client, email)
 
-    r = client.get("/ajustes/limites", cookies={"nexo_session": cookie})
-    assert r.status_code == 403
+    # HTML Accept → 302 redirect + flash cookie.
+    r_html = client.get(
+        "/ajustes/limites",
+        cookies={"nexo_session": cookie},
+        headers={"Accept": "text/html"},
+    )
+    assert r_html.status_code == 302
+    assert r_html.headers["location"] == "/"
+    assert "nexo_flash=" in r_html.headers.get("set-cookie", "")
+
+    # JSON Accept → 403 JSON intacto.
+    r_json = client.get(
+        "/ajustes/limites",
+        cookies={"nexo_session": cookie},
+        headers={"Accept": "application/json"},
+    )
+    assert r_json.status_code == 403
+    assert "nexo_flash" not in r_json.headers.get("set-cookie", "")
 
 
 def test_get_limites_page_renders_for_propietario(client: TestClient):

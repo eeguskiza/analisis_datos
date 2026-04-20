@@ -408,10 +408,28 @@ def test_ajustes_solicitudes_is_propietario_only(client: TestClient):
     _create_user(user_email, role="usuario", dept_codes=["ingenieria"])
     _create_user(owner_email, role="propietario", dept_codes=[])
 
-    # Usuario no-propietario → 403
+    # Usuario no-propietario:
+    # - HTML GET (Accept: text/html) → 302 a "/" + cookie nexo_flash
+    #   (Plan 05-03 / D-07). Antes devolvía 403; el handler
+    #   ``http_exception_handler_403`` ahora redirige.
+    # - JSON GET (Accept: application/json) → 403 JSON intacto.
     cookie = _login(client, user_email)
-    r = client.get("/ajustes/solicitudes", cookies={"nexo_session": cookie})
-    assert r.status_code == 403
+    r_html = client.get(
+        "/ajustes/solicitudes",
+        cookies={"nexo_session": cookie},
+        headers={"Accept": "text/html"},
+    )
+    assert r_html.status_code == 302
+    assert r_html.headers["location"] == "/"
+    assert "nexo_flash=" in r_html.headers.get("set-cookie", "")
+
+    r_json = client.get(
+        "/ajustes/solicitudes",
+        cookies={"nexo_session": cookie},
+        headers={"Accept": "application/json"},
+    )
+    assert r_json.status_code == 403
+    assert "nexo_flash" not in r_json.headers.get("set-cookie", "")
 
     # Propietario → 200
     owner_cookie = _login(client, owner_email)
