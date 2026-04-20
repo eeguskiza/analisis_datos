@@ -60,8 +60,8 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 
 ### QUERY — Phase 4 / Sprint 3 (preflight + postflight)
 
-- [ ] **QUERY-01**: Tabla `nexo.query_log` con `(id, ts, user_id, endpoint, params_json, estimated_ms, actual_ms, rows, status)`
-- [ ] **QUERY-02**: Tabla `nexo.query_thresholds` con `(endpoint, warn_ms, block_ms, updated_at, updated_by)` editable desde UI
+- [x] **QUERY-01**: Tabla `nexo.query_log` con `(id, ts, user_id, endpoint, params_json, estimated_ms, actual_ms, rows, status)` — Plan 04-01 ✓ 2026-04-20
+- [x] **QUERY-02**: Tabla `nexo.query_thresholds` con `(endpoint, warn_ms, block_ms, updated_at, updated_by)` editable desde UI — Plan 04-01 ✓ 2026-04-20 (schema + seeds; UI /ajustes/limites en Plan 04-04)
 - [ ] **QUERY-03**: `nexo/services/preflight.py` con `estimate_cost(endpoint, params) -> Estimation(ms, level, reason)`; heurística inicial `n_recursos × n_días × factor_por_modulo`; aprendizaje desde `nexo.query_log`
 - [ ] **QUERY-04**: Endpoints devuelven `Estimation` antes de ejecutar; `green`=directo, `amber`=confirmación UI, `red`=requiere aprobación propietario
 - [ ] **QUERY-05**: `nexo/middleware/query_timing.py` mide `time.monotonic()` y escribe `actual_ms` en `query_log`; alerta `logging.WARNING` si `actual > warn_ms × 1.5`
@@ -187,8 +187,8 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | DATA-09 | Phase 3 | Pending |
 | DATA-10 | Phase 3 | Pending |
 | DATA-11 | Phase 3 | Pending |
-| QUERY-01 | Phase 4 | Pending |
-| QUERY-02 | Phase 4 | Pending |
+| QUERY-01 | Phase 4 / Plan 04-01 | Complete (2026-04-20) |
+| QUERY-02 | Phase 4 / Plan 04-01 | Partial (schema + seeds complete; UI in Plan 04-04) |
 | QUERY-03 | Phase 4 | Pending |
 | QUERY-04 | Phase 4 | Pending |
 | QUERY-05 | Phase 4 | Pending |

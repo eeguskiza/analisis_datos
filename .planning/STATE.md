@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 3 completa. 3 plans ejecutados (03-01 ✓ 2026-04-18, 03-02 ✓ 2026-04-19 con gate diferido, 03-03 ✓ 2026-04-19). Total 29 commits en Phase 3 (5 + 10 + 13 + 1 closing). 9 repos operativos (6 APP + 3 NEXO). 5 routers APP/NEXO refactorizados a repos. `api/services/pipeline.py` tocado una sola vez en Task 4.7 (atómico, Opción B). SUMMARY + STATE + ROADMAP + final commit pendientes. Blocker abierto: solo el PDF regression check de 03-02 (deadline 2026-04-26 en preprod)."
-last_updated: "2026-04-20T06:50:26.890Z"
-last_activity: 2026-04-20 -- Phase 04 execution started
+stopped_at: "Phase 04 en curso. Plan 04-01 ✓ 2026-04-20 — 9 commits (6 del plan + 3 fixes colaterales descubiertos al verificar: make dev DNS, conftest fixture scope, init_nexo_schema owner creds). Verificado contra Postgres real: 11 tablas en nexo.*, 4 seeds D-01..D-04, 123 tests pass / 25 skip / 0 fail. Siguiente: Wave 2 (Plan 04-02)."
+last_updated: "2026-04-20T10:00:00.000Z"
+last_activity: 2026-04-20 -- Plan 04-01 completo, arranca Wave 2 (04-02)
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 12
-  completed_plans: 8
-  percent: 67
+  completed_plans: 9
+  percent: 75
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 04 (consultas-pesadas) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 04
-Last activity: 2026-04-20 -- Phase 04 execution started
+Plan: 2 of 4 (04-01 ✓ 2026-04-20, 04-02 next)
+Status: Wave 1 complete — 04-01 verificado contra Postgres real (11 tablas, 4 seeds, 123 tests green)
+Last activity: 2026-04-20 -- Plan 04-01 cerrado, siguiente Wave 2 (04-02 preflight/postflight)
 
 Progress: [██████████] 43% (3/7 phases completas) — Phase 3 CERRADA
 
