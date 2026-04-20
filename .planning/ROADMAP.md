@@ -109,7 +109,7 @@ Plans:
 - [x] 05-02: Wave 2 — sidebar/menu filtering por permiso (UIROL-02) ✓ 2026-04-20
 - [x] 05-03: Wave 3 — forbidden UX + flash pipeline (FlashMiddleware + 403 redirect+toast, JSON contract estable) (UIROL-02) ✓ 2026-04-20
 - [x] 05-04: Wave 4 — split de `ajustes.html` en 6 sub-páginas + hub (UIROL-03) ✓ 2026-04-20
-- [ ] 05-05: Wave 5 — verificación manual E2E con 3 roles (UIROL-05)
+- [x] 05-05: Wave 5 — button gating UIROL-04 + HTML GET hardening Pitfall 4 + smoke manual UIROL-05 ✓ 2026-04-20
 
 ### Phase 6: Despliegue LAN HTTPS
 **Goal**: Nexo corriendo en servidor Ubuntu Server 24.04 (i5 7ª gen, 16 GB, SSD 1 TB), `nexo.ecsmobility.com` resuelto por DNS interno, HTTPS (LE DNS-01 o cert interno documentado), sin exposición internet.
@@ -147,6 +147,6 @@ Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Identidad | 4/4 | Complete | 2026-04-19 |
 | 3. Capa de datos | 3/3 | Complete | 2026-04-19 |
 | 4. Consultas pesadas | 4/4 | Complete | 2026-04-20 |
-| 5. UI por roles | 0/? | Not started | - |
+| 5. UI por roles | 5/5 | Complete | 2026-04-20 |
 | 6. Despliegue LAN HTTPS | 0/? | Not started | - |
 | 7. DevEx hardening | 0/? | Not started | - |

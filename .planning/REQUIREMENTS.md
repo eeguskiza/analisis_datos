@@ -77,8 +77,10 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 **: `base.html` filtra `nav_items` según permisos; propietario ve todo; directivo ve módulos de sus departamentos; usuario ve subset reducido
 - [x] **UIROL-03
 **: `templates/ajustes.html` dividido en `ajustes_conexion.html`, `ajustes_smtp.html`, `ajustes_usuarios.html`, `ajustes_auditoria.html`, `ajustes_limites.html`, `ajustes_solicitudes.html`, + hub `ajustes.html`
-- [ ] **UIROL-04**: `static/js/app.js` oculta botones sensibles ("Ejecutar pipeline", "Borrar ejecución", "Sincronizar recursos") según permiso del usuario cargado en contexto
-- [ ] **UIROL-05**: Verificación manual E2E: login como propietario/directivo (un departamento)/usuario (un departamento), capturar sidebar y páginas accesibles de cada rol
+- [x] **UIROL-04
+**: `static/js/app.js` oculta botones sensibles ("Ejecutar pipeline", "Borrar ejecución", "Sincronizar recursos") según permiso del usuario cargado en contexto
+- [x] **UIROL-05
+**: Verificación manual E2E: login como propietario/directivo (un departamento)/usuario (un departamento), capturar sidebar y páginas accesibles de cada rol
 
 ### DEPLOY — Phase 6 / Sprint 5 (LAN HTTPS)
 
@@ -201,8 +203,8 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | UIROL-01 | Phase 5 / Plan 05-01 | Complete (2026-04-20) |
 | UIROL-02 | Phase 5 | Pending |
 | UIROL-03 | Phase 5 / Plan 05-04 | Complete (2026-04-20) |
-| UIROL-04 | Phase 5 | Pending |
-| UIROL-05 | Phase 5 | Pending |
+| UIROL-04 | Phase 5 / Plan 05-05 | Complete (2026-04-20) |
+| UIROL-05 | Phase 5 / Plan 05-05 | Complete (2026-04-20) |
 | DEPLOY-01 | Phase 6 | Pending |
 | DEPLOY-02 | Phase 6 | Pending |
 | DEPLOY-03 | Phase 6 | Pending |

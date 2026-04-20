@@ -51,3 +51,11 @@ the baseline reproduces the failure.
 follow-up or Phase 6 test-hardening) to make the recalibrate test
 fixture purge `nexo.query_log` rows for the synthetic user **before**
 seeding, rather than relying on teardown-only.
+
+**Re-observed during Plan 05-05 (2026-04-20):** Regression sweep after
+button gating + HTML GET hardening re-reproduced the exact same failure
+on `test_recalibrate_insufficient_data_returns_400` (200 instead of
+400). Scope-boundary: Plan 05-05 touches only `templates/*.html`,
+`api/routers/pages.py` (route deps), and new test files — no overlap
+with `nexo/query_log` or `/api/thresholds/*/recalibrate`. Confirmed
+pre-existing; tracked here, not fixed by Plan 05-05.

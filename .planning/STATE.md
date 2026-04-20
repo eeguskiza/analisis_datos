@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Plan 05-04 cerrado (ajustes hub split + conexion sub-page)
-last_updated: "2026-04-20T18:45:22.431Z"
+status: verifying
+stopped_at: Phase 05 COMPLETE — Plan 05-05 cerrado (button gating UIROL-04 + HTML GET hardening Pitfall 4)
+last_updated: "2026-04-20T19:03:00.338Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 17
-  completed_plans: 16
-  percent: 94
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 05 (ui-por-roles) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-20
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Plans de Phase 2 (estado)
 
@@ -67,6 +67,7 @@ Progress: [█████████░] 94%
 | Phase 05 P02 | 25min | 3 tasks | 2 files |
 | Phase 05 P03 | 45min | 5 tasks | 8 files |
 | Phase Phase 05 PP04 | 8min | 4 tasks tasks | 5 files files |
+| Phase 05 P05 | 14min | 4 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,7 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Plan 05-02: base.html nav_items migrated to permission-based filtering via can() — visible_to strings removed; Solicitudes badge gate refactored to can(current_user, 'aprobaciones:manage'); 5 integration tests cover propietario/ingenieria-directivo/produccion-usuario/rrhh-usuario/anon with W-03 anchored-regex assertions
 - Plan 05-03: FlashMiddleware + StarletteHTTPException handler con Accept negotiation implementados. 403 HTML → 302+cookie nexo_flash (user-friendly label); 403 JSON/HTMX preserva contract. FlashMiddleware entre Audit y Auth (W-02 LIFO). _PERMISSION_LABELS cubre 21 permisos incluyendo los 10 HTML-guarded de 05-05 (W-06 test). base.html dispatcha showToast via DOMContentLoaded. NAMING-07 intacto (registros separados por tipo de excepción). 4 unit + 9 integration tests + 2 test-alignments (Rule 1) para tests pre-existentes que asertaban 403 HTML (ahora 302/JSON split).
 - Plan 05-04: hub /ajustes refactorizado a shell estatico con 6 cards gateadas por can() (sin wrapper Alpine, sin card SMTP per D-04); Conexion SQL Server extraido a sub-pagina /ajustes/conexion propietario-only (conexion:config) con componente Alpine renombrado a ajustesConexionPage().
+- Plan 05-05: 11 sensitive buttons wrapped with {% if can(current_user, <perm>) %} across 4 templates (UIROL-04 literal); 8 HTML GET routes in pages.py guarded with require_permission(<perm>:read) closing D-01/D-07 Pitfall 4 gap. 21 new integration tests (10 button-gating + 11 HTML-GET-guarded parametrized). Phase 5 COMPLETE — all 5 plans closed.
 
 ### Pending Todos
 
@@ -149,7 +151,7 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-20T18:45:22.422Z
-Stopped at: Plan 05-04 cerrado (ajustes hub split + conexion sub-page)
+Last session: 2026-04-20T19:03:00.330Z
+Stopped at: Phase 05 COMPLETE — Plan 05-05 cerrado (button gating UIROL-04 + HTML GET hardening Pitfall 4)
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: None
