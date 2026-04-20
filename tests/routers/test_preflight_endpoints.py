@@ -72,8 +72,22 @@ def client() -> Iterator[TestClient]:
 @pytest.fixture(autouse=True)
 def _cleanup():
     _purge()
+    _reset_rate_limit()
     yield
     _purge()
+
+
+def _reset_rate_limit() -> None:
+    """Reset slowapi rate limiter state (20/min en /login) entre tests.
+
+    Evita 429 cuando la suite completa encadena muchos módulos con
+    logins (introducido por Plan 04-03 test_approvals_api.py).
+    """
+    try:
+        from api.rate_limit import limiter
+        limiter.reset()
+    except Exception:
+        pass
 
 
 def _purge() -> None:
@@ -325,34 +339,121 @@ def test_bbdd_query_preflight_runs_before_validate(client: TestClient):
     )
 
 
-@pytest.mark.xfail(
-    reason="Requires approval flow from Plan 04-03 (consume_approval)",
-    strict=False,
-)
 def test_run_red_with_valid_approval_executes(client: TestClient):
     """Con approval_id válido (status=approved, user match, params match),
-    POST /run ejecuta y graba fila con approval_id poblado.
+    POST /run ejecuta y graba fila con approval_id poblado (D-15).
 
-    xfail hasta que Plan 04-03 implemente ``nexo/services/approvals.py``
-    con ``consume_approval``.
+    Integration test end-to-end del flujo:
+
+    1. Usuario crea approval vía POST /api/approvals con los params
+       exactos que luego enviará a /pipeline/run.
+    2. Propietario aprueba vía POST /api/approvals/{id}/approve.
+    3. Usuario POST /pipeline/run con force=true + approval_id →
+       consume_approval hace CAS atómico y la ejecución avanza.
+    4. Resultado: status 200 (pipeline ejecuta con payload vacío /
+       recursos inexistentes; no nos importa el contenido, solo que el
+       gate de approval dejó pasar).
+
+    xfail removido en Plan 04-03 Task 5.1 (PC-04-07). Requiere
+    ``nexo/services/approvals.consume_approval`` (aterrizado en Plan
+    04-03 Task 1).
     """
-    email = f"red-ok{TEST_DOMAIN}"
-    _create_user(email, role="usuario", dept_codes=["ingenieria"])
-    cookie = _login(client, email)
+    user_email = f"red-ok-user{TEST_DOMAIN}"
+    owner_email = f"red-ok-owner{TEST_DOMAIN}"
+    from sqlalchemy import select
+    db = SessionLocalNexo()
+    try:
+        user = _create_user(user_email, role="usuario", dept_codes=["ingenieria"])
+        owner = _create_user(owner_email, role="propietario", dept_codes=[])
+    finally:
+        db.close()
 
+    user_cookie = _login(client, user_email)
+    owner_cookie = _login(client, owner_email)
+
+    # El pipeline router canoniza params exactamente así
+    # (_build_pipeline_params en api/routers/pipeline.py). Para que
+    # consume_approval matchee params_json bit-a-bit, el POST /api/approvals
+    # debe enviar exactamente el mismo dict canonicalizado.
+    pipeline_body = {
+        "fecha_inicio": "2026-01-01",
+        "fecha_fin": "2026-01-30",
+        "modulos": [],
+        "source": "db",
+        "recursos": [f"r{i}" for i in range(10)],
+    }
+    # Replicar _build_pipeline_params exactamente (fechas ISO, n_recursos, n_dias)
+    from datetime import date as _date
+    f_ini = _date.fromisoformat(pipeline_body["fecha_inicio"])
+    f_fin = _date.fromisoformat(pipeline_body["fecha_fin"])
+    params_for_approval = {
+        "fecha_desde": f_ini.isoformat(),
+        "fecha_hasta": f_fin.isoformat(),
+        "modulos": list(pipeline_body["modulos"]),
+        "source": pipeline_body["source"],
+        "recursos": list(pipeline_body["recursos"]),
+        "n_recursos": len(pipeline_body["recursos"]),
+        "n_dias": (f_fin - f_ini).days + 1,
+    }
+
+    # 1. Usuario crea approval
     r = client.post(
-        "/api/pipeline/run",
-        cookies={"nexo_session": cookie},
+        "/api/approvals",
+        cookies={"nexo_session": user_cookie},
         json={
-            "fecha_inicio": "2026-01-01",
-            "fecha_fin": "2026-01-30",
-            "modulos": [],
-            "source": "db",
-            "recursos": [f"r{i}" for i in range(10)],
-            "force": True,
-            "approval_id": 99999,  # stub id (no aterrizado hasta 04-03)
+            "endpoint": "pipeline/run",
+            "params": params_for_approval,
+            "estimated_ms": 600_000,
         },
     )
-    # Plan 04-02 standalone responde 503; Plan 04-03 lo convertirá en 200
-    # tras CAS exitoso, o 403 si el approval no matchea.
-    assert r.status_code == 200
+    assert r.status_code == 200, f"create approval failed: {r.text[:200]}"
+    approval_id = r.json()["approval_id"]
+
+    # 2. Propietario aprueba
+    r = client.post(
+        f"/api/approvals/{approval_id}/approve",
+        cookies={"nexo_session": owner_cookie},
+    )
+    assert r.status_code == 303
+
+    # 3. Usuario ejecuta con force+approval_id
+    pipeline_body_with_approval = {
+        **pipeline_body,
+        "force": True,
+        "approval_id": approval_id,
+    }
+    r = client.post(
+        "/api/pipeline/run",
+        cookies={"nexo_session": user_cookie},
+        json=pipeline_body_with_approval,
+    )
+    # Gate de approval pasó: NO es 403 ni 428 ni 503. El pipeline puede
+    # devolver 200 (SSE streaming) o 5xx por infraestructura (recursos
+    # inexistentes), pero NO debe ser un fallo del flujo de approval.
+    assert r.status_code not in (403, 428, 503), (
+        f"approval gate didn't pass: {r.status_code} {r.text[:300]}"
+    )
+
+    # 4. Verificar que el approval quedó consumed
+    db = SessionLocalNexo()
+    try:
+        from nexo.data.models_nexo import NexoQueryApproval
+        row = db.get(NexoQueryApproval, approval_id)
+        assert row.status == "consumed", (
+            f"expected consumed, got {row.status}"
+        )
+        assert row.consumed_at is not None
+    finally:
+        # Cleanup the owner user + approval for this test
+        from nexo.data.models_nexo import NexoQueryApproval as _NQA
+        db.execute(
+            delete(_NQA).where(_NQA.id == approval_id)
+        )
+        owner = db.execute(
+            select(NexoUser).where(NexoUser.email == owner_email)
+        ).scalar_one_or_none()
+        if owner:
+            db.execute(delete(NexoSession).where(NexoSession.user_id == owner.id))
+            db.delete(owner)
+        db.commit()
+        db.close()

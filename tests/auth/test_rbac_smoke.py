@@ -77,8 +77,18 @@ def client() -> Iterator[TestClient]:
 @pytest.fixture(autouse=True)
 def _cleanup_test_artifacts():
     """Limpieza antes y despues del test: purga users ``@rbac-test.local``
-    + sus sesiones + sus login_attempts. Garantiza aislamiento entre tests."""
+    + sus sesiones + sus login_attempts. Garantiza aislamiento entre tests.
+
+    También resetea el rate limiter de slowapi (20/min en /login) entre
+    tests — cuando la suite completa encadena módulos con muchos
+    logins (Plan 04-03 approvals tests) se acumulan 429 sin reset.
+    """
     _purge()
+    try:
+        from api.rate_limit import limiter
+        limiter.reset()
+    except Exception:
+        pass
     yield
     _purge()
 
