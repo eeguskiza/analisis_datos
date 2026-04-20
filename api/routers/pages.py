@@ -26,7 +26,10 @@ def index(request: Request):
     return render("luk4.html", request, _common_extra("dashboard"))
 
 
-@router.get("/pipeline")
+@router.get(
+    "/pipeline",
+    dependencies=[Depends(require_permission("pipeline:read"))],
+)
 def pipeline_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("pipeline")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
@@ -43,7 +46,10 @@ def informes_page():
     return RedirectResponse("/historial", status_code=301)
 
 
-@router.get("/recursos")
+@router.get(
+    "/recursos",
+    dependencies=[Depends(require_permission("recursos:read"))],
+)
 def recursos_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("recursos")
     rows = db.query(Recurso).order_by(Recurso.seccion, Recurso.nombre).all()
@@ -55,7 +61,10 @@ def recursos_page(request: Request, db: Session = Depends(get_db)):
     return render("recursos.html", request, extra)
 
 
-@router.get("/historial")
+@router.get(
+    "/historial",
+    dependencies=[Depends(require_permission("historial:read"))],
+)
 def historial_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("historial")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
@@ -66,7 +75,10 @@ def historial_page(request: Request, db: Session = Depends(get_db)):
     return render("historial.html", request, extra)
 
 
-@router.get("/ciclos-calc")
+@router.get(
+    "/ciclos-calc",
+    dependencies=[Depends(require_permission("ciclos:read"))],
+)
 def ciclos_calc_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("ciclos_calc")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
@@ -77,12 +89,18 @@ def ciclos_calc_page(request: Request, db: Session = Depends(get_db)):
     return render("ciclos_calc.html", request, extra)
 
 
-@router.get("/operarios")
+@router.get(
+    "/operarios",
+    dependencies=[Depends(require_permission("operarios:read"))],
+)
 def operarios_page(request: Request):
     return render("operarios.html", request, _common_extra("operarios"))
 
 
-@router.get("/datos")
+@router.get(
+    "/datos",
+    dependencies=[Depends(require_permission("datos:read"))],
+)
 def datos_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("datos")
     recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
@@ -93,12 +111,18 @@ def datos_page(request: Request, db: Session = Depends(get_db)):
     return render("datos.html", request, extra)
 
 
-@router.get("/bbdd")
+@router.get(
+    "/bbdd",
+    dependencies=[Depends(require_permission("bbdd:read"))],
+)
 def bbdd_page(request: Request):
     return render("bbdd.html", request, _common_extra("bbdd"))
 
 
-@router.get("/capacidad")
+@router.get(
+    "/capacidad",
+    dependencies=[Depends(require_permission("capacidad:read"))],
+)
 def capacidad_page(request: Request):
     return render("capacidad.html", request, _common_extra("capacidad"))
 
