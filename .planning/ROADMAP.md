@@ -102,7 +102,14 @@ Plans:
   3. Login como directivo de "ingeniería" muestra los módulos de su departamento
   4. `/ajustes` hub lleva a 6 sub-páginas separadas (conexión, SMTP, usuarios, auditoría, límites, solicitudes)
   5. Botones "Ejecutar pipeline", "Borrar ejecución", "Sincronizar recursos" ocultos si el user no tiene permiso
-**Plans**: TBD
+**Plans**: 5 plans (Wave 1 fundamentos → Wave 2 sidebar/menus → Wave 3 botones sensibles → Wave 4 ajustes split → Wave 5 verificación manual E2E).
+
+Plans:
+- [x] 05-01: Wave 1 — extract `can()` helper + trampoline `require_permission` + register `can` as Jinja global ✓ 2026-04-20
+- [ ] 05-02: Wave 2 — sidebar/menu filtering por permiso (UIROL-02)
+- [ ] 05-03: Wave 3 — ocultación de 11 botones sensibles server-side (UIROL-04)
+- [ ] 05-04: Wave 4 — split de `ajustes.html` en 6 sub-páginas + hub (UIROL-03)
+- [ ] 05-05: Wave 5 — verificación manual E2E con 3 roles (UIROL-05)
 
 ### Phase 6: Despliegue LAN HTTPS
 **Goal**: Nexo corriendo en servidor Ubuntu Server 24.04 (i5 7ª gen, 16 GB, SSD 1 TB), `nexo.ecsmobility.com` resuelto por DNS interno, HTTPS (LE DNS-01 o cert interno documentado), sin exposición internet.

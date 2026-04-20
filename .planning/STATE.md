@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "**Phase 4 CERRADA (4/4 plans)**. Plan 04-04 entregó observability + hot-reload completo: listener LISTEN/NOTIFY real (`_blocking_listen_forever` + `start_listener` cableado en lifespan) + `/ajustes/limites` CRUD (PUT + recalibrate manual con factor_learning helper + NOTIFY propagation) + `/ajustes/rendimiento` (filtros + tabla summary + Chart.js timeseries + fallback CDN) + `query_log_cleanup` (Mon 03:00 UTC) + `factor_auto_refresh` (1er Mon del mes 03:10 UTC, filter `day <= 7`) + 2 env vars nuevas (NEXO_QUERY_LOG_RETENTION_DAYS=90, NEXO_AUTO_REFRESH_STALE_DAYS=60) + 19 tests nuevos (9 thresholds_cache integration + 9 thresholds_crud + 1 listen_notify E2E)."
-last_updated: "2026-04-20T18:01:27.347Z"
-last_activity: 2026-04-20 -- Phase 05 execution started
+stopped_at: Plan 05-01 cerrado (can() helper + Jinja global)
+last_updated: "2026-04-20T18:08:59.573Z"
+last_activity: 2026-04-20
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 17
-  completed_plans: 12
-  percent: 71
+  completed_plans: 13
+  percent: 76
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 05 (ui-por-roles) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 05
-Last activity: 2026-04-20 -- Phase 05 execution started
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-04-20
 
-Progress: [████████░░] 57% (4/7 phases completas) — Phase 4 cerrada con 4/4 plans
+Progress: [████████░░] 76%
 
 ## Plans de Phase 2 (estado)
 
@@ -63,6 +63,7 @@ Progress: [████████░░] 57% (4/7 phases completas) — Phase 
 - Trend: Phase 4 plans promedio ~90 min; foundation (04-01) y último (04-04, observability + tests E2E) más largos; plans intermedios ~55-60 min.
 
 *Updated after each plan completion*
+| Phase 05 P01 | 30min | 4 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,7 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - D-19 complete: `_blocking_listen_forever` con psycopg2 conn dedicado AUTOCOMMIT + `LISTEN nexo_thresholds_changed` + `select()` loop 5s. Wrappeado en `asyncio.to_thread` dentro del lifespan. Reconexión automática backoff 5s. Safety-net 5min de 04-01 sigue operativo como 2a defensa.
 - D-20: factor_auto_refresh 1er Monday del mes 03:10 UTC (filter `now.day <= 7`) si factor_updated_at > NEXO_AUTO_REFRESH_STALE_DAYS=60 días. Reusa compute_factor (DRY con recalibrate manual). Audit log con path='__auto_refresh__'.
 - Rule 1 fix: `thresholds_cache.notify_changed` usaba `engine_nexo.raw_connection()` + `set_isolation_level(AUTOCOMMIT)` que devolvía la conexión al pool SQLAlchemy con nivel alterado → siguientes tests con `yield_per=500` fallaban con "can't use a named cursor outside of transactions". Fix: psycopg2.connect() dedicado, descartado tras NOTIFY. No toca el pool.
+- Plan 05-01: can(user, permission) -> bool extraído como fuente de verdad pura en nexo.services.auth; require_permission refactorizado como trampoline; registrado como Jinja global en api/deps.py sin tocar render() ni current_user (import-time registration, D-03/D-09)
 
 ### Pending Todos
 
@@ -141,7 +143,7 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-20 — `/gsd-execute-phase 4` (Plan 04-04 cerrado sequential autonomous; Wave 4 completa + Phase 4 cerrada).
-Stopped at: **Phase 4 CERRADA (4/4 plans)**. Plan 04-04 entregó observability + hot-reload completo: listener LISTEN/NOTIFY real (`_blocking_listen_forever` + `start_listener` cableado en lifespan) + `/ajustes/limites` CRUD (PUT + recalibrate manual con factor_learning helper + NOTIFY propagation) + `/ajustes/rendimiento` (filtros + tabla summary + Chart.js timeseries + fallback CDN) + `query_log_cleanup` (Mon 03:00 UTC) + `factor_auto_refresh` (1er Mon del mes 03:10 UTC, filter `day <= 7`) + 2 env vars nuevas (NEXO_QUERY_LOG_RETENTION_DAYS=90, NEXO_AUTO_REFRESH_STALE_DAYS=60) + 19 tests nuevos (9 thresholds_cache integration + 9 thresholds_crud + 1 listen_notify E2E).
+Last session: 2026-04-20T18:08:59.566Z
+Stopped at: Plan 05-01 cerrado (can() helper + Jinja global)
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
-Resume file: `.planning/phases/04-consultas-pesadas/04-04-SUMMARY.md`. Siguientes pasos recomendados: (a) `/gsd-verify-work 4` — verificación final de Phase 4; (b) `/gsd-plan-phase 5` — planificar Phase 5 (UI por roles, Sprint 4); (c) smoke manual pendiente del Task 6 de 04-04 (auto-aprobado): Chart.js render + LISTEN <1s (2 pestañas) + modal red E2E completo + scheduler 3 jobs al arrancar.
+Resume file: None

@@ -45,3 +45,9 @@ data/backups/
 .planning/quick/
 .planning/threads/
 .planning/HANDOFF.json
+
+# pytest-cov / coverage.py runtime outputs
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
