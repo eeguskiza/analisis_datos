@@ -3,10 +3,28 @@
 {% block page_title %}Ajustes{% endblock %}
 
 {% block content %}
-<div x-data="ajustesPage()" x-init="loadConfig()" class="max-w-2xl mx-auto space-y-6">
+<div class="max-w-2xl mx-auto space-y-6">
 
-  <!-- ── Navegacion (Plan 02-04) ─────────────────────────────────────── -->
+  <!-- ── Navegacion (Plan 02-04; refactor Plan 05-04: per-card can() gates;
+       bloque inline de Conexion movido a /ajustes/conexion; sin card de
+       email — D-04 lo deja fuera de alcance en Mark-III). ────────── -->
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {% if can(current_user, "conexion:config") %}
+    <a href="/ajustes/conexion"
+       class="group bg-white rounded-2xl border border-surface-200 shadow-sm p-5 hover:border-brand-400 hover:shadow-md transition-all">
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="font-bold text-gray-800 group-hover:text-brand-700 transition-colors">Conexión SQL Server</h3>
+          <p class="text-xs text-gray-500 mt-1">Credenciales, puerto, driver ODBC. Probar conexión en vivo.</p>
+        </div>
+        <svg class="w-5 h-5 text-gray-300 group-hover:text-brand-500 transition-colors shrink-0 ml-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+        </svg>
+      </div>
+    </a>
+    {% endif %}
+
+    {% if can(current_user, "usuarios:manage") %}
     <a href="/ajustes/usuarios"
        class="group bg-white rounded-2xl border border-surface-200 shadow-sm p-5 hover:border-brand-400 hover:shadow-md transition-all">
       <div class="flex items-start justify-between">
@@ -19,6 +37,9 @@
         </svg>
       </div>
     </a>
+    {% endif %}
+
+    {% if can(current_user, "auditoria:read") %}
     <a href="/ajustes/auditoria"
        class="group bg-white rounded-2xl border border-surface-200 shadow-sm p-5 hover:border-brand-400 hover:shadow-md transition-all">
       <div class="flex items-start justify-between">
@@ -31,7 +52,9 @@
         </svg>
       </div>
     </a>
-    {% if current_user and current_user.role == 'propietario' %}
+    {% endif %}
+
+    {% if can(current_user, "aprobaciones:manage") %}
     <a href="/ajustes/solicitudes"
        class="group bg-white rounded-2xl border border-surface-200 shadow-sm p-5 hover:border-brand-400 hover:shadow-md transition-all">
       <div class="flex items-start justify-between">
@@ -44,6 +67,9 @@
         </svg>
       </div>
     </a>
+    {% endif %}
+
+    {% if can(current_user, "limites:manage") %}
     <a href="/ajustes/limites"
        class="group bg-white rounded-2xl border border-surface-200 shadow-sm p-5 hover:border-brand-400 hover:shadow-md transition-all">
       <div class="flex items-start justify-between">
@@ -56,6 +82,9 @@
         </svg>
       </div>
     </a>
+    {% endif %}
+
+    {% if can(current_user, "rendimiento:read") %}
     <a href="/ajustes/rendimiento"
        class="group bg-white rounded-2xl border border-surface-200 shadow-sm p-5 hover:border-brand-400 hover:shadow-md transition-all">
       <div class="flex items-start justify-between">
@@ -70,139 +99,5 @@
     </a>
     {% endif %}
   </div>
-
-  <!-- ── Conexion SQL Server ─────────────────────────────────────────── -->
-  <div class="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
-    <div class="px-6 py-4 border-b border-surface-100 flex items-center justify-between">
-      <div>
-        <h2 class="font-bold text-gray-800">Conexion SQL Server</h2>
-        <p class="text-xs text-gray-400 mt-0.5">Base de datos MES (IZARO / dbizaro)</p>
-      </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full"
-           :class="connStatus === 'ok' ? 'bg-green-50' : connStatus === 'error' ? 'bg-red-50' : 'bg-yellow-50'">
-        <div class="w-2 h-2 rounded-full"
-             :class="connStatus === 'ok' ? 'bg-green-500' : connStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'"></div>
-        <span class="text-xs font-medium"
-              :class="connStatus === 'ok' ? 'text-green-700' : connStatus === 'error' ? 'text-red-700' : 'text-yellow-700'"
-              x-text="connMsg"></span>
-      </div>
-    </div>
-
-    <div class="p-6 space-y-5">
-      <div class="grid grid-cols-3 gap-3">
-        <div class="col-span-2">
-          <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Servidor</label>
-          <input type="text" x-model="cfg.server" placeholder="192.168.1.100"
-                 class="w-full px-3 py-2.5 text-sm font-mono bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent focus:bg-white transition-colors">
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Puerto</label>
-          <input type="text" x-model="cfg.port" placeholder="1433"
-                 class="w-full px-3 py-2.5 text-sm font-mono bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent focus:bg-white transition-colors">
-        </div>
-      </div>
-      <div>
-        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Base de datos</label>
-        <input type="text" x-model="cfg.database" placeholder="dbizaro"
-               class="w-full px-3 py-2.5 text-sm font-mono bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent focus:bg-white transition-colors">
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Usuario</label>
-          <input type="text" x-model="cfg.user" placeholder="tu_usuario" autocomplete="off"
-                 class="w-full px-3 py-2.5 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent focus:bg-white transition-colors">
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Password</label>
-          <div class="relative">
-            <input :type="showPass ? 'text' : 'password'" x-model="cfg.password" placeholder="tu_password" autocomplete="off"
-                   class="w-full px-3 py-2.5 pr-10 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent focus:bg-white transition-colors">
-            <button @click="showPass = !showPass" type="button"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-              <svg x-show="!showPass" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-              <svg x-show="showPass" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div x-data="{ open: false }">
-        <button @click="open = !open" class="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 transition-colors">
-          <svg class="w-3 h-3 transition-transform" :class="open && 'rotate-90'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/></svg>
-          Opciones avanzadas
-        </button>
-        <div x-show="open" x-transition class="mt-3 p-4 bg-surface-50 rounded-xl space-y-4">
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Driver ODBC</label>
-              <input type="text" x-model="cfg.driver" placeholder="Auto" class="w-full px-2 py-1.5 text-xs font-mono border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
-            </div>
-            <div>
-              <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Encrypt</label>
-              <select x-model="cfg.encrypt" class="w-full px-2 py-1.5 text-xs border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white">
-                <option value="">Auto</option><option value="true">Si</option><option value="false">No</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Trust Cert</label>
-              <select x-model="cfg.trust_server_certificate" class="w-full px-2 py-1.5 text-xs border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white">
-                <option value="">Auto</option><option value="true">Si</option><option value="false">No</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Codigo empresa (uf_code)</label>
-            <input type="text" x-model="cfg.uf_code" placeholder="Campo dt010" class="w-full px-2 py-1.5 text-xs font-mono border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center gap-3 pt-2">
-        <button @click="guardar()" class="btn-primary btn-sm" :disabled="saving">
-          <span x-show="saving" class="spinner border-white"></span> Guardar
-        </button>
-        <button @click="testConnection()" class="btn-ghost btn-sm" :disabled="testing">
-          <span x-show="testing" class="spinner border-brand-600"></span> Probar conexion
-        </button>
-        <span x-show="saved" x-transition class="text-xs text-green-600 font-medium">Guardado</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Info sistema ────────────────────────────────────────────────── -->
-  <div class="flex items-center justify-center gap-6 py-4 text-xs text-gray-400">
-    <a href="/api/docs" target="_blank" class="hover:text-brand-600 transition-colors">API Docs</a>
-    <span class="w-1 h-1 rounded-full bg-gray-300"></span>
-    <a href="/bbdd" class="hover:text-brand-600 transition-colors">Explorar BBDD</a>
-    <span class="w-1 h-1 rounded-full bg-gray-300"></span>
-    <span class="font-mono">v2.0.0</span>
-  </div>
 </div>
-
-<script>
-function ajustesPage() {
-  return {
-    cfg: { server: '', port: '1433', database: 'dbizaro', driver: '', encrypt: '', trust_server_certificate: '', user: '', password: '', uf_code: '' },
-    showPass: false, connStatus: 'checking', connMsg: 'Cargando...', testing: false, saving: false, saved: false,
-
-    async loadConfig() {
-      try { const res = await fetch('/api/conexion/config'); this.cfg = { ...this.cfg, ...(await res.json()) }; } catch {}
-      await this.testConnection();
-    },
-    async guardar() {
-      this.saving = true;
-      await fetch('/api/conexion/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
-      this.saving = false; this.saved = true; setTimeout(() => this.saved = false, 2000);
-      showToast('Configuracion guardada'); await this.testConnection();
-    },
-    async testConnection() {
-      this.testing = true; this.connStatus = 'checking'; this.connMsg = 'Probando...';
-      try {
-        const res = await fetch('/api/conexion/status'); const data = await res.json();
-        this.connStatus = data.ok ? 'ok' : 'error';
-        this.connMsg = data.ok ? `${data.database} @ ${data.server}` : data.mensaje;
-      } catch { this.connStatus = 'error'; this.connMsg = 'Error API'; }
-      this.testing = false;
-    },
-  };
-}
-</script>
 {% endblock %}
