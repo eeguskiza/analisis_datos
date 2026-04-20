@@ -204,6 +204,7 @@
             </div>
 
             <!-- Boton guardar -->
+            {% if can(current_user, "ciclos:edit") %}
             <div class="shrink-0" @click.stop>
               <button @click="openSaveDialog(r)"
                       class="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
@@ -213,6 +214,7 @@
                 <span x-text="r._applied ? 'Actualizado' : (r._saved !== null ? 'Actualizar' : 'Guardar')"></span>
               </button>
             </div>
+            {% endif %}
           </div>
 
           <!-- Detalle expandido -->

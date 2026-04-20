@@ -182,9 +182,11 @@
     </div>
     <div class="flex justify-between pt-6">
       <button @click="step = source === 'db' ? 3 : 2" class="btn-ghost btn-sm">Atras</button>
+      {% if can(current_user, "pipeline:run") %}
       <button @click="ejecutar()" class="btn-success !px-5 !py-3" :disabled="selectedModules.length === 0">
         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
       </button>
+      {% endif %}
     </div>
   </div>
 

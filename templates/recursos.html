@@ -14,6 +14,7 @@
       </span>
     </div>
     <div class="flex items-center gap-2">
+      {% if can(current_user, "recursos:edit") %}
       <!-- Boton Detectar -->
       <button @click="detectar()"
               class="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm hover:shadow"
@@ -21,6 +22,7 @@
         <span x-show="detecting" class="spinner border-white w-4 h-4"></span>
         <svg x-show="!detecting" class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
       </button>
+      {% endif %}
       <!-- Boton Organizar -->
       <button @click="organizing = !organizing"
               class="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
@@ -30,6 +32,7 @@
               :title="organizing ? 'Salir de organizar' : 'Organizar maquinas'">
         <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
       </button>
+      {% if can(current_user, "recursos:edit") %}
       <!-- Boton + con dropdown -->
       <div class="relative" x-data="{ addOpen: false }" @click.away="addOpen = false">
         <button @click="addOpen = !addOpen"
@@ -55,6 +58,7 @@
         <span x-show="saving" class="spinner border-white w-4 h-4"></span>
         <svg x-show="!saving" class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -73,10 +77,12 @@
              x-text="sec.name"></div>
         <span class="text-[10px] text-gray-300" x-text="sec.items.length"></span>
         <div class="flex-1 h-px bg-surface-200"></div>
+        {% if can(current_user, "recursos:edit") %}
         <button x-show="sec.name !== 'GENERAL'" @click="deleteSection(sec.name)"
                 class="text-gray-300 hover:text-red-500 transition-colors p-1" :title="'Eliminar seccion ' + sec.name">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
+        {% endif %}
       </div>
 
       <!-- Empty section placeholder (organize mode) -->
@@ -154,9 +160,11 @@
           </button>
         </div>
         <div class="flex items-center gap-2">
+          {% if can(current_user, "recursos:edit") %}
           <button @click="removeMachine()" class="text-gray-300 hover:text-red-500 p-1" title="Eliminar maquina">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
           </button>
+          {% endif %}
           <button @click="selectedMachine = null" class="text-gray-400 hover:text-gray-600 p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
