@@ -121,6 +121,13 @@ def capacidad(
                     },
                 )
 
+    # CR-01 fix: llegamos aquí si (rango <= 90d, sin gate) o
+    # (rango > 90d y el gate pasó). En ambos casos la query va a
+    # ejecutarse — marcamos para que el middleware persista la fila.
+    # Para rango <= 90d el middleware igual short-circuits porque
+    # estimated_ms no está poblado (D-03).
+    request.state.query_executed = True
+
     try:
         with engine_mes.connect() as conn:
             # 1) Produccion real SOLO en CTs cuyo nombre empieza por 'Linea'

@@ -144,6 +144,10 @@ def ficha_operario(
                     },
                 )
 
+    # CR-01 fix: gate pasó (o rango corto sin gate) — marcamos que sí
+    # ejecutaremos para el middleware postflight.
+    request.state.query_executed = True
+
     with engine_mes.connect() as conn:
         # 1. Datos del operario
         row = conn.execute(

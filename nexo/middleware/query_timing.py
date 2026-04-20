@@ -31,6 +31,12 @@ Short-circuits (no escribir fila):
     401/redirect antes de llegar aquí).
   - Endpoints de rango (``capacidad``/``operarios``) donde el router
     no populó ``request.state.estimated_ms`` → rango ≤ 90d per D-03.
+  - **Gate rejections** (CR-01 fix): si el router no marcó
+    ``request.state.query_executed = True`` Y la response es 4xx/5xx
+    (excepto 504 timeout que viene del propio wait_for del pipeline),
+    asumimos que el gate rechazó la ejecución y NO persistimos fila
+    (evita contaminar ``/ajustes/rendimiento`` con rejections +
+    evita exponer SQL bloqueado en ``params_json``).
 
 Disciplina de errores (copiada de ``api.middleware.audit``):
   - Un fallo al escribir en ``nexo.query_log`` NUNCA tumba la response.
@@ -108,12 +114,33 @@ class QueryTimingMiddleware(BaseHTTPMiddleware):
             params_snapshot: Optional[str] = getattr(
                 request.state, "params_json", None
             )
+            query_executed: bool = bool(
+                getattr(request.state, "query_executed", False)
+            )
 
             # Rango <=90d en capacidad/operarios: router NO pobló
             # estimated_ms (short-circuit per D-03). Saltamos el log:
             # ese tráfico es barato y no queremos inflar ``query_log``
             # con filas triviales.
             if estimated_ms is None and endpoint_key in ("capacidad", "operarios"):
+                return response
+
+            # CR-01 fix: si el gate rechazó la ejecución (4xx distinto de
+            # 504) y el router NUNCA marcó ``query_executed``, NO
+            # persistimos fila. Esto evita:
+            #   (a) inflar /ajustes/rendimiento con "errors" que nunca
+            #       fueron queries reales (403 red-sin-approval, 428
+            #       amber-sin-force, 503 approvals-unavailable).
+            #   (b) almacenar user SQL bloqueado en params_json (p.ej.
+            #       intentos DDL que el whitelist habría rechazado
+            #       después del gate).
+            # Timeouts (504) vienen del wait_for del pipeline tras la
+            # ejecución iniciada — esos SÍ deben loggearse.
+            if (
+                not query_executed
+                and response.status_code >= 400
+                and response.status_code != 504
+            ):
                 return response
 
             query_status = _classify_status(
@@ -150,17 +177,23 @@ class QueryTimingMiddleware(BaseHTTPMiddleware):
             # Re-read state en el except por si call_next levantó ANTES de
             # que asignáramos las locals. Si el router no llegó a setear
             # state, los getattr devuelven None — aceptable en error path.
-            _persist(
-                user_id=user.id,
-                endpoint=endpoint_key,
-                params_json=getattr(request.state, "params_json", None),
-                estimated_ms=getattr(request.state, "estimated_ms", None),
-                actual_ms=actual_ms,
-                rows=None,
-                status="error",
-                approval_id=getattr(request.state, "approval_id", None),
-                ip=request.client.host if request.client else "unknown",
-            )
+            #
+            # CR-01 fix: si el gate rechazó antes de ejecutar (no hay
+            # ``query_executed``), NO escribimos fila — un HTTPException
+            # en el gate no es una ejecución fallida. Una excepción
+            # durante la ejecución ya pasó el gate → sí logueamos.
+            if bool(getattr(request.state, "query_executed", False)):
+                _persist(
+                    user_id=user.id,
+                    endpoint=endpoint_key,
+                    params_json=getattr(request.state, "params_json", None),
+                    estimated_ms=getattr(request.state, "estimated_ms", None),
+                    actual_ms=actual_ms,
+                    rows=None,
+                    status="error",
+                    approval_id=getattr(request.state, "approval_id", None),
+                    ip=request.client.host if request.client else "unknown",
+                )
             raise
 
 

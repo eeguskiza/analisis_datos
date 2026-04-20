@@ -601,6 +601,11 @@ def query_readonly(
     # con 400 antes de ejecutar.
     _validate_sql(sql)
 
+    # CR-01 fix: gate pasó (preflight + whitelist) — marcamos que SÍ
+    # vamos a ejecutar para que el middleware persista la fila en
+    # query_log. Las 403/428/503 del gate NO llegan aquí.
+    request.state.query_executed = True
+
     try:
         repo = MesRepository(engine=engine_mes)
         result = repo.consulta_readonly(sql, database)

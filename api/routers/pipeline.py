@@ -172,6 +172,11 @@ async def run(
         # amber + force=true: usuario ya confirmó en el modal; ejecutamos
         # sin exigir approval_id (amber NO requiere aprobación — D-05).
 
+    # CR-01 fix: marca "gate pasado" para el middleware — a partir de
+    # aquí SÍ vamos a ejecutar la query (o al menos lo intentaremos).
+    # El middleware usa este flag para decidir si persistir la fila.
+    request.state.query_executed = True
+
     # ── Ejecución bajo semáforo + to_thread + timeout ─────────────────
     # Opción A (research §Opción A): colectamos todos los mensajes en el
     # thread y los re-emitimos al final via SSE. Pierde progreso en
