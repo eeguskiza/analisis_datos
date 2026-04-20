@@ -65,7 +65,7 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 - [x] **QUERY-03**: `nexo/services/preflight.py` con `estimate_cost(endpoint, params) -> Estimation(ms, level, reason)`; heurística inicial `n_recursos × n_días × factor_por_modulo`; aprendizaje desde `nexo.query_log` — Plan 04-02 ✓ 2026-04-20 (estimador puro + 13 unit tests; learning via botón manual de /ajustes/limites en Plan 04-04)
 - [x] **QUERY-04**: Endpoints devuelven `Estimation` antes de ejecutar; `green`=directo, `amber`=confirmación UI, `red`=requiere aprobación propietario — Plan 04-02 ✓ 2026-04-20 (4 routers gatean por level: 428 amber, 403 red; modal AMBER/RED Alpine en pipeline.html + bbdd.html)
 - [x] **QUERY-05**: `nexo/middleware/query_timing.py` mide `time.monotonic()` y escribe `actual_ms` en `query_log`; alerta `logging.WARNING` si `actual > warn_ms × 1.5` — Plan 04-02 ✓ 2026-04-20 (middleware innermost + D-17 slow status + log.warning con ratio)
-- [ ] **QUERY-06**: Flujo approval asíncrono: `/ajustes/solicitudes` (propietario aprueba), usuario re-dispara con `force=true` — Plan 04-03 (pending); import-guard `_APPROVALS_AVAILABLE` en 4 routers listo para activar automáticamente
+- [x] **QUERY-06**: Flujo approval asíncrono: `/ajustes/solicitudes` (propietario aprueba), usuario re-dispara con `force=true` — Plan 04-03 ✓ 2026-04-20 (6 funciones service + 7 endpoints router + 2 templates + badge HTMX 30s + job cleanup Mon 03:05 + TTL 7d; PC-04-07 xfail removido; _APPROVALS_AVAILABLE activado en 4 routers)
 - [x] **QUERY-07**: `/ajustes/limites` edita umbrales; preflight aplicado en `pipeline/run`, `bbdd/query`, `capacidad` (rango > 90 días), `operarios` (rango > 90 días) — Plan 04-02 ✓ 2026-04-20 (preflight aplicado a los 4 endpoints; UI /ajustes/limites en Plan 04-04)
 - [x] **QUERY-08**: Pipeline OEE corre en `asyncio.to_thread` para no bloquear worker uvicorn (matplotlib sigue síncrono internamente pero no congela el resto de la UI) — Plan 04-02 ✓ 2026-04-20 (asyncio.Semaphore(3) + asyncio.to_thread + wait_for(timeout=900) con landmine soft-timeout documentado)
 
@@ -192,7 +192,7 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | QUERY-03 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
 | QUERY-04 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
 | QUERY-05 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
-| QUERY-06 | Phase 4 / Plan 04-03 | Pending |
+| QUERY-06 | Phase 4 / Plan 04-03 | Complete (2026-04-20) |
 | QUERY-07 | Phase 4 / Plan 04-02 | Complete (2026-04-20) (UI /ajustes/limites en 04-04) |
 | QUERY-08 | Phase 4 / Plan 04-02 | Complete (2026-04-20) |
 | UIROL-01 | Phase 5 | Pending |

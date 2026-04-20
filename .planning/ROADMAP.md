@@ -89,7 +89,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — Foundation: 3 tablas (query_log, query_thresholds, query_approvals) + ORM + DTOs + repos skeleton + schema_guard extendido + seeds + thresholds_cache skeleton + Wave 0 tests (QUERY-01, QUERY-02) ✓ 2026-04-20
 - [x] 04-02-PLAN.md — Preflight + Middleware + asyncio.to_thread: preflight.py + pipeline_lock.py + query_timing.py + refactor 4 routers (pipeline/bbdd/capacidad/operarios) + modales amber/red Alpine (QUERY-03, QUERY-04, QUERY-05, QUERY-07, QUERY-08) ✓ 2026-04-20
-- [ ] 04-03-PLAN.md — Approval flow: approvals.py service + /api/approvals/* router + páginas /mis-solicitudes + /ajustes/solicitudes + badge sidebar HTMX + cleanup_scheduler + job TTL 7d (QUERY-06)
+- [x] 04-03-PLAN.md — Approval flow: approvals.py service + /api/approvals/* router + páginas /mis-solicitudes + /ajustes/solicitudes + badge sidebar HTMX + cleanup_scheduler + job TTL 7d (QUERY-06) ✓ 2026-04-20
 - [ ] 04-04-PLAN.md — Observability UI + LISTEN/NOTIFY + learning: listen_loop completo + /ajustes/limites CRUD + /ajustes/rendimiento Chart.js + factor_learning helper + query_log retention job + factor_auto_refresh mensual (QUERY-02 complete, QUERY-07 complete, D-19, D-20)
 
 ### Phase 5: UI por roles
