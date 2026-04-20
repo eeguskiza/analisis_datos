@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 05 COMPLETE — Plan 05-05 cerrado (button gating UIROL-04 + HTML GET hardening Pitfall 4)
+status: executing
+stopped_at: "Phase 05 CERRADA (5/5 plans). can() helper + Jinja global + sidebar con PERMISSION_MAP + forbidden UX (302+flash HTML / 403 JSON) + ajustes split + 11 botones gated + 8 HTML GET hardened. Code review: 0 CRITICAL, 1 HIGH (HI-01 flash cookie race, fixed f821e46), 4 MEDIUM + 3 LOW deferred a Phase 5.1 polish. 222 tests green / 11 skip / 3 DEF-05-01-A pre-existing. Verification status human_needed (5 smoke items post-return). Siguiente: Phase 6 (Despliegue LAN HTTPS)."
 last_updated: "2026-04-20T19:03:00.338Z"
 last_activity: 2026-04-20
 progress:
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 05 (ui-por-roles) — EXECUTING
-Plan: 5 of 5
-Status: Phase complete — ready for verification
-Last activity: 2026-04-20
+Phase: 05 (ui-por-roles) — COMPLETE ✓ 2026-04-20
+Plan: 5 of 5 ALL COMPLETE (05-01..05-05) + code review + HI-01 fix + VERIFICATION.md
+Status: **Phase 5 cerrada**. 5/5 must-haves + 4/5 UIROL-* Complete via código. UIROL-05 pending human smoke (5 items). Siguiente: Phase 6 (Despliegue LAN HTTPS) vía `/gsd-plan-phase 6`.
+Last activity: 2026-04-20 -- Phase 05 cerrada (5 plans + review + HI-01 fix + verification)
 
 Progress: [██████████] 100%
 
