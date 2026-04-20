@@ -31,6 +31,20 @@
         </svg>
       </div>
     </a>
+    {% if current_user and current_user.role == 'propietario' %}
+    <a href="/ajustes/solicitudes"
+       class="group bg-white rounded-2xl border border-surface-200 shadow-sm p-5 hover:border-brand-400 hover:shadow-md transition-all">
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="font-bold text-gray-800 group-hover:text-brand-700 transition-colors">Solicitudes</h3>
+          <p class="text-xs text-gray-500 mt-1">Aprobar o rechazar queries pesadas pendientes. Histórico de 30 días.</p>
+        </div>
+        <svg class="w-5 h-5 text-gray-300 group-hover:text-brand-500 transition-colors shrink-0 ml-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+        </svg>
+      </div>
+    </a>
+    {% endif %}
   </div>
 
   <!-- ── Conexion SQL Server ─────────────────────────────────────────── -->
