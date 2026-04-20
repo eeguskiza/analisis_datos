@@ -34,6 +34,7 @@ Permisos:
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -42,7 +43,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from api.deps import DbNexo, render
-from nexo.data.repositories.nexo import ApprovalRepo
+from nexo.data.repositories.nexo import ApprovalRepo, AuditRepo
 from nexo.services import approvals as svc
 from nexo.services.auth import require_permission
 
@@ -50,6 +51,62 @@ logger = logging.getLogger("nexo.approvals")
 
 
 router = APIRouter(tags=["approvals"])
+
+
+# ── H-01 fix: audit helper para state mutations ──────────────────────────
+
+def _audit_approval_event(
+    db,
+    *,
+    event: str,
+    approval_id: int,
+    actor_user_id: int,
+    request: Request,
+    extra: dict | None = None,
+) -> None:
+    """Escribe fila en ``nexo.audit_log`` para una mutación de approval.
+
+    Contracto (H-01 fix):
+      - ``path`` = ``__approval_{event}__`` (p.ej. ``__approval_approved__``).
+      - ``method`` = ``POST`` (el router siempre recibe POST).
+      - ``status`` = 200 (solo llamamos desde la happy path del router).
+      - ``details_json`` = ``{approval_id, actor_user_id, endpoint,
+        estimated_ms, requested_by, ...extra}``.
+
+    Best-effort: un fallo al auditar no tumba la mutación. Sigue el
+    patrón de ``approvals_cleanup.run_once`` (line 57-59).
+    """
+    try:
+        # Lee el approval para enriquecer el detail con context útil
+        approval = ApprovalRepo(db).get(approval_id)
+        details: dict = {
+            "approval_id": approval_id,
+            "actor_user_id": actor_user_id,
+        }
+        if approval is not None:
+            details["endpoint"] = approval.endpoint
+            details["estimated_ms"] = approval.estimated_ms
+            details["requested_by"] = approval.user_id
+        if extra:
+            details.update(extra)
+        AuditRepo(db).append(
+            user_id=actor_user_id,
+            ip=request.client.host if request.client else "unknown",
+            method="POST",
+            path=f"__approval_{event}__",
+            status=200,
+            details_json=json.dumps(details),
+        )
+        db.commit()
+    except Exception:
+        logger.exception(
+            "audit_log append failed for approval event=%s id=%d",
+            event, approval_id,
+        )
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
 
 # ── Pydantic request body ────────────────────────────────────────────────
@@ -136,6 +193,13 @@ def approve(
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     svc.approve(db, approval_id, user.id)
+    _audit_approval_event(
+        db,
+        event="approved",
+        approval_id=approval_id,
+        actor_user_id=user.id,
+        request=request,
+    )
     logger.info(
         "approval approved id=%d by=%s", approval_id, user.email,
     )
@@ -160,6 +224,13 @@ def reject(
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     svc.reject(db, approval_id, user.id)
+    _audit_approval_event(
+        db,
+        event="rejected",
+        approval_id=approval_id,
+        actor_user_id=user.id,
+        request=request,
+    )
     logger.info(
         "approval rejected id=%d by=%s", approval_id, user.email,
     )
@@ -194,6 +265,13 @@ def cancel(
                 "(no eres el dueño o no está pending)"
             ),
         )
+    _audit_approval_event(
+        db,
+        event="cancelled",
+        approval_id=approval_id,
+        actor_user_id=user.id,
+        request=request,
+    )
     logger.info(
         "approval cancelled id=%d by=%s", approval_id, user.email,
     )
