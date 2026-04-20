@@ -17,6 +17,11 @@ plan but worth tracking.
   — asserts `preview["sample_size"] == 15`, gets `18`.
 - `tests/routers/test_thresholds_crud.py::test_recalibrate_filters_outliers_under_500ms`
   — same class of failure.
+- `tests/routers/test_thresholds_crud.py::test_recalibrate_insufficient_data_returns_400`
+  — observed during Plan 05-04 regression sweep (2026-04-20). Sample-size
+  contamination likely causes recalibrate to find ≥10 samples where the
+  test expected <10 (so it returns 200 instead of 400). Same root-cause
+  class as the other two; reverting to `f0d984c~3` reproduces.
 
 **Root cause (suspected):** `nexo.query_log` rows from prior test runs or
 from co-running tests in the same suite are not purged before the
