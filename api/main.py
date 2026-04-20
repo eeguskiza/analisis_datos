@@ -19,6 +19,7 @@ from api.middleware.auth import AuthMiddleware
 from api.rate_limit import limiter
 from nexo.data import schema_guard
 from nexo.data.engines import engine_nexo
+from nexo.middleware.query_timing import QueryTimingMiddleware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("oee")
@@ -126,17 +127,22 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # ``add_middleware`` es el primero en procesar la request (outer); el primero
 # en registrarse es el mas cercano al handler (inner).
 #
-# Cadena deseada (outer → inner):
-#   Request → AuthMiddleware → AuditMiddleware → handler → Audit → Auth → Response
+# Cadena deseada tras Phase 4 (outer → inner):
+#   Request → AuthMiddleware → AuditMiddleware → QueryTimingMiddleware → handler
+#                                                                       ↓
+#   Response ← Auth ← Audit ← QueryTiming ← (handler)
 #
-# AuthMiddleware va primero: si la sesion es invalida, retorna 401/redirect
-# sin llegar a Audit (las requests no autenticadas no se auditan).
-# AuditMiddleware va despues: lee request.state.user ya poblado por Auth.
+# AuthMiddleware va primero (outermost): si la sesion es invalida, retorna
+# 401/redirect sin llegar a Audit. AuditMiddleware va despues: lee
+# request.state.user ya poblado por Auth. QueryTimingMiddleware (Phase 4)
+# va innermost: mide actual_ms tan cerca del handler como sea posible, y
+# lee request.state.estimated_ms que el router pobló antes de ejecutar.
 #
-# Registro correspondiente:
+# Registro correspondiente (primero registrado = innermost):
 
-app.add_middleware(AuditMiddleware)    # inner — segundo en ejecutar
-app.add_middleware(AuthMiddleware)     # outer — primero en ejecutar
+app.add_middleware(QueryTimingMiddleware)  # innermost — ultima capa antes del handler
+app.add_middleware(AuditMiddleware)        # inner — segundo en ejecutar
+app.add_middleware(AuthMiddleware)         # outer — primero en ejecutar
 
 
 # ── Static files ──────────────────────────────────────────────────────────────
