@@ -8,17 +8,27 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from api.config import settings
+from nexo.services.auth import can as _can
 
 templates = Jinja2Templates(directory=str(settings.project_root / "templates"))
 
 # Variables disponibles en todos los templates sin necesidad de pasarlas
 # explicitamente por contexto en cada endpoint. El cableado (Sprint 0
 # commit 7) sustituye a los strings hardcoded en base.html y otros.
+#
+# ``can`` (Plan 05-01, D-03 / D-09): registrado a import-time para que
+# cualquier template pueda hacer ``{% if can(current_user, "perm") %}``
+# sin depender de que el endpoint pase la función por contexto. El
+# registro aquí (no en lifespan ni en factory) evita que los primeros
+# renders encuentren ``can`` undefined (05-RESEARCH §Pitfall 5).
+# ``current_user`` NO se registra como global — es per-request y se
+# inyecta via ``render()`` (05-RESEARCH §Pitfall 3).
 templates.env.globals.update(
     app_name=settings.app_name,
     company_name=settings.company_name,
     logo_path=settings.nexo_logo_path,
     ecs_logo_path=settings.nexo_ecs_logo_path,
+    can=_can,
 )
 
 
