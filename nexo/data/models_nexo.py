@@ -30,6 +30,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -37,6 +38,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship
 
@@ -180,6 +182,112 @@ class NexoAuditLog(NexoBase):
     details_json = Column(Text, nullable=True)  # whitelist-sanitized, ver 02-04
 
 
+# -- nexo.query_approvals (Phase 4 — Plan 04-01 / QUERY-06) -----------------
+# State machine: pending -> approved | rejected | cancelled | expired
+#                approved -> consumed (single-use CAS — D-15)
+# Declared BEFORE NexoQueryLog because NexoQueryLog.approval_id is a FK to
+# query_approvals.id. SQLAlchemy accepts string refs so order is technically
+# irrelevant, but declaration order matches dependency direction.
+
+class NexoQueryApproval(NexoBase):
+    __tablename__ = "query_approvals"
+    __table_args__ = (
+        Index("ix_approvals_status", "status"),
+        Index("ix_approvals_user_status", "user_id", "status"),
+        Index("ix_approvals_created_at", "created_at"),
+        {"schema": NEXO_SCHEMA},
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("nexo.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    endpoint = Column(String(100), nullable=False)
+    params_json = Column(Text, nullable=False)
+    estimated_ms = Column(Integer, nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    ttl_days = Column(Integer, nullable=False, default=7)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    approved_by = Column(
+        Integer,
+        ForeignKey("nexo.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    rejected_at = Column(DateTime(timezone=True), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    expired_at = Column(DateTime(timezone=True), nullable=True)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+    # Soft FK a query_log.id — NO declarado como ForeignKey para evitar
+    # dependencia circular con NexoQueryLog (que tiene FK a aqui).
+    consumed_run_id = Column(Integer, nullable=True)
+
+
+# -- nexo.query_thresholds (Phase 4 — Plan 04-01 / QUERY-02) ----------------
+# Lookup table; 1 fila por endpoint con preflight. PK en endpoint — sin
+# indices adicionales (4 filas esperadas por seed D-01/D-02/D-03/D-04).
+
+class NexoQueryThreshold(NexoBase):
+    __tablename__ = "query_thresholds"
+    __table_args__ = {"schema": NEXO_SCHEMA}
+
+    endpoint = Column(String(100), primary_key=True)
+    warn_ms = Column(Integer, nullable=False)
+    block_ms = Column(Integer, nullable=False)
+    factor_ms = Column(Float, nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    updated_by = Column(
+        Integer,
+        ForeignKey("nexo.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    factor_updated_at = Column(DateTime(timezone=True), nullable=True)
+
+
+# -- nexo.query_log (Phase 4 — Plan 04-01 / QUERY-01) -----------------------
+# Append-only postflight log (mismo patron que audit_log). 4 indices:
+#   ix_query_log_ts            - purge por retencion 90d (D-10)
+#   ix_query_log_endpoint_ts   - dashboards /ajustes/rendimiento (D-11)
+#   ix_query_log_user_ts       - filtros por usuario
+#   ix_query_log_status_slow   - partial index para WARN tracking (D-17)
+
+class NexoQueryLog(NexoBase):
+    __tablename__ = "query_log"
+    __table_args__ = (
+        Index("ix_query_log_ts", "ts"),
+        Index("ix_query_log_endpoint_ts", "endpoint", "ts"),
+        Index("ix_query_log_user_ts", "user_id", "ts"),
+        Index(
+            "ix_query_log_status_slow",
+            "ts",
+            postgresql_where=text("status = 'slow'"),
+        ),
+        {"schema": NEXO_SCHEMA},
+    )
+
+    id = Column(Integer, primary_key=True)
+    ts = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    user_id = Column(
+        Integer,
+        ForeignKey("nexo.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    endpoint = Column(String(100), nullable=False)
+    params_json = Column(Text, nullable=True)
+    estimated_ms = Column(Integer, nullable=True)
+    actual_ms = Column(Integer, nullable=False)
+    rows = Column(Integer, nullable=True)
+    status = Column(String(20), nullable=False)
+    approval_id = Column(
+        Integer,
+        ForeignKey("nexo.query_approvals.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    ip = Column(String(64), nullable=True)
+
+
 __all__ = [
     "NEXO_SCHEMA",
     "NexoBase",
@@ -190,5 +298,8 @@ __all__ = [
     "NexoSession",
     "NexoLoginAttempt",
     "NexoAuditLog",
+    "NexoQueryApproval",
+    "NexoQueryThreshold",
+    "NexoQueryLog",
     "user_departments",
 ]
