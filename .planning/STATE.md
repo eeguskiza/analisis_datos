@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: completed
 stopped_at: Phase 6 context gathered (28 decisions across 5 areas)
-last_updated: "2026-04-21T16:17:44.007Z"
+last_updated: "2026-04-21T16:53:29.623Z"
 last_activity: 2026-04-21 -- UIROL-05 smoke manual cerrado por operador; Phase 5 verification → complete
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 17
+  total_plans: 20
   completed_plans: 17
-  percent: 100
+  percent: 85
 ---
 
 # Project State
@@ -155,3 +155,5 @@ Last session: --stopped-at
 Stopped at: Phase 6 context gathered (28 decisions across 5 areas)
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: --resume-file
+
+**Planned Phase:** 6 (Despliegue LAN HTTPS) — 3 plans — 2026-04-21T16:53:29.615Z
