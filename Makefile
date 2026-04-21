@@ -1,4 +1,4 @@
-.PHONY: up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-owner nexo-verify nexo-smoke nexo-setup test-data
+.PHONY: up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-owner nexo-verify nexo-smoke nexo-setup test-data prod-up prod-down prod-logs prod-status prod-health deploy backup
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
@@ -130,6 +130,39 @@ clean: ## Elimina contenedores, volumenes y caches
 
 health: ## Health check de los servicios
 	@curl -s http://localhost:8000/api/health | python3 -m json.tool
+
+# ── Produccion (Phase 6) ─────────────────────────────────────────────────────
+# Todos los targets prod-* usan el override docker-compose.prod.yml.
+# NUNCA usar `docker compose ... down -v` en prod: borra pgdata (Landmine 6).
+# El target dev `make clean` SI usa -v — no ejecutarlo en prod jamas.
+PROD_COMPOSE = docker compose -f docker-compose.yml -f docker-compose.prod.yml
+
+prod-up: ## Arranca stack prod (base + override). Requiere .env con secretos reales.
+	$(PROD_COMPOSE) up -d --build
+	@echo ""
+	@echo "  Nexo prod arrancado:"
+	@echo "    URL:     https://nexo.ecsmobility.local  (requiere hosts-file + root CA)"
+	@echo "    Smoke:   make prod-health"
+	@echo "    Logs:    make prod-logs"
+	@echo ""
+
+prod-down: ## Para stack prod (SIN -v — pgdata persiste)
+	$(PROD_COMPOSE) down
+
+prod-logs: ## Logs stack prod en tiempo real
+	$(PROD_COMPOSE) logs -f
+
+prod-status: ## Estado de containers prod
+	$(PROD_COMPOSE) ps
+
+prod-health: ## Health check via /api/health del stack prod (local, sin HTTPS)
+	@$(PROD_COMPOSE) exec -T web curl -fs http://localhost:8000/api/health | python3 -m json.tool
+
+deploy: ## Ejecuta scripts/deploy.sh (git pull + build + up + smoke)
+	bash scripts/deploy.sh
+
+backup: ## Ejecuta scripts/backup_nightly.sh manualmente (pg_dump + rotacion 7d)
+	bash scripts/backup_nightly.sh
 
 # ── Ayuda ─────────────────────────────────────────────────────────────────────
 
