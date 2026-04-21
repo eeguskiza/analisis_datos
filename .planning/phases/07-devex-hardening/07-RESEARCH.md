@@ -1631,24 +1631,15 @@ Resto de claims son `[VERIFIED]` (lectura directa del repo) o `[CITED]` (docs of
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **¿Baseline de cobertura actual en api/+nexo/?**
-   - What we know: tests existen (41 files, 222+ tests green tras Phase 5), pero nunca se ha medido coverage exacto.
-   - What's unclear: si está ≥60% ya o no.
-   - Recommendation: Wave 0 task del Plan → ejecutar `pytest --cov=api --cov=nexo --cov-report=term` en local (dev con tooling instalado o `docker compose exec web pytest --cov=...`). Reportar resultado y decidir si Phase 7 necesita añadir tests o sólo activar gate.
+1. **¿Baseline de cobertura actual en api/+nexo/?** — **RESOLVED 2026-04-21:** Wave 0 Task 0 del Plan 07-01 mide el baseline real y escribe `07-COVERAGE-BASELINE.md`. Plan 07-02 lee ese valor para `--cov-fail-under` en CI. Si baseline ≥60% → gate a 60%; si <60% → gate al baseline medido + backlog item para subir a 60% en fase futura (decisión usuario 2026-04-21 "Medir primero, ajustar si hace falta").
 
-2. **¿Pinear Python 3.12 específicamente (e.g., 3.12.7) o accept any 3.12.x?**
-   - Recommendation: accept 3.12 (setup-python@v5 resuelve a la última 3.12.x). Más robusto, menos mantenimiento.
+2. **¿Pinear Python 3.12 específicamente (e.g., 3.12.7) o accept any 3.12.x?** — **RESOLVED 2026-04-21:** Accept any 3.12.x via `setup-python@v5` (resuelve a la última 3.12.x estable). Más robusto, menos mantenimiento. Plan 07-02 Task 1 usa `python-version: ['3.11', '3.12']` sin pineo de patch.
 
-3. **¿Smoke test CI usa Postgres service container o docker compose?**
-   - **Option A** (docker compose): real-world, usa `docker-compose.yml` directo, prueba el compose real.
-   - **Option B** (service container): más rápido (no build), aislado.
-   - Recommendation: **A para smoke, B para test matrix**. Coverage matrix necesita Postgres (schema_guard); usar service container. Smoke necesita simular prod → compose completo.
+3. **¿Smoke test CI usa Postgres service container o docker compose?** — **RESOLVED 2026-04-21:** **A para smoke, B para test matrix**. Test matrix (cov) usa Postgres service container para schema_guard (rápido, aislado). Smoke job usa `docker compose up -d` completo para simular prod real. Plan 07-02 Task 1 implementa ambos.
 
-4. **¿Pre-commit CI (adicional al local)?**
-   - Opción: añadir job `pre-commit-ci` a CI que corra `pre-commit run --all-files`. Asegura que el hook también pasa en el runner, no solo localmente.
-   - Recommendation: SÍ, baja fricción y cierra el loop. Añadir como extra job en ci.yml (5 líneas).
+4. **¿Pre-commit CI (adicional al local)?** — **RESOLVED 2026-04-21: DEFERRED to Mark-IV.** Rationale: el loop local (hook pre-commit instalado + backfill commit aislado) cubre el 95% del valor. Añadir un job CI adicional introduce fricción marginal (~30s extra por PR) para detectar el caso raro de dev que hace `git commit --no-verify` y no ejecuta los hooks localmente. En Mark-III el equipo es pequeño y el policy "no `--no-verify`" está en CLAUDE.md. Si el equipo crece o se detecta drift, añadir el job en Mark-IV como tarea de 5 líneas en `.github/workflows/ci.yml`.
 
 ---
 
