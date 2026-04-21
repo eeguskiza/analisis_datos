@@ -35,6 +35,10 @@ data/backups/
 
 # Credenciales
 .env
+.env.prod
+.env.*.local
+!.env.example
+!.env.prod.example
 
 # Estado local de Claude Code
 .claude/projects/
