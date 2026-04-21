@@ -19,7 +19,7 @@ de phases GSD: Phase N = Sprint (N-1) del plan.
 - [x] **Phase 3: Capa de datos** — Sprint 2: repositorios, `.sql` versionados, schema_guard, separación `engine_mes` / `engine_app` / `engine_nexo` ✓ 2026-04-19
 - [x] **Phase 4: Consultas pesadas** — Sprint 3: preflight + postflight + aprobación asíncrona + umbrales editables ✓ 2026-04-20
 - [x] **Phase 5: UI por roles** — Sprint 4: sidebar y páginas condicionadas al rol, split de `ajustes.html` ✓ 2026-04-20
-- [ ] **Phase 6: Despliegue LAN HTTPS** — Sprint 5: `docker-compose.prod.yml`, Caddy con LE DNS-01 o cert interno, firewall, runbook de deploy
+- [x] **Phase 6: Despliegue LAN HTTPS** — Sprint 5: `docker-compose.prod.yml`, Caddy con `tls internal`, ufw, deploy.sh + backup_nightly.sh + runbook `docs/DEPLOY_LAN.md` (validacion empirica en Ubuntu fisico deferred hasta asignacion IT) ✓ 2026-04-21
 - [ ] **Phase 7: DevEx hardening** — Sprint 6: pre-commit, CI ampliado con cobertura, `docs/ARCHITECTURE.md`, `docs/RUNBOOK.md`, `docs/RELEASE.md`
 - [ ] **Phase 8: Rediseño UI (modo claro moderno)** — Sprint 7: rediseño visual completo manteniendo Centro de Mando; sidebar collapsible/drawer; animaciones; tema claro; ventana a ventana con propuestas; secciones nuevas si aplican
 
@@ -125,9 +125,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [x] 06-01-PLAN.md — Foundation: caddy/Caddyfile.prod + docker-compose.prod.yml + .env.prod.example + Wave 0 tests infra (DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-08)
-- [x] 06-02-PLAN.md — Automation: scripts/deploy.sh + scripts/backup_nightly.sh + Makefile prod-* targets + script tests (DEPLOY-04)
-- [ ] 06-03-PLAN.md — Runbook + smoke: docs/DEPLOY_LAN.md + tests/infra/deploy_smoke.sh + test_deploy_lan_doc.py (DEPLOY-05, DEPLOY-06, DEPLOY-07)
+- [x] 06-01-PLAN.md — Foundation: caddy/Caddyfile.prod + docker-compose.prod.yml + .env.prod.example + Wave 0 tests infra (DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-08) ✓ 2026-04-21
+- [x] 06-02-PLAN.md — Automation: scripts/deploy.sh + scripts/backup_nightly.sh + Makefile prod-* targets + script tests (DEPLOY-04) ✓ 2026-04-21
+- [x] 06-03-PLAN.md — Runbook + smoke: docs/DEPLOY_LAN.md (740 lineas) + tests/infra/deploy_smoke.sh (11 checks) + test_deploy_lan_doc.py (24 tests) (DEPLOY-05, DEPLOY-06, DEPLOY-07) ✓ 2026-04-21
 
 ### Phase 7: DevEx hardening
 **Goal**: Cualquier dev futuro puede arrancar, cambiar y desplegar Nexo sin fricción; CI con cobertura; runbook para incidencias comunes.

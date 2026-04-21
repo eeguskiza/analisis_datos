@@ -92,9 +92,12 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 **: Healthchecks añadidos a servicios `web` y `caddy`; `restart: unless-stopped` consistente en todos los servicios
 - [x] **DEPLOY-04
 **: `scripts/deploy.sh` implementa `git pull && docker compose --profile prod build --pull && docker compose --profile prod up -d`
-- [ ] **DEPLOY-05**: `docs/DEPLOY_LAN.md` con: instalación Docker + plugin compose en Ubuntu Server 24.04, DNS interno (A record), DNS-01 registros, rotación SMTP/SQL, backup `pgdata`, plan de recuperación
-- [ ] **DEPLOY-06**: Firewall Ubuntu (`ufw`): 22 (red interna), 443, 80 (redirect opcional); deny all else
-- [ ] **DEPLOY-07**: Verificación desde otro equipo LAN: `https://nexo.ecsmobility.com` carga con cert válido (LE) o autofirmado documentado en DEPLOY_LAN.md
+- [x] **DEPLOY-05
+**: `docs/DEPLOY_LAN.md` con: instalación Docker + plugin compose en Ubuntu Server 24.04, DNS interno (A record), DNS-01 registros, rotación SMTP/SQL, backup `pgdata`, plan de recuperación
+- [x] **DEPLOY-06
+**: Firewall Ubuntu (`ufw`): 22 (red interna), 443, 80 (redirect opcional); deny all else
+- [x] **DEPLOY-07
+**: Verificación desde otro equipo LAN: `https://nexo.ecsmobility.com` carga con cert válido (LE) o autofirmado documentado en DEPLOY_LAN.md
 - [x] **DEPLOY-08
 **: `.env.prod.example` con claves de producción sin valores reales
 

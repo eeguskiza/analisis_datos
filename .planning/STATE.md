@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-04-21T17:21:52.500Z"
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-04-21T17:33:47.691Z"
 last_activity: 2026-04-21 -- Phase --phase execution started
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 20
-  completed_plans: 19
-  percent: 95
+  completed_plans: 20
+  percent: 100
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-21 -- Phase --phase execution started
 
-Progress: [██████████] 95%
+Progress: [██████████] 100%
 
 ## Plans de Phase 2 (estado)
 
@@ -70,6 +70,7 @@ Progress: [██████████] 95%
 | Phase 05 P05 | 14min | 4 tasks | 7 files |
 | Phase 06 P01 | 34min | 3 tasks | 8 files |
 | Phase 06 P02 | 18min | 3 tasks tasks | 5 files files |
+| Phase 06 P03 | 7min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,9 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Plan 06-02: deploy.sh idempotente con pre-deploy backup atomic (.tmp -> mv) + smoke curl -k HTTPS /api/health; rollback manual documentado en fail msg.
 - Plan 06-02: backup_nightly.sh cron-ready con pg_dump atomic rename, chmod 600, retencion 7d en /var/backups/nexo/ (subdir predeploy/ separado para pre-deploys).
 - Plan 06-02: Makefile amplia con PROD_COMPOSE var + 7 targets (prod-up/down/logs/status/health/deploy/backup); dev intacto; prod-down SIN -v para no borrar pgdata (Landmine 6).
+- Plan 06-03: runbook docs/DEPLOY_LAN.md (740 lineas, 16 secciones, espanol, sin emojis) cubre Docker install + clone + ufw + root CA por SO + hosts-file por SO + cron nightly + restore + recovery RTO 1-2h + 7 landmines numeradas. Placeholders literales <IP_NEXO>/<SUBNET_LAN>/<ADMIN_BACKUP_NAME>/<URL_REPO_NEXO>. DEPLOY-05/06/07 cerrados a nivel doc + test regresion; validacion empirica en Ubuntu fisico queda deferred hasta asignacion por IT.
+- Plan 06-03: tests/infra/deploy_smoke.sh con 11 checks [DEPLOY-XX] OK|FAIL, exit code = FAILS count, bash set -uo pipefail (no -e para seguir tras fallos individuales). curl -k intencional: smoke valida Caddy+web vivos, no cadena TLS valida desde el servidor. Usable por cron diario post-deploy.
+- Plan 06-03: tests/infra/test_deploy_lan_doc.py con 24 tests de regresion doc+smoke. Validado end-to-end que borrar 'ufw allow 443/tcp'/'down -v'/inyectar emoji FALLA el test correspondiente. Suite tests/infra total: 73 tests (49 Wave 0/2 + 24 nuevos) <1s.
 
 ### Pending Todos
 
@@ -156,11 +160,12 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 | Plan | Verification | Deadline | Operador | Comando |
 |------|--------------|----------|----------|---------|
 | 03-02 | PDF regression baseline check (success criterion #5) | 2026-04-26 (7d) | e.eguskiza@ecsmobility.com | `docker compose up -d --build web && docker compose exec -T web python scripts/gen_pdf_reference.py --fecha=2026-03-15 && docker compose exec -T web python scripts/pdf_regression_check.py --fecha=2026-03-15`. Aceptación: exit 0 (idéntico) o exit 1 + visual check OK. Bind-mount `./tests:/app/tests` añadido en `docker-compose.yml` para que el baseline persista. |
+| 06-03 | Deploy smoke empírico en Ubuntu físico (DEPLOY-01/02/03/06/07 empíricos) | Sin deadline duro (depende asignación host por IT) | e.eguskiza@ecsmobility.com | Tras primer deploy en el servidor Ubuntu real con `.env.prod`: `ssh <IP_NEXO> 'cd /opt/nexo && make prod-up && sleep 30 && bash tests/infra/deploy_smoke.sh'`. Aceptación: exit 0 (0 fallos sobre 11 checks). Plus: desde peer LAN con CA + hosts-file, `nmap -Pn -p 22,80,443,5432 <IP_NEXO>` → 22/80/443 open, 5432 closed. |
 
 ## Session Continuity
 
-Last session: 2026-04-21T17:21:52.493Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-04-21T17:33:33.912Z
+Stopped at: Completed 06-03-PLAN.md
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: None
 
