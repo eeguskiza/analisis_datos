@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 05 CERRADA (5/5 plans). can() helper + Jinja global + sidebar con PERMISSION_MAP + forbidden UX (302+flash HTML / 403 JSON) + ajustes split + 11 botones gated + 8 HTML GET hardened. Code review: 0 CRITICAL, 1 HIGH (HI-01 flash cookie race, fixed f821e46), 4 MEDIUM + 3 LOW deferred a Phase 5.1 polish. 222 tests green / 11 skip / 3 DEF-05-01-A pre-existing. Verification status human_needed (5 smoke items post-return). Siguiente: Phase 6 (Despliegue LAN HTTPS)."
-last_updated: "2026-04-20T19:03:00.338Z"
-last_activity: 2026-04-20
+status: completed
+stopped_at: Phase 6 context gathered (28 decisions across 5 areas)
+last_updated: "2026-04-21T16:17:44.007Z"
+last_activity: 2026-04-21 -- UIROL-05 smoke manual cerrado por operador; Phase 5 verification → complete
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 5
   total_plans: 17
   completed_plans: 17
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 05 (ui-por-roles) — COMPLETE ✓ 2026-04-20
+Phase: 05 (ui-por-roles) — COMPLETE ✓ 2026-04-20 (human-verified 2026-04-21)
 Plan: 5 of 5 ALL COMPLETE (05-01..05-05) + code review + HI-01 fix + VERIFICATION.md
-Status: **Phase 5 cerrada**. 5/5 must-haves + 4/5 UIROL-* Complete via código. UIROL-05 pending human smoke (5 items). Siguiente: Phase 6 (Despliegue LAN HTTPS) vía `/gsd-plan-phase 6`.
-Last activity: 2026-04-20 -- Phase 05 cerrada (5 plans + review + HI-01 fix + verification)
+Status: **Phase 5 cerrada y validada**. 5/5 must-haves + 5/5 UIROL-* Complete. UIROL-05 human smoke validado por operador 2026-04-21. Siguiente: Phase 6 (Despliegue LAN HTTPS) vía `/gsd-plan-phase 6`.
+Last activity: 2026-04-21 -- UIROL-05 smoke manual cerrado por operador; Phase 5 verification → complete
 
 Progress: [██████████] 100%
 
@@ -151,7 +151,7 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-20T19:03:00.330Z
-Stopped at: Phase 05 COMPLETE — Plan 05-05 cerrado (button gating UIROL-04 + HTML GET hardening Pitfall 4)
+Last session: --stopped-at
+Stopped at: Phase 6 context gathered (28 decisions across 5 areas)
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
-Resume file: None
+Resume file: --resume-file

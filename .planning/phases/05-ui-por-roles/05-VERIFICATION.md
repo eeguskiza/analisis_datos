@@ -1,8 +1,9 @@
 ---
 phase: 05-ui-por-roles
 type: verification
-status: human_needed
+status: complete
 verified: 2026-04-20
+human_verified: 2026-04-21
 must_haves_total: 5
 must_haves_verified: 5
 requirements_verified: [UIROL-01, UIROL-02, UIROL-03, UIROL-04, UIROL-05]
@@ -44,9 +45,9 @@ sin SMTP). Reinterpretación documentada en 05-04-PLAN.md + 05-04-SUMMARY.md.
 | UIROL-02 | `base.html` filtra nav_items por permisos | ✅ Plan 05-02 + 05-03 | Sidebar refactor (05-02) + forbidden UX 403→302+flash (05-03); redireccion cierra el loop URL-typing |
 | UIROL-03 | `ajustes.html` dividido en sub-pages | ✅ Plan 05-04 | `ajustes_conexion.html` nuevo + hub refactored + SMTP omitido (D-04) |
 | UIROL-04 | Botones sensibles ocultos según permiso | ✅ Plan 05-05 | 11 botones wrapped exactamente una vez cada uno con permiso correcto de PERMISSION_MAP |
-| UIROL-05 | Verificación manual E2E | 🟡 Human pending | Checkpoint auto-aprobado; 5 smoke items documentados en 05-05-SUMMARY §Human verification |
+| UIROL-05 | Verificación manual E2E | ✅ Human verified 2026-04-21 | Operador e.eguskiza@ecsmobility.com validó los 5 smoke items documentados en 05-05-SUMMARY §Human verification |
 
-**Traceability: 4/5 Complete via código + 1/5 pending human smoke.**
+**Traceability: 5/5 Complete.**
 
 ## Code Review Follow-up
 
