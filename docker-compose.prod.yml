@@ -1,0 +1,58 @@
+# docker-compose.prod.yml — override de produccion Nexo LAN
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Compose v2.24+: etiquetas YAML para romper la herencia del base:
+#   - `!reset []`   borra la lista heredada (usado para ports — nada nuevo que anadir).
+#   - `!override`   reemplaza la lista heredada con la que aparece debajo (usado para
+#                   volumes — descartamos ./tests del dev pero anadimos los propios).
+#
+# Landmine 2 (ports): `ports: []` (sin `!reset`) NO resetea. Compose v2 fusiona
+# listas por defecto y 5432 quedaria publicado — DEPLOY-02 fallaria silenciosamente.
+#
+# Landmine 2b (volumes): `volumes: !reset` seguido de una lista indentada deja la
+# lista VACIA (el tag `!reset` consume el valor completo). Para reemplazar con
+# contenido nuevo hay que usar `!override`, no `!reset`.
+
+services:
+  db:
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2g
+
+  web:
+    ports: !reset []
+    volumes: !override
+      - ./data:/app/data
+      - ./informes:/app/informes
+      # ./tests NO se monta en prod (es baseline PDF solo para dev).
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4g
+
+  caddy:
+    volumes: !override
+      - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
