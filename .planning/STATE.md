@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-04-21T17:33:47.691Z"
+last_updated: "2026-04-21T18:26:59.448Z"
 last_activity: 2026-04-21 -- Phase --phase execution started
 progress:
   total_phases: 8
   completed_phases: 6
-  total_plans: 20
+  total_plans: 24
   completed_plans: 20
-  percent: 100
+  percent: 83
 ---
 
 # Project State
@@ -169,4 +169,4 @@ Stopped at: Completed 06-03-PLAN.md
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: None
 
-**Planned Phase:** 6 (Despliegue LAN HTTPS) — 3 plans — 2026-04-21T16:53:29.615Z
+**Planned Phase:** 7 (DevEx hardening) — 4 plans — 2026-04-21T18:26:59.441Z
