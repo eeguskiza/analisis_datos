@@ -44,6 +44,7 @@ data/backups/
 .claude/projects/
 .claude/todos/
 .claude/shell-snapshots/
+.codex/
 
 # GSD — estado local / caché
 .planning/quick/
