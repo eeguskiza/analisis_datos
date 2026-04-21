@@ -1,0 +1,24 @@
+# caddy/Caddyfile.prod — produccion LAN
+# Cambios clave vs caddy/Caddyfile dev:
+#   1. Sin el flag global de Caddy que desactiva redirects automaticos,
+#      para que Caddy inserte redirect 80->443 por defecto (D-16).
+#   2. Bloque con hostname explicito `nexo.ecsmobility.local` (D-01, D-06).
+#   3. Bloque `:443` se conserva como fallback IP-directa (D-06).
+
+nexo.ecsmobility.local {
+    tls internal
+    reverse_proxy web:8000
+
+    log {
+        output stdout
+        format json
+    }
+}
+
+# Fallback IP-directa (visitantes que escriben https://<IP_NEXO>).
+# Cert autofirmado generico; browser muestra warning pero el acceso funciona.
+# Retirar cuando DNS interno este operativo (deferred).
+:443 {
+    tls internal
+    reverse_proxy web:8000
+}
