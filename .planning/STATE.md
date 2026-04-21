@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-04-21T17:14:24.898Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-04-21T17:21:52.500Z"
 last_activity: 2026-04-21 -- Phase --phase execution started
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 20
-  completed_plans: 18
-  percent: 90
+  completed_plans: 19
+  percent: 95
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-21 -- Phase --phase execution started
 
-Progress: [█████████░] 90%
+Progress: [██████████] 95%
 
 ## Plans de Phase 2 (estado)
 
@@ -69,6 +69,7 @@ Progress: [█████████░] 90%
 | Phase Phase 05 PP04 | 8min | 4 tasks tasks | 5 files files |
 | Phase 05 P05 | 14min | 4 tasks | 7 files |
 | Phase 06 P01 | 34min | 3 tasks | 8 files |
+| Phase 06 P02 | 18min | 3 tasks tasks | 5 files files |
 
 ## Accumulated Context
 
@@ -116,6 +117,9 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Compose v2: !reset [] para ports (vaciar), !override para volumes (reemplazar lista). !reset + lista es bug.
 - Test de infra Wave 0: validacion estatica de archivos + docker compose config merged (skippable). 25 tests congelan el contrato antes de 06-02/06-03.
 - Healthcheck web (curl -fs /api/health) intencionalmente no parsea JSON: MES caido devuelve 200 con ok:false y healthcheck sigue OK (Pitfall 3).
+- Plan 06-02: deploy.sh idempotente con pre-deploy backup atomic (.tmp -> mv) + smoke curl -k HTTPS /api/health; rollback manual documentado en fail msg.
+- Plan 06-02: backup_nightly.sh cron-ready con pg_dump atomic rename, chmod 600, retencion 7d en /var/backups/nexo/ (subdir predeploy/ separado para pre-deploys).
+- Plan 06-02: Makefile amplia con PROD_COMPOSE var + 7 targets (prod-up/down/logs/status/health/deploy/backup); dev intacto; prod-down SIN -v para no borrar pgdata (Landmine 6).
 
 ### Pending Todos
 
@@ -155,8 +159,8 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-21T17:14:18.325Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-04-21T17:21:52.493Z
+Stopped at: Completed 06-02-PLAN.md
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: None
 

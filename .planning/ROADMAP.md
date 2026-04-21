@@ -125,8 +125,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Foundation: caddy/Caddyfile.prod + docker-compose.prod.yml + .env.prod.example + Wave 0 tests infra (DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-08)
-- [ ] 06-02-PLAN.md — Automation: scripts/deploy.sh + scripts/backup_nightly.sh + Makefile prod-* targets + script tests (DEPLOY-04)
+- [x] 06-01-PLAN.md — Foundation: caddy/Caddyfile.prod + docker-compose.prod.yml + .env.prod.example + Wave 0 tests infra (DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-08)
+- [x] 06-02-PLAN.md — Automation: scripts/deploy.sh + scripts/backup_nightly.sh + Makefile prod-* targets + script tests (DEPLOY-04)
 - [ ] 06-03-PLAN.md — Runbook + smoke: docs/DEPLOY_LAN.md + tests/infra/deploy_smoke.sh + test_deploy_lan_doc.py (DEPLOY-05, DEPLOY-06, DEPLOY-07)
 
 ### Phase 7: DevEx hardening
