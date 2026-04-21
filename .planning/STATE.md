@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 6 context gathered (28 decisions across 5 areas)
-last_updated: "2026-04-21T16:53:29.623Z"
-last_activity: 2026-04-21 -- UIROL-05 smoke manual cerrado por operador; Phase 5 verification → complete
+status: executing
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-04-21T17:14:24.898Z"
+last_activity: 2026-04-21 -- Phase --phase execution started
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 20
-  completed_plans: 17
-  percent: 85
+  completed_plans: 18
+  percent: 90
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Consultar datos reales de producción (MES IZARO) y generar informes OEE fiables por máquina/turno/sección sin bloquear al operario y sin filtrar información entre departamentos.
-**Current focus:** Phase 05 — ui-por-roles
+**Current focus:** Phase --phase — 06
 
 ## Current Position
 
-Phase: 05 (ui-por-roles) — COMPLETE ✓ 2026-04-20 (human-verified 2026-04-21)
-Plan: 5 of 5 ALL COMPLETE (05-01..05-05) + code review + HI-01 fix + VERIFICATION.md
-Status: **Phase 5 cerrada y validada**. 5/5 must-haves + 5/5 UIROL-* Complete. UIROL-05 human smoke validado por operador 2026-04-21. Siguiente: Phase 6 (Despliegue LAN HTTPS) vía `/gsd-plan-phase 6`.
-Last activity: 2026-04-21 -- UIROL-05 smoke manual cerrado por operador; Phase 5 verification → complete
+Phase: --phase (06) — EXECUTING
+Plan: 1 of --name
+Status: Executing Phase --phase
+Last activity: 2026-04-21 -- Phase --phase execution started
 
-Progress: [██████████] 100%
+Progress: [█████████░] 90%
 
 ## Plans de Phase 2 (estado)
 
@@ -68,6 +68,7 @@ Progress: [██████████] 100%
 | Phase 05 P03 | 45min | 5 tasks | 8 files |
 | Phase Phase 05 PP04 | 8min | 4 tasks tasks | 5 files files |
 | Phase 05 P05 | 14min | 4 tasks | 7 files |
+| Phase 06 P01 | 34min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,9 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Plan 05-03: FlashMiddleware + StarletteHTTPException handler con Accept negotiation implementados. 403 HTML → 302+cookie nexo_flash (user-friendly label); 403 JSON/HTMX preserva contract. FlashMiddleware entre Audit y Auth (W-02 LIFO). _PERMISSION_LABELS cubre 21 permisos incluyendo los 10 HTML-guarded de 05-05 (W-06 test). base.html dispatcha showToast via DOMContentLoaded. NAMING-07 intacto (registros separados por tipo de excepción). 4 unit + 9 integration tests + 2 test-alignments (Rule 1) para tests pre-existentes que asertaban 403 HTML (ahora 302/JSON split).
 - Plan 05-04: hub /ajustes refactorizado a shell estatico con 6 cards gateadas por can() (sin wrapper Alpine, sin card SMTP per D-04); Conexion SQL Server extraido a sub-pagina /ajustes/conexion propietario-only (conexion:config) con componente Alpine renombrado a ajustesConexionPage().
 - Plan 05-05: 11 sensitive buttons wrapped with {% if can(current_user, <perm>) %} across 4 templates (UIROL-04 literal); 8 HTML GET routes in pages.py guarded with require_permission(<perm>:read) closing D-01/D-07 Pitfall 4 gap. 21 new integration tests (10 button-gating + 11 HTML-GET-guarded parametrized). Phase 5 COMPLETE — all 5 plans closed.
+- Compose v2: !reset [] para ports (vaciar), !override para volumes (reemplazar lista). !reset + lista es bug.
+- Test de infra Wave 0: validacion estatica de archivos + docker compose config merged (skippable). 25 tests congelan el contrato antes de 06-02/06-03.
+- Healthcheck web (curl -fs /api/health) intencionalmente no parsea JSON: MES caido devuelve 200 con ok:false y healthcheck sigue OK (Pitfall 3).
 
 ### Pending Todos
 
@@ -151,9 +155,9 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 6 context gathered (28 decisions across 5 areas)
+Last session: 2026-04-21T17:14:18.325Z
+Stopped at: Completed 06-01-PLAN.md
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
-Resume file: --resume-file
+Resume file: None
 
 **Planned Phase:** 6 (Despliegue LAN HTTPS) — 3 plans — 2026-04-21T16:53:29.615Z

@@ -84,14 +84,18 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 
 ### DEPLOY — Phase 6 / Sprint 5 (LAN HTTPS)
 
-- [ ] **DEPLOY-01**: `docker-compose.prod.yml` (o `profiles: [prod]`) con Caddyfile usando `nexo.ecsmobility.com` — Let's Encrypt DNS-01 si se controla el DNS público, fallback a `tls internal` documentado
-- [ ] **DEPLOY-02**: Postgres sin publicar puerto 5432 al host en prod; acceso sólo vía `docker compose exec db psql`
-- [ ] **DEPLOY-03**: Healthchecks añadidos a servicios `web` y `caddy`; `restart: unless-stopped` consistente en todos los servicios
+- [x] **DEPLOY-01
+**: `docker-compose.prod.yml` (o `profiles: [prod]`) con Caddyfile usando `nexo.ecsmobility.com` — Let's Encrypt DNS-01 si se controla el DNS público, fallback a `tls internal` documentado
+- [x] **DEPLOY-02
+**: Postgres sin publicar puerto 5432 al host en prod; acceso sólo vía `docker compose exec db psql`
+- [x] **DEPLOY-03
+**: Healthchecks añadidos a servicios `web` y `caddy`; `restart: unless-stopped` consistente en todos los servicios
 - [ ] **DEPLOY-04**: `scripts/deploy.sh` implementa `git pull && docker compose --profile prod build --pull && docker compose --profile prod up -d`
 - [ ] **DEPLOY-05**: `docs/DEPLOY_LAN.md` con: instalación Docker + plugin compose en Ubuntu Server 24.04, DNS interno (A record), DNS-01 registros, rotación SMTP/SQL, backup `pgdata`, plan de recuperación
 - [ ] **DEPLOY-06**: Firewall Ubuntu (`ufw`): 22 (red interna), 443, 80 (redirect opcional); deny all else
 - [ ] **DEPLOY-07**: Verificación desde otro equipo LAN: `https://nexo.ecsmobility.com` carga con cert válido (LE) o autofirmado documentado en DEPLOY_LAN.md
-- [ ] **DEPLOY-08**: `.env.prod.example` con claves de producción sin valores reales
+- [x] **DEPLOY-08
+**: `.env.prod.example` con claves de producción sin valores reales
 
 ### DEVEX — Phase 7 / Sprint 6 (hardening)
 
