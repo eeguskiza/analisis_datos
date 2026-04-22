@@ -30,6 +30,13 @@ templates.env.globals.update(
     logo_path=settings.nexo_logo_path,
     ecs_logo_path=settings.nexo_ecs_logo_path,
     can=_can,
+    # Plan 08-02: `getattr` expuesto como global para soportar el patrón
+    # defensivo `getattr(current_user, 'nombre', None)` en base.html
+    # ANTES de que Plan 08-03 añada la columna `nombre` al modelo ORM.
+    # Entre Wave 2 (esta) y Wave 3 (08-03) `current_user.nombre` no existe;
+    # `getattr` devuelve None y el fallback (email local-part) se renderiza.
+    # Tras 08-03 el happy path (user.nombre) funciona automáticamente.
+    getattr=getattr,
 )
 
 
