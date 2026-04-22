@@ -1,4 +1,4 @@
-.PHONY: up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-owner nexo-verify nexo-smoke nexo-setup test-data prod-up prod-down prod-logs prod-status prod-health deploy backup
+.PHONY: up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-owner nexo-verify nexo-smoke nexo-setup test-data prod-up prod-down prod-logs prod-status prod-health deploy backup test test-docker lint format migrate
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
@@ -163,6 +163,31 @@ deploy: ## Ejecuta scripts/deploy.sh (git pull + build + up + smoke)
 
 backup: ## Ejecuta scripts/backup_nightly.sh manualmente (pg_dump + rotacion 7d)
 	bash scripts/backup_nightly.sh
+
+# ── DevEx (Phase 7 / DEVEX-03) ───────────────────────────────────────────────
+# Targets para el dev loop: tests, lint, format, migrate.
+# `backup` ya existe desde Phase 6; NO duplicar aqui.
+# Invariante: ninguno de estos targets arranca el servicio mcp.
+# El coverage gate (--cov-fail-under=60) es consistente con pyproject.toml
+# [tool.coverage.report].fail_under y con --cov-fail-under=60 en CI.
+
+test: ## Corre pytest con cobertura gate 60% (scoped api/ + nexo/)
+	pytest -q --cov=api --cov=nexo --cov-report=term --cov-fail-under=60
+
+test-docker: ## Corre pytest dentro del container web
+	docker compose exec -T web pytest -q --cov=api --cov=nexo --cov-fail-under=60
+
+lint: ## Ruff check + Ruff format --check + mypy (scoped api/ + nexo/)
+	ruff check api/ nexo/
+	ruff format --check api/ nexo/
+	mypy api/ nexo/
+
+format: ## Auto-fix ruff + auto-format ruff (scoped api/ + nexo/)
+	ruff check --fix api/ nexo/
+	ruff format api/ nexo/
+
+migrate: ## Aplica schema nexo (alias idempotente de nexo-init)
+	docker compose exec web python scripts/init_nexo_schema.py
 
 # ── Ayuda ─────────────────────────────────────────────────────────────────────
 
