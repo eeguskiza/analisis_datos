@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-01 tokens + tailwind config
-last_updated: "2026-04-22T18:07:13.004Z"
+stopped_at: Completed 08-02 chrome topbar drawer toasts
+last_updated: "2026-04-22T18:26:43.551Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 38
-  completed_plans: 25
-  percent: 66
+  completed_plans: 26
+  percent: 68
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 8
-Plan: 08-01 ✓ (tokens + tailwind config) — next 08-02 chrome
+Plan: 08-02 ✓ (chrome topbar + drawer + 3-arg toasts) — next 08-03 users nombre column migration
 Status: In progress
 Last activity: 2026-04-22
 
-Progress: [███████░░░] 66%
+Progress: [███████░░░] 68%
 
 ## Plans de Phase 2 (estado)
 
@@ -73,6 +73,7 @@ Progress: [███████░░░] 66%
 | Phase 06 P02 | 18min | 3 tasks tasks | 5 files files |
 | Phase 06 P03 | 7min | 3 tasks | 3 files |
 | Phase 08 P01 | 9min | 3 tasks | 6 files |
+| Phase 08 P02 | 15 | 4 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,7 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Plan 06-03: tests/infra/deploy_smoke.sh con 11 checks [DEPLOY-XX] OK|FAIL, exit code = FAILS count, bash set -uo pipefail (no -e para seguir tras fallos individuales). curl -k intencional: smoke valida Caddy+web vivos, no cadena TLS valida desde el servidor. Usable por cron diario post-deploy.
 - Plan 06-03: tests/infra/test_deploy_lan_doc.py con 24 tests de regresion doc+smoke. Validado end-to-end que borrar 'ufw allow 443/tcp'/'down -v'/inyectar emoji FALLA el test correspondiente. Suite tests/infra total: 73 tests (49 Wave 0/2 + 24 nuevos) <1s.
 - Plan 08-01 cierra substrate de tokens: tokens.css two-layer (raw + semantic), tailwind.config.js extraido de base.html (no wiring — ese es 08-02), BRANDING.md documenta 60/30/10 split + typography + motion + z-index. 56 tests regresión en tests/infra/test_tokens_css.py. Pre-existing test failure (thresholds_crud recalibrate) confirmado fuera de scope, deferred-items.md creado.
+- Plan 08-02: Alpine Focus + Persist CDN plugins loaded BEFORE Alpine core via base.html rewrite; drawerOpen persisted to localStorage.nexo.ui.drawerOpen; [ shortcut with _isTyping input-guard; 3-arg showToast canonical API with XSS-safe _escape helper; legacy producing/stopped/incidence/alarm/turno mapped via _TOAST_VARIANT_ALIAS; getattr exposed as Jinja global for defensive getattr(current_user, 'nombre', None) pre-08-03
 
 ### Pending Todos
 
@@ -167,8 +169,8 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-22T18:07:12.996Z
-Stopped at: Completed 08-01 tokens + tailwind config
+Last session: 2026-04-22T18:26:43.545Z
+Stopped at: Completed 08-02 chrome topbar drawer toasts
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: None
 
