@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
@@ -13,6 +14,10 @@ from api.database import Recurso, get_db
 from nexo.services.auth import require_permission
 
 router = APIRouter(tags=["pages"])
+
+# Plan 08-04: timezone autoritativo para la landing (`/bienvenida`).
+# Se usa para renderizar el día y la fecha en Europe/Madrid.
+_MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 def _common_extra(page: str) -> dict:
@@ -25,6 +30,22 @@ def _common_extra(page: str) -> dict:
 @router.get("/")
 def index(request: Request):
     return render("luk4.html", request, _common_extra("dashboard"))
+
+
+@router.get("/bienvenida")
+def bienvenida_page(request: Request):
+    """Landing post-login (UIREDO-02 / D-23).
+
+    No lleva permiso específico — cualquier usuario autenticado ve esta
+    pantalla. El AuthMiddleware global ya redirige a `/login` si no hay
+    sesión válida, por eso no añadimos `require_permission(...)`.
+
+    Inyecta `now_madrid` para que el template pueda renderizar día y
+    fecha en castellano server-side sin tocar locales del container.
+    """
+    extra = _common_extra("bienvenida")
+    extra["now_madrid"] = datetime.now(_MADRID_TZ)
+    return render("bienvenida.html", request, extra)
 
 
 @router.get(

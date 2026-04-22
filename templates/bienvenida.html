@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Bienvenida · {{ app_name }}{% endblock %}
+{% block page_title %}Bienvenida{% endblock %}
+
+{% block content %}
+{# Plan 08-04 — UI-SPEC §Landing Screen.
+
+   Display name: use getattr() defensivamente — aunque Plan 08-03 ya
+   aterrizo la columna `nombre`, hay usuarios pre-existentes sin backfill
+   (nombre IS NULL). El fallback (email local-part, capitalizado) garantiza
+   que la landing siempre renderice algo legible.
+
+   Saludo: server-rendered via filtro Jinja `hora_saludo` (3 franjas, D-23).
+   Reloj: client-side (Alpine `bienvenidaPage()` con setInterval 1s +
+   destroy cleanup). No animaciones CSS — respeta prefers-reduced-motion.
+
+   Mobile swap: Display 32/600 desktop → Heading 20/600 mobile (UI-SPEC
+   role swap sobre <= 640px).
+#}
+{% set display_name = (getattr(current_user, 'nombre', None) or current_user.email.split('@')[0]|capitalize) if current_user else '' %}
+
+{% set dia_semana_nombres = [
+    "Lunes", "Martes", "Miércoles", "Jueves",
+    "Viernes", "Sábado", "Domingo"
+] %}
+{% set meses_nombres = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+] %}
+
+<section x-data="bienvenidaPage()"
+         class="max-w-[640px] mx-auto py-16 flex flex-col items-center text-center gap-6">
+
+  {# Saludo — role swap via media query. Desktop = Display, mobile = Heading. #}
+  <h2 class="text-display text-heading hidden md:block">
+    {{ None|hora_saludo }}, {{ display_name }}
+  </h2>
+  <h2 class="text-heading md:hidden block">
+    {{ None|hora_saludo }}, {{ display_name }}
+  </h2>
+
+  {# Día y fecha. Server-rendered en castellano (es_ES no está garantizado
+     en el container — render literal por arrays es deterministico). #}
+  <p class="text-body text-muted">
+    Es {{ dia_semana_nombres[now_madrid.weekday()] }},
+    {{ now_madrid.day }} de {{ meses_nombres[now_madrid.month - 1] }} de {{ now_madrid.year }}
+  </p>
+
+  {# Reloj — client-side tick via Alpine (bienvenidaPage). Tabular-nums evita
+     saltos de ancho entre dígitos. role="timer" comunica actualización
+     periódica a screen readers. #}
+  <div class="text-display text-heading font-mono tabular-nums hidden md:block"
+       x-text="clock"
+       aria-label="Hora actual"
+       role="timer"
+       style="font-variant-numeric: tabular-nums;"></div>
+  <div class="text-heading font-mono tabular-nums md:hidden block"
+       x-text="clock"
+       aria-label="Hora actual"
+       role="timer"
+       style="font-variant-numeric: tabular-nums;"></div>
+
+  {# Primary CTA. autofocus permite pulsar Enter tras login. Link a "/". #}
+  <a href="/" class="btn btn-primary btn-lg inline-flex items-center gap-2" autofocus>
+    Ir a Centro de Mando
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+    </svg>
+  </a>
+
+  {# TODO Mark-IV: widgets configurables per-user (D-23 deferred). #}
+</section>
+{% endblock %}
