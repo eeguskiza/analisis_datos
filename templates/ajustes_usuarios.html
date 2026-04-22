@@ -88,8 +88,11 @@
             {% endif %}
           </td>
           <td class="px-4 py-3 text-gray-500 text-xs">
-            {% if u.last_login %}
-              {{ u.last_login.strftime('%Y-%m-%d %H:%M') }}
+            {# Plan 08-03 bugfix: _serialize_user ahora devuelve
+               last_login_display preformateado (str vacio si None) porque
+               datetime explotaba en {{ u|tojson }} de los handlers inline. #}
+            {% if u.last_login_display %}
+              {{ u.last_login_display }}
             {% else %}
               nunca
             {% endif %}

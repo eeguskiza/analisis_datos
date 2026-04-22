@@ -57,6 +57,15 @@ VALID_DEPT_CODES = frozenset(
 
 
 def _serialize_user(u: NexoUser) -> dict:
+    # Rule 1 bugfix (deviation Plan 08-03): el template llama ``u|tojson``
+    # dentro de ``openEdit()`` / ``openReset()``; un ``datetime`` no es
+    # JSON-serializable y el render explotaba con cualquier usuario que
+    # hubiera logueado (``last_login != None``). Separamos el dict en
+    # campos JSON-safe + un string ``last_login_display`` preformateado
+    # para la celda de la tabla (``strftime`` ya no corre en Jinja).
+    last_login_display: str = (
+        u.last_login.strftime("%Y-%m-%d %H:%M") if u.last_login else ""
+    )
     return {
         "id": u.id,
         "email": u.email,
@@ -67,7 +76,7 @@ def _serialize_user(u: NexoUser) -> dict:
         "role": u.role,
         "active": u.active,
         "must_change_password": u.must_change_password,
-        "last_login": u.last_login,
+        "last_login_display": last_login_display,
         "departments": sorted(d.code for d in u.departments),
     }
 
