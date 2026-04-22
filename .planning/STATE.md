@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-02 chrome topbar drawer toasts
-last_updated: "2026-04-22T18:26:43.551Z"
+stopped_at: Completed 08-03 users nombre column migration
+last_updated: "2026-04-22T18:43:05.976Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 38
-  completed_plans: 26
-  percent: 68
+  completed_plans: 27
+  percent: 71
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 8
-Plan: 08-02 ✓ (chrome topbar + drawer + 3-arg toasts) — next 08-03 users nombre column migration
+Plan: 08-03 ✓ (users nombre column + migration + form) — next 08-04 bienvenida landing
 Status: In progress
 Last activity: 2026-04-22
 
-Progress: [███████░░░] 68%
+Progress: [███████░░░] 71%
 
 ## Plans de Phase 2 (estado)
 
@@ -74,6 +74,7 @@ Progress: [███████░░░] 68%
 | Phase 06 P03 | 7min | 3 tasks | 3 files |
 | Phase 08 P01 | 9min | 3 tasks | 6 files |
 | Phase 08 P02 | 15 | 4 tasks | 13 files |
+| Phase 08 P03 | 30 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -129,6 +130,7 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Plan 06-03: tests/infra/test_deploy_lan_doc.py con 24 tests de regresion doc+smoke. Validado end-to-end que borrar 'ufw allow 443/tcp'/'down -v'/inyectar emoji FALLA el test correspondiente. Suite tests/infra total: 73 tests (49 Wave 0/2 + 24 nuevos) <1s.
 - Plan 08-01 cierra substrate de tokens: tokens.css two-layer (raw + semantic), tailwind.config.js extraido de base.html (no wiring — ese es 08-02), BRANDING.md documenta 60/30/10 split + typography + motion + z-index. 56 tests regresión en tests/infra/test_tokens_css.py. Pre-existing test failure (thresholds_crud recalibrate) confirmado fuera de scope, deferred-items.md creado.
 - Plan 08-02: Alpine Focus + Persist CDN plugins loaded BEFORE Alpine core via base.html rewrite; drawerOpen persisted to localStorage.nexo.ui.drawerOpen; [ shortcut with _isTyping input-guard; 3-arg showToast canonical API with XSS-safe _escape helper; legacy producing/stopped/incidence/alarm/turno mapped via _TOAST_VARIANT_ALIAS; getattr exposed as Jinja global for defensive getattr(current_user, 'nombre', None) pre-08-03
+- Plan 08-03: nexo.users.nombre column added (VARCHAR(120) NULL) + idempotent migration + backfill + ORM/DTO/repo wiring + /ajustes/usuarios form field; schema_guard extended with generic REQUIRED_COLUMNS mechanism; Rule 1 bugfix: _serialize_user datetime tojson explosion (latente desde 02-04)
 
 ### Pending Todos
 
@@ -169,8 +171,8 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-22T18:26:43.545Z
-Stopped at: Completed 08-02 chrome topbar drawer toasts
+Last session: 2026-04-22T18:43:05.873Z
+Stopped at: Completed 08-03 users nombre column migration
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: None
 
