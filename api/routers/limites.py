@@ -21,6 +21,7 @@ Decisiones implementadas:
 Permiso: ``limites:manage`` (lista vacía en PERMISSION_MAP → bypass
 propietario, resto 403).
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,6 +51,7 @@ def _assert_allowed_endpoint(endpoint: str) -> None:
             status_code=404,
             detail=f"Endpoint {endpoint!r} no es editable (allowlist: {sorted(ALLOWED_ENDPOINTS)})",
         )
+
 
 logger = logging.getLogger("nexo.limites")
 
@@ -126,10 +128,7 @@ def update(
     if body.warn_ms >= body.block_ms:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"warn_ms ({body.warn_ms}) debe ser < block_ms "
-                f"({body.block_ms})"
-            ),
+            detail=(f"warn_ms ({body.warn_ms}) debe ser < block_ms ({body.block_ms})"),
         )
     repo.update(
         endpoint=endpoint,
@@ -142,7 +141,10 @@ def update(
     thresholds_cache.notify_changed(endpoint)
     logger.info(
         "threshold updated endpoint=%s warn_ms=%d block_ms=%d by=%s",
-        endpoint, body.warn_ms, body.block_ms, user.email,
+        endpoint,
+        body.warn_ms,
+        body.block_ms,
+        user.email,
     )
     return {
         "ok": True,
@@ -220,7 +222,11 @@ def recalibrate(
     logger.info(
         "threshold recalibrated endpoint=%s factor_old=%s factor_new=%.1f "
         "sample_size=%d by=%s",
-        endpoint, current.factor_ms, factor_new, sample_size, user.email,
+        endpoint,
+        current.factor_ms,
+        factor_new,
+        sample_size,
+        user.email,
     )
     return {
         "endpoint": endpoint,

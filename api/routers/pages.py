@@ -1,4 +1,5 @@
 """Rutas HTML — sirven las paginas Jinja2 de la interfaz."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -32,7 +33,12 @@ def index(request: Request):
 )
 def pipeline_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("pipeline")
-    recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
+    recursos = (
+        db.query(Recurso)
+        .filter_by(activo=True)
+        .order_by(Recurso.seccion, Recurso.nombre)
+        .all()
+    )
     extra["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
@@ -54,8 +60,13 @@ def recursos_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("recursos")
     rows = db.query(Recurso).order_by(Recurso.seccion, Recurso.nombre).all()
     extra["recursos"] = [
-        {"id": r.id, "centro_trabajo": r.centro_trabajo, "nombre": r.nombre,
-         "seccion": r.seccion, "activo": r.activo}
+        {
+            "id": r.id,
+            "centro_trabajo": r.centro_trabajo,
+            "nombre": r.nombre,
+            "seccion": r.seccion,
+            "activo": r.activo,
+        }
         for r in rows
     ]
     return render("recursos.html", request, extra)
@@ -67,7 +78,12 @@ def recursos_page(request: Request, db: Session = Depends(get_db)):
 )
 def historial_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("historial")
-    recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
+    recursos = (
+        db.query(Recurso)
+        .filter_by(activo=True)
+        .order_by(Recurso.seccion, Recurso.nombre)
+        .all()
+    )
     extra["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
@@ -81,7 +97,12 @@ def historial_page(request: Request, db: Session = Depends(get_db)):
 )
 def ciclos_calc_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("ciclos_calc")
-    recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
+    recursos = (
+        db.query(Recurso)
+        .filter_by(activo=True)
+        .order_by(Recurso.seccion, Recurso.nombre)
+        .all()
+    )
     extra["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
@@ -103,7 +124,12 @@ def operarios_page(request: Request):
 )
 def datos_page(request: Request, db: Session = Depends(get_db)):
     extra = _common_extra("datos")
-    recursos = db.query(Recurso).filter_by(activo=True).order_by(Recurso.seccion, Recurso.nombre).all()
+    recursos = (
+        db.query(Recurso)
+        .filter_by(activo=True)
+        .order_by(Recurso.seccion, Recurso.nombre)
+        .all()
+    )
     extra["recursos"] = [
         {"centro_trabajo": r.centro_trabajo, "nombre": r.nombre, "seccion": r.seccion}
         for r in recursos
@@ -143,6 +169,4 @@ def ajustes_conexion_page(request: Request):
     # Plan 05-04 / D-06: sub-pagina dedicada para Conexion SQL Server.
     # Gateada por conexion:config ([] en PERMISSION_MAP = propietario-only,
     # Pitfall 6). Los endpoints backend (/api/conexion/*) NO se modifican.
-    return render(
-        "ajustes_conexion.html", request, _common_extra("ajustes_conexion")
-    )
+    return render("ajustes_conexion.html", request, _common_extra("ajustes_conexion"))

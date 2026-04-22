@@ -6,13 +6,14 @@ El count aggregate de ``DatosProduccion`` se mantiene inline en el
 handler (query compuesta con group_by, mas claro como transport logic
 local).
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 
 from api.deps import DbApp
-from nexo.data.models_app import DatosProduccion, Ejecucion, InformeMeta, MetricaOEE
+from nexo.data.models_app import DatosProduccion, InformeMeta, MetricaOEE
 from nexo.data.repositories.app import EjecucionRepo, MetricaRepo
 from nexo.services.auth import require_permission
 
@@ -35,20 +36,22 @@ def listar(db: DbApp, limit: int = 50):
         .group_by(DatosProduccion.ejecucion_id)
         .all()
     )
-    return {"ejecuciones": [
-        {
-            "id": e.id,
-            "fecha_inicio": e.fecha_inicio,
-            "fecha_fin": e.fecha_fin,
-            "source": e.source,
-            "status": e.status,
-            "modulos": e.modulos,
-            "n_pdfs": e.n_pdfs,
-            "n_registros": counts.get(e.id, 0),
-            "created_at": e.created_at.isoformat() if e.created_at else None,
-        }
-        for e in rows
-    ]}
+    return {
+        "ejecuciones": [
+            {
+                "id": e.id,
+                "fecha_inicio": e.fecha_inicio,
+                "fecha_fin": e.fecha_fin,
+                "source": e.source,
+                "status": e.status,
+                "modulos": e.modulos,
+                "n_pdfs": e.n_pdfs,
+                "n_registros": counts.get(e.id, 0),
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in rows
+        ]
+    }
 
 
 @router.get("/tendencias")
@@ -72,6 +75,7 @@ def tendencias(
     # ORM para los campos extra. Re-query compacto sobre MetricaOEE filtrando
     # por las mismas condiciones y recurso.
     from datetime import date as _date
+
     query = (
         db.query(MetricaOEE)
         .filter(
@@ -96,19 +100,21 @@ def tendencias(
     data = []
     for key in sorted(by_date):
         r = by_date[key]
-        data.append({
-            "fecha": key,
-            "disponibilidad_pct": round(r.disponibilidad_pct or 0, 2),
-            "rendimiento_pct": round(r.rendimiento_pct or 0, 2),
-            "calidad_pct": round(r.calidad_pct or 0, 2),
-            "oee_pct": round(r.oee_pct or 0, 2),
-            "piezas_totales": r.piezas_totales or 0,
-            "piezas_malas": r.piezas_malas or 0,
-            "buenas_finales": r.buenas_finales or 0,
-            "horas_brutas": round(r.horas_brutas or 0, 2),
-            "horas_disponible": round(r.horas_disponible or 0, 2),
-            "horas_operativo": round(r.horas_operativo or 0, 2),
-        })
+        data.append(
+            {
+                "fecha": key,
+                "disponibilidad_pct": round(r.disponibilidad_pct or 0, 2),
+                "rendimiento_pct": round(r.rendimiento_pct or 0, 2),
+                "calidad_pct": round(r.calidad_pct or 0, 2),
+                "oee_pct": round(r.oee_pct or 0, 2),
+                "piezas_totales": r.piezas_totales or 0,
+                "piezas_malas": r.piezas_malas or 0,
+                "buenas_finales": r.buenas_finales or 0,
+                "horas_brutas": round(r.horas_brutas or 0, 2),
+                "horas_disponible": round(r.horas_disponible or 0, 2),
+                "horas_operativo": round(r.horas_operativo or 0, 2),
+            }
+        )
 
     return {"recurso": recurso, "dias": data}
 
@@ -158,6 +164,7 @@ def metrics(ejec_id: int, db: DbApp):
         raise HTTPException(404, "Ejecucion no encontrada")
 
     from api.services.metrics import calcular_metrics_ejecucion
+
     result = calcular_metrics_ejecucion(db, ejec_id)
     if "error" in result:
         raise HTTPException(400, result["error"])
@@ -176,6 +183,7 @@ def regenerar(ejec_id: int, db: DbApp):
         raise HTTPException(400, "No hay datos guardados para esta ejecución")
 
     from api.services.pipeline import generar_informes_desde_bd
+
     modulos = ejec.modulos.split(",") if ejec.modulos else None
     try:
         pdfs = generar_informes_desde_bd(ejec_id, modulos)

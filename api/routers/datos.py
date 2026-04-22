@@ -1,4 +1,5 @@
 """Extraccion de datos de IZARO → ecs_mobility (para Power BI)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -35,7 +36,7 @@ def extraer(req: ExtractRequest):
         for msg in run_pipeline(
             fecha_inicio=req.fecha_inicio,
             fecha_fin=req.fecha_fin,
-            modulos=[],       # sin modulos OEE → no genera PDFs
+            modulos=[],  # sin modulos OEE → no genera PDFs
             source="db",
             recursos=req.recursos,
         ):

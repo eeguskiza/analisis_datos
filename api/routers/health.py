@@ -1,4 +1,5 @@
 """Health check de todos los servicios."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter

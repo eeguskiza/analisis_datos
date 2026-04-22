@@ -1,0 +1,107 @@
+# Config de tooling Python para Nexo. Phase 7 crea este archivo por primera vez.
+# No es un paquete instalable — solo consolida config de ruff/mypy/pytest/coverage.
+#
+# Fuentes de verdad:
+#   - Plan: .planning/phases/07-devex-hardening/07-01-PLAN.md
+#   - Research: .planning/phases/07-devex-hardening/07-RESEARCH.md (§Code Examples)
+#   - Baseline coverage: .planning/phases/07-devex-hardening/07-COVERAGE-BASELINE.md
+
+# ── Ruff (linter + formatter, Phase 7 / DEVEX-01) ─────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    "OEE",                  # legacy, out of scope Mark-III
+    "scripts/migrate_schemas.py",
+    "*/__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (ruff-format handles)
+    "B008",  # function call in default argument (FastAPI Depends pattern)
+    "E402",  # module level import not at top (api/main.py:327 registra handler al final intencionalmente)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B", "SIM"]               # tests relajan reglas estructurales
+"nexo/data/models_*.py" = ["F401"]     # re-exports intencionales
+# Backfill 07-01 dejo 2 F841 residuales (variables asignadas pero no usadas en
+# bloques comentados/wip); se ignoran hasta que el owner del modulo revise.
+"api/routers/historial.py" = ["F841"]
+"api/services/metrics.py" = ["F841"]
+
+[tool.ruff.format]
+# Drop-in replacement de black: line-length 100 + double quotes + indent 4.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# ── Mypy (Phase 7 / DEVEX-01, modo ligero) ────────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+# NO: strict = true  (bloquearia toda Mark-III)
+# NO: disallow_untyped_defs = true  (OEE/ y codigo legacy no lo pasan)
+
+[[tool.mypy.overrides]]
+module = [
+    "matplotlib.*",
+    "pyodbc.*",
+    "slowapi.*",
+    "OEE.*",
+    "argon2.*",
+    "itsdangerous.*",
+]
+ignore_errors = true
+
+# ── Pytest (Phase 7 / DEVEX-02) ───────────────────────────────────────────
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning:pydantic.*",
+]
+markers = [
+    "integration: tests que requieren infra live (BD Postgres, MES)",
+]
+
+# ── Coverage (Phase 7 / DEVEX-02) ─────────────────────────────────────────
+[tool.coverage.run]
+source = ["api", "nexo"]
+branch = false   # Mark-III: line coverage. branch=true se evalua en Mark-IV.
+omit = [
+    "api/__init__.py",
+    "nexo/__init__.py",
+    "nexo/data/__init__.py",
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+# fail_under locked from 07-COVERAGE-BASELINE.md (medido 2026-04-22).
+# Baseline TOTAL = 60% -> gate activado exactamente en el piso medido.
+fail_under = 60
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "except ImportError:",
+]

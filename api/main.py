@@ -1,4 +1,5 @@
 """FastAPI application factory."""
+
 from __future__ import annotations
 
 import asyncio
@@ -133,6 +134,7 @@ app = FastAPI(
 # NO incluye traceback ni detalles de la excepcion en el body. Fuga de
 # informacion evitada (Sprint 0 commit 8 / NAMING-07).
 
+
 def _wants_json(request: Request) -> bool:
     """Devuelve True si la request espera JSON (endpoints /api/*, Accept
     header con application/json, o htmx request). El resto recibe HTML."""
@@ -193,27 +195,27 @@ async def global_exception_handler(request: Request, exc: Exception):
 #     siguiente request).
 
 _PERMISSION_LABELS: dict[str, str] = {
-    "bbdd:read":           "el explorador de BBDD",
-    "pipeline:read":       "analisis",
-    "pipeline:run":        "ejecutar el pipeline",
-    "historial:read":      "el historial",
-    "capacidad:read":      "capacidad",
-    "recursos:read":       "recursos",
-    "recursos:edit":       "editar recursos",
-    "ciclos:read":         "calculo de ciclos",
-    "ciclos:edit":         "editar ciclos",
-    "operarios:read":      "operarios",
-    "datos:read":          "datos",
-    "ajustes:manage":      "la configuracion",
-    "auditoria:read":      "el log de auditoria",
-    "usuarios:manage":     "la gestion de usuarios",
+    "bbdd:read": "el explorador de BBDD",
+    "pipeline:read": "analisis",
+    "pipeline:run": "ejecutar el pipeline",
+    "historial:read": "el historial",
+    "capacidad:read": "capacidad",
+    "recursos:read": "recursos",
+    "recursos:edit": "editar recursos",
+    "ciclos:read": "calculo de ciclos",
+    "ciclos:edit": "editar ciclos",
+    "operarios:read": "operarios",
+    "datos:read": "datos",
+    "ajustes:manage": "la configuracion",
+    "auditoria:read": "el log de auditoria",
+    "usuarios:manage": "la gestion de usuarios",
     "aprobaciones:manage": "solicitudes de aprobacion",
-    "limites:manage":      "limites de queries",
-    "rendimiento:read":    "metricas de rendimiento",
-    "conexion:config":     "la configuracion de conexion",
-    "conexion:read":       "la conexion",
-    "informes:read":       "informes",
-    "informes:delete":     "borrar informes",
+    "limites:manage": "limites de queries",
+    "rendimiento:read": "metricas de rendimiento",
+    "conexion:config": "la configuracion de conexion",
+    "conexion:read": "la conexion",
+    "informes:read": "informes",
+    "informes:delete": "borrar informes",
 }
 
 
@@ -227,9 +229,7 @@ def _friendly_permission_label(perm: str) -> str:
 
 
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler_403(
-    request: Request, exc: StarletteHTTPException
-):
+async def http_exception_handler_403(request: Request, exc: StarletteHTTPException):
     """Negocia Accept para 403: HTML → redirect + flash; resto → default.
 
     Para cualquier otro status code (401, 404, 422) delega al handler
@@ -246,9 +246,11 @@ async def http_exception_handler_403(
 
     # HTML path: redirect + flash toast.
     raw = str(exc.detail or "")
-    perm = raw.replace("Permiso requerido: ", "") if raw.startswith(
-        "Permiso requerido: "
-    ) else ""
+    perm = (
+        raw.replace("Permiso requerido: ", "")
+        if raw.startswith("Permiso requerido: ")
+        else ""
+    )
     friendly = _friendly_permission_label(perm) if perm else "esta seccion"
     response = RedirectResponse("/", status_code=302)
     response.set_cookie(
@@ -256,7 +258,7 @@ async def http_exception_handler_403(
         f"No tienes permiso para acceder a {friendly}",
         max_age=60,
         httponly=True,
-        secure=not settings.debug,   # Pitfall 2: dev HTTP local
+        secure=not settings.debug,  # Pitfall 2: dev HTTP local
         samesite="lax",
         path="/",
     )
@@ -294,23 +296,57 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Registro correspondiente (primero registrado = innermost):
 
 app.add_middleware(QueryTimingMiddleware)  # innermost — ultima capa antes del handler
-app.add_middleware(AuditMiddleware)        # inner — segundo en ejecutar
-app.add_middleware(FlashMiddleware)        # Plan 05-03 — entre Audit y Auth (W-02)
-app.add_middleware(AuthMiddleware)         # outer — primero en ejecutar
+app.add_middleware(AuditMiddleware)  # inner — segundo en ejecutar
+app.add_middleware(FlashMiddleware)  # Plan 05-03 — entre Audit y Auth (W-02)
+app.add_middleware(AuthMiddleware)  # outer — primero en ejecutar
 
 
 # ── Static files ──────────────────────────────────────────────────────────────
 
-app.mount("/static", StaticFiles(directory=str(settings.project_root / "static")), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=str(settings.project_root / "static")),
+    name="static",
+)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse(settings.project_root / "static" / "img" / "brand" / "nexo" / "logo-tab-navegador.png")
+    return FileResponse(
+        settings.project_root
+        / "static"
+        / "img"
+        / "brand"
+        / "nexo"
+        / "logo-tab-navegador.png"
+    )
+
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 
-from api.routers import auth as auth_router, auditoria as auditoria_router, pages, conexion, recursos, pipeline, informes, ciclos, health, historial, email, operarios, centro_mando, bbdd, datos, luk4, capacidad, usuarios as usuarios_router, approvals as approvals_router, limites as limites_router, rendimiento as rendimiento_router  # noqa: E402
+from api.routers import (
+    auth as auth_router,
+    auditoria as auditoria_router,
+    pages,
+    conexion,
+    recursos,
+    pipeline,
+    informes,
+    ciclos,
+    health,
+    historial,
+    email,
+    operarios,
+    centro_mando,
+    bbdd,
+    datos,
+    luk4,
+    capacidad,
+    usuarios as usuarios_router,
+    approvals as approvals_router,
+    limites as limites_router,
+    rendimiento as rendimiento_router,
+)  # noqa: E402
 
 app.include_router(health.router, prefix="/api")
 app.include_router(centro_mando.router, prefix="/api")
@@ -330,6 +366,12 @@ app.include_router(bbdd.router, prefix="/api")
 app.include_router(datos.router, prefix="/api")
 app.include_router(luk4.router, prefix="/api")
 app.include_router(capacidad.router, prefix="/api")
-app.include_router(approvals_router.router)  # Plan 04-03: /api/approvals/*, /ajustes/solicitudes, /mis-solicitudes
-app.include_router(limites_router.router)  # Plan 04-04: /ajustes/limites + /api/thresholds/*
-app.include_router(rendimiento_router.router)  # Plan 04-04: /ajustes/rendimiento + /api/rendimiento/*
+app.include_router(
+    approvals_router.router
+)  # Plan 04-03: /api/approvals/*, /ajustes/solicitudes, /mis-solicitudes
+app.include_router(
+    limites_router.router
+)  # Plan 04-04: /ajustes/limites + /api/thresholds/*
+app.include_router(
+    rendimiento_router.router
+)  # Plan 04-04: /ajustes/rendimiento + /api/rendimiento/*

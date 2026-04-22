@@ -1,8 +1,8 @@
 """CRUD de plantillas de informes (JSON en data/report_templates/)."""
+
 from __future__ import annotations
 
 import json
-import shutil
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -33,13 +33,17 @@ def listar():
     for f in sorted(d.glob("*.json")):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
-            templates.append({
-                "name": f.stem,
-                "filename": f.name,
-                "description": data.get("description", ""),
-            })
+            templates.append(
+                {
+                    "name": f.stem,
+                    "filename": f.name,
+                    "description": data.get("description", ""),
+                }
+            )
         except Exception:
-            templates.append({"name": f.stem, "filename": f.name, "description": "Error leyendo"})
+            templates.append(
+                {"name": f.stem, "filename": f.name, "description": "Error leyendo"}
+            )
     return {"plantillas": templates}
 
 

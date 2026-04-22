@@ -32,6 +32,7 @@ LISTEN/NOTIFY es best-effort (Postgres no encola mensajes perdidos). El
 safety-net de 5 min en ``get()`` cubre caidas silenciosas del listener.
 Reconexion automatica: si ``psycopg2.connect`` falla, retry tras 5s.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -45,10 +46,9 @@ from typing import Optional
 
 import psycopg2
 import psycopg2.extensions
-from sqlalchemy import text
 
 from api.config import settings
-from nexo.data.engines import SessionLocalNexo, engine_nexo
+from nexo.data.engines import SessionLocalNexo
 from nexo.data.repositories.nexo import ThresholdRepo
 
 
@@ -70,12 +70,14 @@ FALLBACK_REFRESH_SECONDS = 300
 #     propietario mistype/construct endpoints inexistentes.
 #   - QueryTimingMiddleware._TIMED_PATHS.values() debe coincidir
 #     (duplicated literal; si divergen, se detecta en tests).
-ALLOWED_ENDPOINTS: frozenset[str] = frozenset({
-    "pipeline/run",
-    "bbdd/query",
-    "capacidad",
-    "operarios",
-})
+ALLOWED_ENDPOINTS: frozenset[str] = frozenset(
+    {
+        "pipeline/run",
+        "bbdd/query",
+        "capacidad",
+        "operarios",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -157,8 +159,13 @@ def reload_one(endpoint: str) -> None:
             factor_ms=row.factor_ms,
             loaded_at=now,
         )
-    log.info("thresholds_cache reload_one %s → warn=%d block=%d factor=%s",
-             endpoint, row.warn_ms, row.block_ms, row.factor_ms)
+    log.info(
+        "thresholds_cache reload_one %s → warn=%d block=%d factor=%s",
+        endpoint,
+        row.warn_ms,
+        row.block_ms,
+        row.factor_ms,
+    )
 
 
 def get(endpoint: str) -> Optional[ThresholdEntry]:
@@ -264,9 +271,7 @@ def _blocking_listen_forever(stop_event: threading.Event) -> None:
                 password=settings.effective_pg_password,
                 dbname=settings.pg_db,
             )
-            conn.set_isolation_level(
-                psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
-            )
+            conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
             cur = conn.cursor()
             cur.execute("LISTEN nexo_thresholds_changed")
             cur.close()
@@ -277,7 +282,9 @@ def _blocking_listen_forever(stop_event: threading.Event) -> None:
                 # busy-spin. El FD de la conn se despierta cuando llega
                 # un NOTIFY async.
                 if select.select([conn], [], [], _LISTEN_SELECT_TIMEOUT_S) == (
-                    [], [], [],
+                    [],
+                    [],
+                    [],
                 ):
                     # Timeout sin actividad; revisa stop y continua.
                     continue

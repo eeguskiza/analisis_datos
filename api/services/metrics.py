@@ -1,8 +1,9 @@
 """Calcula metricas OEE a partir de datos almacenados en BD."""
+
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -11,11 +12,9 @@ from api.database import Ciclo, DatosProduccion, Ejecucion
 
 from OEE.oee_secciones.main import (
     SHIFT_LABELS,
-    MIN_PIEZAS_OEE,
     clasificar_incidencia,
     normalizar_proceso,
     normalize_ref,
-    clamp_pct,
     convertir_raw_a_metricas,
     crear_raw_metricas,
     dividir_en_turnos,
@@ -95,7 +94,9 @@ def _sum_raw(raws: List[Dict[str, float]]) -> Dict[str, float]:
     return total
 
 
-def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, float]]) -> dict:
+def _process_machine(
+    recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, float]]
+) -> dict:
     """Procesa todos los registros de una maquina y devuelve metricas."""
     ciclos_maq = ciclos_lookup.get(recurso.lower(), {})
 
@@ -106,19 +107,34 @@ def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, floa
         proceso = normalizar_proceso(r.proceso)
         incidencia = (r.incidencia or "").strip()
         referencia = normalize_ref(r.referencia)
-        parsed.append({
-            "start_dt": start_dt, "end_dt": end_dt, "horas": horas,
-            "tiempo": r.tiempo or 0.0,
-            "proceso": proceso, "incidencia": incidencia,
-            "cantidad": r.cantidad or 0.0, "malas": r.malas or 0.0,
-            "recuperadas": r.recuperadas or 0.0, "referencia": referencia,
-        })
+        parsed.append(
+            {
+                "start_dt": start_dt,
+                "end_dt": end_dt,
+                "horas": horas,
+                "tiempo": r.tiempo or 0.0,
+                "proceso": proceso,
+                "incidencia": incidencia,
+                "cantidad": r.cantidad or 0.0,
+                "malas": r.malas or 0.0,
+                "recuperadas": r.recuperadas or 0.0,
+                "referencia": referencia,
+            }
+        )
 
     prod_prep = [p for p in parsed if p["proceso"] in ("produccion", "preparacion")]
-    inc_disp = [p for p in parsed if p["proceso"] == "incidencias"
-                and clasificar_incidencia(p["incidencia"]) == "disponibilidad"]
-    inc_paros = [p for p in parsed if p["proceso"] == "incidencias"
-                 and clasificar_incidencia(p["incidencia"]) == "paros"]
+    inc_disp = [
+        p
+        for p in parsed
+        if p["proceso"] == "incidencias"
+        and clasificar_incidencia(p["incidencia"]) == "disponibilidad"
+    ]
+    inc_paros = [
+        p
+        for p in parsed
+        if p["proceso"] == "incidencias"
+        and clasificar_incidencia(p["incidencia"]) == "paros"
+    ]
 
     shift_raw = {s: crear_raw_metricas() for s in SHIFT_LABELS}
     daily_raw: Dict[date, Dict[str, float]] = defaultdict(crear_raw_metricas)
@@ -137,12 +153,18 @@ def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, floa
 
         # Overlap con incidencias
         t_indisp = sum(
-            calcular_solapamiento(reg["start_dt"], reg["end_dt"], i["start_dt"], i["end_dt"])
-            for i in inc_disp if i["start_dt"] and i["end_dt"]
+            calcular_solapamiento(
+                reg["start_dt"], reg["end_dt"], i["start_dt"], i["end_dt"]
+            )
+            for i in inc_disp
+            if i["start_dt"] and i["end_dt"]
         )
         t_paros = sum(
-            calcular_solapamiento(reg["start_dt"], reg["end_dt"], i["start_dt"], i["end_dt"])
-            for i in inc_paros if i["start_dt"] and i["end_dt"]
+            calcular_solapamiento(
+                reg["start_dt"], reg["end_dt"], i["start_dt"], i["end_dt"]
+            )
+            for i in inc_paros
+            if i["start_dt"] and i["end_dt"]
         )
 
         ciclo = ciclos_maq.get(reg["referencia"])
@@ -150,7 +172,9 @@ def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, floa
         if not segmentos:
             start_time = reg["start_dt"].time() if reg["start_dt"] else None
             turno_def = determinar_turno(start_time)
-            day_def = reg["start_dt"].date() if reg["start_dt"] else datetime.today().date()
+            day_def = (
+                reg["start_dt"].date() if reg["start_dt"] else datetime.today().date()
+            )
             segmentos = [(turno_def, day_def, reg["horas"])]
 
         total_seg_h = sum(h for _, _, h in segmentos) or 1.0
@@ -186,10 +210,13 @@ def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, floa
 
             # Ref stats
             if reg["proceso"] == "produccion" and (pzas > 0 or h_bruto > 0):
-                entry = ref_stats.setdefault(reg["referencia"], {
-                    "ciclo_ideal": ciclo if ciclo and ciclo > 0 else None,
-                    "dias": {},
-                })
+                entry = ref_stats.setdefault(
+                    reg["referencia"],
+                    {
+                        "ciclo_ideal": ciclo if ciclo and ciclo > 0 else None,
+                        "dias": {},
+                    },
+                )
                 if ciclo and ciclo > 0:
                     entry["ciclo_ideal"] = ciclo
                 d = entry["dias"].setdefault(day, {"piezas": 0.0, "horas_brutas": 0.0})
@@ -220,13 +247,15 @@ def _process_machine(recurso: str, rows, ciclos_lookup: Dict[str, Dict[str, floa
         total_h = sum(d["horas_brutas"] for d in data["dias"].values())
         # Ciclo real = piezas / horas_brutas (misma base de tiempo que el OEE)
         ciclo_real = total_pzas / total_h if total_h > 0 else 0
-        ref_json.append({
-            "referencia": ref,
-            "ciclo_ideal": data["ciclo_ideal"],
-            "ciclo_real": round(ciclo_real, 1),
-            "cantidad": round(total_pzas),
-            "horas": round(total_h, 2),
-        })
+        ref_json.append(
+            {
+                "referencia": ref,
+                "ciclo_ideal": data["ciclo_ideal"],
+                "ciclo_real": round(ciclo_real, 1),
+                "cantidad": round(total_pzas),
+                "horas": round(total_h, 2),
+            }
+        )
 
     # Incidencias
     inc_json = []
@@ -286,14 +315,32 @@ def calcular_metrics_ejecucion(db: Session, ejec_id: int) -> dict:
         maquinas_list = [maquinas_metrics[r] for r in sorted(recursos)]
 
         # Totales de seccion
-        keys = ["horas_brutas", "horas_disponible", "horas_operativo", "horas_preparacion",
-                "horas_indisponibilidad", "horas_paros", "tiempo_ideal", "perdidas_rend",
-                "piezas_totales", "piezas_malas", "piezas_recuperadas", "buenas_finales"]
+        keys = [
+            "horas_brutas",
+            "horas_disponible",
+            "horas_operativo",
+            "horas_preparacion",
+            "horas_indisponibilidad",
+            "horas_paros",
+            "tiempo_ideal",
+            "perdidas_rend",
+            "piezas_totales",
+            "piezas_malas",
+            "piezas_recuperadas",
+            "buenas_finales",
+        ]
         totales_raw = crear_raw_metricas()
         for m in maquinas_list:
-            for k in ["horas_produccion", "horas_preparacion", "horas_indisponibilidad",
-                       "horas_paros", "tiempo_ideal", "piezas_totales", "piezas_malas",
-                       "piezas_recuperadas"]:
+            for k in [
+                "horas_produccion",
+                "horas_preparacion",
+                "horas_indisponibilidad",
+                "horas_paros",
+                "tiempo_ideal",
+                "piezas_totales",
+                "piezas_malas",
+                "piezas_recuperadas",
+            ]:
                 totales_raw[k] += m.get(k, 0) if k in m else 0
 
         # Recalcular desde raw para consistencia
@@ -306,14 +353,20 @@ def calcular_metrics_ejecucion(db: Session, ejec_id: int) -> dict:
                 for k in sec_shift_raw[s]:
                     # Mapear keys de metricas a raw
                     if k == "horas_produccion":
-                        sec_shift_raw[s][k] += t.get("horas_brutas", 0) - t.get("horas_preparacion", 0)
+                        sec_shift_raw[s][k] += t.get("horas_brutas", 0) - t.get(
+                            "horas_preparacion", 0
+                        )
                     elif k in t:
                         sec_shift_raw[s][k] += t.get(k, 0)
 
-        totales_metrics = convertir_raw_a_metricas(_sum_raw(list(sec_shift_raw.values())))
+        totales_metrics = convertir_raw_a_metricas(
+            _sum_raw(list(sec_shift_raw.values()))
+        )
         totales_turnos = {}
         for s in SHIFT_LABELS:
-            totales_turnos[s] = _metrics_to_json(convertir_raw_a_metricas(sec_shift_raw[s]))
+            totales_turnos[s] = _metrics_to_json(
+                convertir_raw_a_metricas(sec_shift_raw[s])
+            )
 
         # Resumen diario de seccion
         all_days = set()
@@ -326,14 +379,22 @@ def calcular_metrics_ejecucion(db: Session, ejec_id: int) -> dict:
             for m in maquinas_list:
                 for entry in m.get("resumen_diario", []):
                     if entry["fecha"] == day_str:
-                        day_raw["horas_produccion"] += entry.get("horas_brutas", 0) - entry.get("horas_preparacion", 0)
-                        day_raw["horas_preparacion"] += entry.get("horas_preparacion", 0)
-                        day_raw["horas_indisponibilidad"] += entry.get("horas_indisponibilidad", 0)
+                        day_raw["horas_produccion"] += entry.get(
+                            "horas_brutas", 0
+                        ) - entry.get("horas_preparacion", 0)
+                        day_raw["horas_preparacion"] += entry.get(
+                            "horas_preparacion", 0
+                        )
+                        day_raw["horas_indisponibilidad"] += entry.get(
+                            "horas_indisponibilidad", 0
+                        )
                         day_raw["horas_paros"] += entry.get("horas_paros", 0)
                         day_raw["tiempo_ideal"] += entry.get("tiempo_ideal", 0)
                         day_raw["piezas_totales"] += entry.get("piezas_totales", 0)
                         day_raw["piezas_malas"] += entry.get("piezas_malas", 0)
-                        day_raw["piezas_recuperadas"] += entry.get("piezas_recuperadas", 0)
+                        day_raw["piezas_recuperadas"] += entry.get(
+                            "piezas_recuperadas", 0
+                        )
             dm = convertir_raw_a_metricas(day_raw)
             entry = _metrics_to_json(dm)
             entry["fecha"] = day_str
@@ -344,7 +405,10 @@ def calcular_metrics_ejecucion(db: Session, ejec_id: int) -> dict:
         for m in maquinas_list:
             for inc in m.get("incidencias", []):
                 all_inc[inc["nombre"]] += inc["horas"]
-        inc_json = [{"nombre": n, "horas": round(h, 3)} for n, h in sorted(all_inc.items(), key=lambda x: -x[1])]
+        inc_json = [
+            {"nombre": n, "horas": round(h, 3)}
+            for n, h in sorted(all_inc.items(), key=lambda x: -x[1])
+        ]
 
         secciones[seccion] = {
             "totales": _metrics_to_json(totales_metrics),

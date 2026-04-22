@@ -18,6 +18,7 @@ Emision de NOTIFY: tras cada UPDATE via ``ThresholdRepo.update``, se
 llama ``thresholds_cache.notify_changed(endpoint)`` para que los
 workers se actualicen en <1s (D-19).
 """
+
 from __future__ import annotations
 
 import json
@@ -40,9 +41,7 @@ def run_once() -> dict:
     actualizados. Endpoints con ``factor_updated_at`` reciente o sin
     muestras suficientes se omiten.
     """
-    stale_days = int(
-        os.environ.get("NEXO_AUTO_REFRESH_STALE_DAYS", "60")
-    )
+    stale_days = int(os.environ.get("NEXO_AUTO_REFRESH_STALE_DAYS", "60"))
     cutoff_stale = datetime.now(timezone.utc) - timedelta(days=stale_days)
     updated: dict[str, float] = {}
 
@@ -55,7 +54,8 @@ def run_once() -> dict:
             if t.factor_updated_at is not None and t.factor_updated_at >= cutoff_stale:
                 log.info(
                     "factor_auto_refresh: %s fresco (updated_at=%s) — skip",
-                    t.endpoint, t.factor_updated_at.isoformat(),
+                    t.endpoint,
+                    t.factor_updated_at.isoformat(),
                 )
                 continue
 
@@ -63,7 +63,8 @@ def run_once() -> dict:
             if factor_new is None:
                 log.info(
                     "factor_auto_refresh: %s sin suficientes datos (%d) — skip",
-                    t.endpoint, sample_size,
+                    t.endpoint,
+                    sample_size,
                 )
                 continue
 
@@ -85,14 +86,16 @@ def run_once() -> dict:
                     method="UPDATE",
                     path="__auto_refresh__",
                     status=200,
-                    details_json=json.dumps({
-                        "endpoint": t.endpoint,
-                        "old_factor": old_factor,
-                        "new_factor": factor_new,
-                        "sample_size": sample_size,
-                        "reason": "stale",
-                        "stale_days": stale_days,
-                    }),
+                    details_json=json.dumps(
+                        {
+                            "endpoint": t.endpoint,
+                            "old_factor": old_factor,
+                            "new_factor": factor_new,
+                            "sample_size": sample_size,
+                            "reason": "stale",
+                            "stale_days": stale_days,
+                        }
+                    ),
                 )
                 db.commit()
             except Exception:
@@ -116,7 +119,10 @@ def run_once() -> dict:
             updated[t.endpoint] = factor_new
             log.info(
                 "factor_auto_refresh: %s factor %s -> %.1f (sample_size=%d)",
-                t.endpoint, old_factor, factor_new, sample_size,
+                t.endpoint,
+                old_factor,
+                factor_new,
+                sample_size,
             )
 
         return updated

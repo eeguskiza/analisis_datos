@@ -22,6 +22,7 @@ Todas las columnas temporales usan ``DateTime(timezone=True)`` y
 ``datetime.now(timezone.utc)`` como default (research #Pitfall 3 —
 ``datetime.utcnow()`` esta deprecated en Python 3.12).
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -59,13 +60,20 @@ def _utcnow() -> datetime:
 user_departments = Table(
     "user_departments",
     NexoBase.metadata,
-    Column("user_id", ForeignKey("nexo.users.id", ondelete="CASCADE"), primary_key=True),
-    Column("department_id", ForeignKey("nexo.departments.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "user_id", ForeignKey("nexo.users.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column(
+        "department_id",
+        ForeignKey("nexo.departments.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
     schema=NEXO_SCHEMA,
 )
 
 
 # -- nexo.users ---------------------------------------------------------------
+
 
 class NexoUser(NexoBase):
     __tablename__ = "users"
@@ -94,23 +102,29 @@ class NexoUser(NexoBase):
 
 # -- nexo.roles (catalogo) ----------------------------------------------------
 
+
 class NexoRole(NexoBase):
     __tablename__ = "roles"
     __table_args__ = {"schema": NEXO_SCHEMA}
 
     id = Column(Integer, primary_key=True)
-    code = Column(String(20), nullable=False, unique=True)  # propietario/directivo/usuario
+    code = Column(
+        String(20), nullable=False, unique=True
+    )  # propietario/directivo/usuario
     name = Column(String(100), nullable=False)
 
 
 # -- nexo.departments (catalogo) ----------------------------------------------
+
 
 class NexoDepartment(NexoBase):
     __tablename__ = "departments"
     __table_args__ = {"schema": NEXO_SCHEMA}
 
     id = Column(Integer, primary_key=True)
-    code = Column(String(20), nullable=False, unique=True)  # rrhh/comercial/ingenieria/produccion/gerencia
+    code = Column(
+        String(20), nullable=False, unique=True
+    )  # rrhh/comercial/ingenieria/produccion/gerencia
     name = Column(String(100), nullable=False)
 
     users = relationship(
@@ -122,28 +136,40 @@ class NexoDepartment(NexoBase):
 
 # -- nexo.permissions (catalogo seed; fuente de verdad = PERMISSION_MAP en codigo) --
 
+
 class NexoPermission(NexoBase):
     __tablename__ = "permissions"
     __table_args__ = (
-        UniqueConstraint("module", "action", "role_code", "department_code", name="uq_permission_tuple"),
+        UniqueConstraint(
+            "module",
+            "action",
+            "role_code",
+            "department_code",
+            name="uq_permission_tuple",
+        ),
         {"schema": NEXO_SCHEMA},
     )
 
     id = Column(Integer, primary_key=True)
-    module = Column(String(50), nullable=False)     # pipeline, bbdd, operarios, ...
-    action = Column(String(50), nullable=False)     # read, execute, delete, ...
+    module = Column(String(50), nullable=False)  # pipeline, bbdd, operarios, ...
+    action = Column(String(50), nullable=False)  # read, execute, delete, ...
     role_code = Column(String(20), nullable=False)  # propietario/directivo/usuario
-    department_code = Column(String(20), nullable=True)  # null = aplica a todos (propietario)
+    department_code = Column(
+        String(20), nullable=True
+    )  # null = aplica a todos (propietario)
 
 
 # -- nexo.sessions ------------------------------------------------------------
+
 
 class NexoSession(NexoBase):
     __tablename__ = "sessions"
     __table_args__ = {"schema": NEXO_SCHEMA}
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("nexo.users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("nexo.users.id", ondelete="CASCADE"), nullable=False
+    )
     token = Column(String(100), nullable=False, unique=True, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
@@ -152,6 +178,7 @@ class NexoSession(NexoBase):
 
 
 # -- nexo.login_attempts ------------------------------------------------------
+
 
 class NexoLoginAttempt(NexoBase):
     __tablename__ = "login_attempts"
@@ -163,10 +190,13 @@ class NexoLoginAttempt(NexoBase):
     id = Column(Integer, primary_key=True)
     email = Column(String(200), nullable=False, index=True)
     ip = Column(String(64), nullable=False)
-    failed_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, index=True)
+    failed_at = Column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, index=True
+    )
 
 
 # -- nexo.audit_log (append-only a nivel BBDD) --------------------------------
+
 
 class NexoAuditLog(NexoBase):
     __tablename__ = "audit_log"
@@ -174,7 +204,9 @@ class NexoAuditLog(NexoBase):
 
     id = Column(Integer, primary_key=True)
     ts = Column(DateTime(timezone=True), nullable=False, default=_utcnow, index=True)
-    user_id = Column(Integer, ForeignKey("nexo.users.id", ondelete="SET NULL"), nullable=True)
+    user_id = Column(
+        Integer, ForeignKey("nexo.users.id", ondelete="SET NULL"), nullable=True
+    )
     ip = Column(String(64), nullable=False)
     method = Column(String(10), nullable=False)
     path = Column(String(500), nullable=False)
@@ -188,6 +220,7 @@ class NexoAuditLog(NexoBase):
 # Declared BEFORE NexoQueryLog because NexoQueryLog.approval_id is a FK to
 # query_approvals.id. SQLAlchemy accepts string refs so order is technically
 # irrelevant, but declaration order matches dependency direction.
+
 
 class NexoQueryApproval(NexoBase):
     __tablename__ = "query_approvals"
@@ -229,6 +262,7 @@ class NexoQueryApproval(NexoBase):
 # Lookup table; 1 fila por endpoint con preflight. PK en endpoint — sin
 # indices adicionales (4 filas esperadas por seed D-01/D-02/D-03/D-04).
 
+
 class NexoQueryThreshold(NexoBase):
     __tablename__ = "query_thresholds"
     __table_args__ = {"schema": NEXO_SCHEMA}
@@ -252,6 +286,7 @@ class NexoQueryThreshold(NexoBase):
 #   ix_query_log_endpoint_ts   - dashboards /ajustes/rendimiento (D-11)
 #   ix_query_log_user_ts       - filtros por usuario
 #   ix_query_log_status_slow   - partial index para WARN tracking (D-17)
+
 
 class NexoQueryLog(NexoBase):
     __tablename__ = "query_log"

@@ -1,4 +1,5 @@
 """Pydantic models para requests y responses de la API."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 
 # ── Conexión ──────────────────────────────────────────────────────────────────
 
+
 class ConnectionStatus(BaseModel):
     ok: bool
     mensaje: str
@@ -17,6 +19,7 @@ class ConnectionStatus(BaseModel):
 
 
 # ── Recursos ──────────────────────────────────────────────────────────────────
+
 
 class Recurso(BaseModel):
     centro_trabajo: int
@@ -31,12 +34,15 @@ class RecursosPayload(BaseModel):
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
+
 class PipelineRequest(BaseModel):
     fecha_inicio: date
     fecha_fin: date
     modulos: list[str] = ["disponibilidad", "rendimiento", "calidad", "oee_secciones"]
     source: str = "db"  # "db", "excel", "csv_only"
-    recursos: Optional[list[str]] = None  # nombres de recursos a procesar (None = todos)
+    recursos: Optional[list[str]] = (
+        None  # nombres de recursos a procesar (None = todos)
+    )
     # Phase 4 / Plan 04-01 (QUERY-06, D-15): preflight bypass con approval
     # previamente concedido. ``force=True`` requiere ``approval_id`` valido
     # (user_id match, status='approved', consumed_at IS NULL, params_json
@@ -53,6 +59,7 @@ class PipelineResult(BaseModel):
 
 # ── Informes ──────────────────────────────────────────────────────────────────
 
+
 class InformeEntry(BaseModel):
     name: str
     path: str
@@ -61,6 +68,7 @@ class InformeEntry(BaseModel):
 
 
 # ── Ciclos ────────────────────────────────────────────────────────────────────
+
 
 class CicloRow(BaseModel):
     maquina: str

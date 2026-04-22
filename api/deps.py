@@ -1,4 +1,5 @@
 """Dependencias compartidas (templates, etc.) — evita imports circulares."""
+
 from __future__ import annotations
 
 from typing import Any, Mapping, Optional

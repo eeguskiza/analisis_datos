@@ -6,4 +6,5 @@ romper consumidores Phase 2 (``nexo/services/auth.py``,
 ``tests/auth/*``). Se elimina al final de Plan 03-03, una vez los
 consumers migren sus imports a ``nexo.data.engines``.
 """
+
 from nexo.data.engines import SessionLocalNexo, engine_nexo  # noqa: F401

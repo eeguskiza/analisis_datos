@@ -13,6 +13,7 @@ Decisiones de CONTEXT.md reflejadas:
 - D-15 ``consumed_at`` + ``consumed_run_id`` para CAS single-use.
 - D-16 ``cancelled_at`` para cancelacion por usuario.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

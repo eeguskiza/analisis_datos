@@ -13,6 +13,7 @@ Cada ejecución graba una fila en ``nexo.audit_log`` con
 cutoff_ts, ttl_days}`` para trazabilidad (misma convención que Phase 2
 audit_log + Plan 04-04 query_log_cleanup).
 """
+
 from __future__ import annotations
 
 import json
@@ -47,11 +48,13 @@ def run_once() -> int:
                 method="DELETE",
                 path="__cleanup_approvals__",
                 status=200,
-                details_json=json.dumps({
-                    "rows_expired": rows_expired,
-                    "cutoff_ts": now_utc.isoformat(),
-                    "ttl_days": ttl_days,
-                }),
+                details_json=json.dumps(
+                    {
+                        "rows_expired": rows_expired,
+                        "cutoff_ts": now_utc.isoformat(),
+                        "ttl_days": ttl_days,
+                    }
+                ),
             )
             db.commit()
         except Exception:
@@ -59,7 +62,8 @@ def run_once() -> int:
             db.rollback()
         log.info(
             "approvals_cleanup: %d solicitudes expiradas (ttl_days=%d)",
-            rows_expired, ttl_days,
+            rows_expired,
+            ttl_days,
         )
         return rows_expired
     finally:

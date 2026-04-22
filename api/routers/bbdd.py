@@ -21,6 +21,7 @@ porque ``engine_mes`` tiene el catalog baked en el DSN (DATA-09).
 Mark-IV podra construir engines ad-hoc por catalog si se necesita
 navegar otras BDs del servidor.
 """
+
 from __future__ import annotations
 
 import json
@@ -57,10 +58,26 @@ router = APIRouter(
 # tests/data/test_bbdd_whitelist.py (contract test del Threat T-03-02-01).
 
 _FORBIDDEN_TOKENS = [
-    "INSERT", "UPDATE", "DELETE", "MERGE", "TRUNCATE", "DROP",
-    "ALTER", "CREATE", "GRANT", "REVOKE", "EXEC", "EXECUTE",
-    "SP_", "XP_", "BACKUP", "RESTORE", "SHUTDOWN", "BULK",
-    "OPENROWSET", "OPENQUERY",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "MERGE",
+    "TRUNCATE",
+    "DROP",
+    "ALTER",
+    "CREATE",
+    "GRANT",
+    "REVOKE",
+    "EXEC",
+    "EXECUTE",
+    "SP_",
+    "XP_",
+    "BACKUP",
+    "RESTORE",
+    "SHUTDOWN",
+    "BULK",
+    "OPENROWSET",
+    "OPENQUERY",
 ]
 
 
@@ -102,6 +119,7 @@ def _validate_sql(sql: str) -> None:
 def _get_default_db() -> str:
     """Mark-III: el explorer queda fijado a dbizaro (engine_mes DSN)."""
     from api.config import settings
+
     return settings.mes_db  # "dbizaro"
 
 
@@ -130,8 +148,7 @@ def list_databases(engine_mes: EngineMes):
         return {
             "default": _get_default_db(),
             "databases": [
-                {"name": r[0], "state": r[1], "size_mb": float(r[2] or 0)}
-                for r in rows
+                {"name": r[0], "state": r[1], "size_mb": float(r[2] or 0)} for r in rows
             ],
         }
     except HTTPException:
@@ -150,8 +167,7 @@ def list_tables(engine_mes: EngineMes, database: str = Query(...)):
         return {
             "database": database,
             "tables": [
-                {"schema": r[0], "table": r[1], "rows": int(r[2] or 0)}
-                for r in rows
+                {"schema": r[0], "table": r[1], "rows": int(r[2] or 0)} for r in rows
             ],
         }
     except HTTPException:
@@ -211,22 +227,30 @@ def full_schema(
     try:
         with engine_mes.connect() as conn:
             # Siempre: tablas con conteo de filas
-            table_rows = conn.execute(text("""
+            table_rows = conn.execute(
+                text("""
                 SELECT s.name, t.name, p.rows
                 FROM sys.tables t
                 JOIN sys.schemas s ON t.schema_id = s.schema_id
                 JOIN sys.partitions p ON t.object_id = p.object_id AND p.index_id IN (0, 1)
                 ORDER BY s.name, t.name
-            """)).fetchall()
+            """)
+            ).fetchall()
 
             tables = {}
             for r in table_rows:
                 key = f"{r[0]}.{r[1]}"
-                tables[key] = {"schema": r[0], "name": r[1], "rows": int(r[2] or 0), "columns": []}
+                tables[key] = {
+                    "schema": r[0],
+                    "name": r[1],
+                    "rows": int(r[2] or 0),
+                    "columns": [],
+                }
 
             # Columnas solo en modo completo
             if not light:
-                col_rows = conn.execute(text("""
+                col_rows = conn.execute(
+                    text("""
                     SELECT
                         c.TABLE_SCHEMA, c.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE,
                         CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END AS is_pk
@@ -241,14 +265,18 @@ def full_schema(
                          AND c.COLUMN_NAME = pk.COLUMN_NAME
                     WHERE c.TABLE_SCHEMA NOT IN ('sys', 'INFORMATION_SCHEMA')
                     ORDER BY c.TABLE_SCHEMA, c.TABLE_NAME, c.ORDINAL_POSITION
-                """)).fetchall()
+                """)
+                ).fetchall()
                 for r in col_rows:
                     key = f"{r[0]}.{r[1]}"
                     if key in tables:
-                        tables[key]["columns"].append({"name": r[2], "type": r[3], "pk": bool(r[4])})
+                        tables[key]["columns"].append(
+                            {"name": r[2], "type": r[3], "pk": bool(r[4])}
+                        )
 
             # Foreign keys (siempre)
-            fk_rows = conn.execute(text("""
+            fk_rows = conn.execute(
+                text("""
                 SELECT
                     OBJECT_SCHEMA_NAME(fk.parent_object_id),
                     OBJECT_NAME(fk.parent_object_id),
@@ -260,11 +288,16 @@ def full_schema(
                 JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
                 JOIN sys.columns cp ON fkc.parent_object_id = cp.object_id AND fkc.parent_column_id = cp.column_id
                 JOIN sys.columns cr ON fkc.referenced_object_id = cr.object_id AND fkc.referenced_column_id = cr.column_id
-            """)).fetchall()
+            """)
+            ).fetchall()
 
         relationships = [
-            {"from": f"{r[0]}.{r[1]}", "from_col": r[2],
-             "to": f"{r[3]}.{r[4]}", "to_col": r[5]}
+            {
+                "from": f"{r[0]}.{r[1]}",
+                "from_col": r[2],
+                "to": f"{r[3]}.{r[4]}",
+                "to_col": r[5],
+            }
             for r in fk_rows
         ]
 
@@ -296,17 +329,28 @@ def buscar_tablas_rutas(
 
     Devuelve lista ranqueada con columnas y una muestra de 5 filas.
     """
-    if not re.match(r'^[\w]+$', database):
+    if not re.match(r"^[\w]+$", database):
         raise HTTPException(400, "Nombre de BBDD invalido")
     _guard_mark3_db_scope(database)
 
     try:
         with engine_mes.connect() as conn:
             # 1) Candidatas por nombre
-            patterns = ["%rut%", "%fas%", "%ope%", "%ruf%", "%cam%", "%prc%", "%prr%", "%prf%"]
+            patterns = [
+                "%rut%",
+                "%fas%",
+                "%ope%",
+                "%ruf%",
+                "%cam%",
+                "%prc%",
+                "%prr%",
+                "%prf%",
+            ]
             # Named params :p0, :p1... para evitar abuse con IN expanding
             params = {f"p{i}": p for i, p in enumerate(patterns)}
-            placeholders = " OR ".join([f"TABLE_NAME LIKE :p{i}" for i in range(len(patterns))])
+            placeholders = " OR ".join(
+                [f"TABLE_NAME LIKE :p{i}" for i in range(len(patterns))]
+            )
             cand_sql = text(f"""
                 SELECT TABLE_SCHEMA, TABLE_NAME
                 FROM INFORMATION_SCHEMA.TABLES
@@ -315,7 +359,9 @@ def buscar_tablas_rutas(
                   AND ({placeholders})
                 ORDER BY TABLE_NAME
             """)
-            candidatas = [(r[0], r[1]) for r in conn.execute(cand_sql, params).fetchall()]
+            candidatas = [
+                (r[0], r[1]) for r in conn.execute(cand_sql, params).fetchall()
+            ]
 
             resultados = []
             for schema, table in candidatas:
@@ -337,7 +383,8 @@ def buscar_tablas_rutas(
                     n_rows = int(
                         conn.execute(
                             text(f"SELECT COUNT(*) FROM [{schema}].[{table}]")
-                        ).scalar() or 0
+                        ).scalar()
+                        or 0
                     )
                 except Exception:
                     n_rows = 0
@@ -346,19 +393,37 @@ def buscar_tablas_rutas(
                 score = 0
                 hints = []
                 name_lower = table.lower()
-                if "rut" in name_lower: score += 3; hints.append("nombre-ruta")
-                if "fas" in name_lower: score += 2; hints.append("nombre-fase")
-                if "ope" in name_lower: score += 1; hints.append("nombre-operacion")
-                if any("lo030" in c or "ref" in c or "art" in c for c in col_names_lower):
-                    score += 2; hints.append("tiene-ref")
-                if any(c in col_names_lower for c in ("re010", "ct", "seccion", "centro")):
-                    score += 2; hints.append("tiene-ct")
-                if any("orden" in c or "secuencia" in c or "nfase" in c or "fase" in c for c in col_names_lower):
-                    score += 2; hints.append("tiene-secuencia")
+                if "rut" in name_lower:
+                    score += 3
+                    hints.append("nombre-ruta")
+                if "fas" in name_lower:
+                    score += 2
+                    hints.append("nombre-fase")
+                if "ope" in name_lower:
+                    score += 1
+                    hints.append("nombre-operacion")
+                if any(
+                    "lo030" in c or "ref" in c or "art" in c for c in col_names_lower
+                ):
+                    score += 2
+                    hints.append("tiene-ref")
+                if any(
+                    c in col_names_lower for c in ("re010", "ct", "seccion", "centro")
+                ):
+                    score += 2
+                    hints.append("tiene-ct")
+                if any(
+                    "orden" in c or "secuencia" in c or "nfase" in c or "fase" in c
+                    for c in col_names_lower
+                ):
+                    score += 2
+                    hints.append("tiene-secuencia")
 
                 # Muestra
                 try:
-                    result = conn.execute(text(f"SELECT TOP 5 * FROM [{schema}].[{table}]"))
+                    result = conn.execute(
+                        text(f"SELECT TOP 5 * FROM [{schema}].[{table}]")
+                    )
                     sample_cols = list(result.keys())
                     sample_rows = [
                         [str(v) if v is not None else None for v in row]
@@ -367,15 +432,17 @@ def buscar_tablas_rutas(
                 except Exception:
                     sample_cols, sample_rows = [], []
 
-                resultados.append({
-                    "schema": schema,
-                    "table": table,
-                    "rows": n_rows,
-                    "score": score,
-                    "hints": hints,
-                    "columns": [{"name": c[0], "type": c[1]} for c in cols],
-                    "sample": {"columns": sample_cols, "rows": sample_rows},
-                })
+                resultados.append(
+                    {
+                        "schema": schema,
+                        "table": table,
+                        "rows": n_rows,
+                        "score": score,
+                        "hints": hints,
+                        "columns": [{"name": c[0], "type": c[1]} for c in cols],
+                        "sample": {"columns": sample_cols, "rows": sample_rows},
+                    }
+                )
 
         resultados.sort(key=lambda x: (-x["score"], x["table"]))
         return {"database": database, "candidatas": resultados}
@@ -394,7 +461,7 @@ def explorar_rutas_detalle(
     Devuelve muestras grandes de fprorut, fprorut_edm y fproope para
     entender como se enlaza una fase de ruta con una operacion (CT/tiempo).
     """
-    if not re.match(r'^[\w]+$', database):
+    if not re.match(r"^[\w]+$", database):
         raise HTTPException(400, "Nombre de BBDD invalido")
     _guard_mark3_db_scope(database)
 
@@ -403,13 +470,15 @@ def explorar_rutas_detalle(
             out = {}
 
             # 1) Resumen de fprorut: cuantas referencias distintas, fases por ref
-            r = conn.execute(text("""
+            r = conn.execute(
+                text("""
                 SELECT COUNT(DISTINCT ru000) AS n_refs,
                        COUNT(*) AS n_filas,
                        MIN(ru020) AS fase_min, MAX(ru020) AS fase_max,
                        MIN(ru030) AS ru030_min, MAX(ru030) AS ru030_max
                 FROM admuser.fprorut
-            """)).fetchone()
+            """)
+            ).fetchone()
             out["fprorut_resumen"] = {
                 "n_referencias": int(r[0] or 0),
                 "n_filas": int(r[1] or 0),
@@ -420,7 +489,8 @@ def explorar_rutas_detalle(
             }
 
             # 2) 30 filas de fprorut variadas (distintas referencias)
-            rows = conn.execute(text("""
+            rows = conn.execute(
+                text("""
                 SELECT TOP 30 ru999, ru000, ru010, ru020, ru030
                 FROM admuser.fprorut
                 WHERE ru000 IN (
@@ -429,14 +499,16 @@ def explorar_rutas_detalle(
                     ORDER BY COUNT(*) DESC
                 )
                 ORDER BY ru000, ru020
-            """)).fetchall()
+            """)
+            ).fetchall()
             out["fprorut_muestra"] = {
                 "columns": ["ru999", "ru000", "ru010", "ru020", "ru030"],
                 "rows": [[str(v) if v is not None else None for v in r] for r in rows],
             }
 
             # 3) fprorut_edm: 30 filas variadas
-            rows = conn.execute(text("""
+            rows = conn.execute(
+                text("""
                 SELECT TOP 30 ru999, ru000, ru010, ru020, ru030, ru040, ru050,
                               ru060, ru070, ru080, ru090, ru100, ru110, ru120
                 FROM admuser.fprorut_edm
@@ -446,29 +518,59 @@ def explorar_rutas_detalle(
                     ORDER BY COUNT(*) DESC
                 )
                 ORDER BY ru000, ru020
-            """)).fetchall()
+            """)
+            ).fetchall()
             out["fprorut_edm_muestra"] = {
-                "columns": ["ru999", "ru000", "ru010", "ru020", "ru030", "ru040",
-                            "ru050", "ru060", "ru070", "ru080", "ru090", "ru100",
-                            "ru110", "ru120"],
+                "columns": [
+                    "ru999",
+                    "ru000",
+                    "ru010",
+                    "ru020",
+                    "ru030",
+                    "ru040",
+                    "ru050",
+                    "ru060",
+                    "ru070",
+                    "ru080",
+                    "ru090",
+                    "ru100",
+                    "ru110",
+                    "ru120",
+                ],
                 "rows": [[str(v) if v is not None else None for v in r] for r in rows],
             }
 
             # 4) Todas las operaciones de fproope (solo 87)
-            rows = conn.execute(text("""
+            rows = conn.execute(
+                text("""
                 SELECT op999, op000, op010, op020, op030, op040, op050, op055,
                        op060, op090, op100, op110, op120
                 FROM admuser.fproope
                 ORDER BY op000
-            """)).fetchall()
+            """)
+            ).fetchall()
             out["fproope_todas"] = {
-                "columns": ["op999", "op000", "op010", "op020", "op030", "op040",
-                            "op050", "op055", "op060", "op090", "op100", "op110", "op120"],
+                "columns": [
+                    "op999",
+                    "op000",
+                    "op010",
+                    "op020",
+                    "op030",
+                    "op040",
+                    "op050",
+                    "op055",
+                    "op060",
+                    "op090",
+                    "op100",
+                    "op110",
+                    "op120",
+                ],
                 "rows": [[str(v) if v is not None else None for v in r] for r in rows],
             }
 
             # 5) Intento de JOIN — probar si fprorut.ru030 enlaza con fproope.op000
-            rows = conn.execute(text("""
+            rows = conn.execute(
+                text("""
                 SELECT TOP 30
                     r.ru000 AS referencia,
                     r.ru020 AS fase,
@@ -485,19 +587,30 @@ def explorar_rutas_detalle(
                     ORDER BY COUNT(*) DESC
                 )
                 ORDER BY r.ru000, r.ru020
-            """)).fetchall()
+            """)
+            ).fetchall()
             out["join_prueba_ru030_op000"] = {
-                "columns": ["referencia", "fase", "ru030", "op_id", "operacion", "ct", "tiempo"],
+                "columns": [
+                    "referencia",
+                    "fase",
+                    "ru030",
+                    "op_id",
+                    "operacion",
+                    "ct",
+                    "tiempo",
+                ],
                 "rows": [[str(v) if v is not None else None for v in r] for r in rows],
             }
 
             # 6) Verificar distintos valores de ru030 (por si no es siempre 0)
-            rows = conn.execute(text("""
+            rows = conn.execute(
+                text("""
                 SELECT TOP 20 ru030, COUNT(*) AS n
                 FROM admuser.fprorut
                 GROUP BY ru030
                 ORDER BY COUNT(*) DESC
-            """)).fetchall()
+            """)
+            ).fetchall()
             out["fprorut_distribucion_ru030"] = {
                 "columns": ["ru030", "n"],
                 "rows": [[str(v) if v is not None else None for v in r] for r in rows],
@@ -575,9 +688,7 @@ def query_readonly(
         if not _APPROVALS_AVAILABLE:
             raise HTTPException(
                 status_code=503,
-                detail=(
-                    "Flujo de aprobación no disponible aún — esperar Plan 04-03"
-                ),
+                detail=("Flujo de aprobación no disponible aún — esperar Plan 04-03"),
             )
         approval = consume_approval(
             db,
@@ -614,8 +725,7 @@ def query_readonly(
         all_rows = result["rows"]
         rows_capped = all_rows[:max_rows]
         rows_str = [
-            [str(v) if v is not None else None for v in row]
-            for row in rows_capped
+            [str(v) if v is not None else None for v in row] for row in rows_capped
         ]
         truncated = len(all_rows) > max_rows
         return {
@@ -641,20 +751,23 @@ def preview_data(
 ):
     """Preview de las primeras filas de una tabla."""
     # Sanitize identifiers to prevent SQL injection
-    if not re.match(r'^[\w]+$', database) or not re.match(r'^[\w]+$', schema) or not re.match(r'^[\w]+$', table):
+    if (
+        not re.match(r"^[\w]+$", database)
+        or not re.match(r"^[\w]+$", schema)
+        or not re.match(r"^[\w]+$", table)
+    ):
         raise HTTPException(400, "Nombre invalido")
     _guard_mark3_db_scope(database)
 
     try:
         with engine_mes.connect() as conn:
-            result = conn.execute(text(f"SELECT TOP {limit} * FROM [{schema}].[{table}]"))
+            result = conn.execute(
+                text(f"SELECT TOP {limit} * FROM [{schema}].[{table}]")
+            )
             columns = list(result.keys())
             rows = []
             for row in result.fetchall():
-                rows.append([
-                    str(v) if v is not None else None
-                    for v in row
-                ])
+                rows.append([str(v) if v is not None else None for v in row])
         return {"columns": columns, "rows": rows, "total": len(rows)}
     except HTTPException:
         raise

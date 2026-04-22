@@ -7,7 +7,18 @@
 -r requirements.txt
 
 # Lint + formato
-ruff==0.9.8
+# Bump 0.9.8 -> 0.15.11 en Phase 7 / DEVEX-01 (ruff-format sustituye a black
+# drop-in; config consolidada en pyproject.toml).
+ruff==0.15.11
+
+# Type checking (Phase 7 / DEVEX-01)
+# mypy ligero, sin strict; overrides para libs legacy en pyproject.toml.
+mypy==1.13.0
+
+# Pre-commit (Phase 7 / DEVEX-01)
+# Hooks definidos en .pre-commit-config.yaml; scope ^(api|nexo)/.
+# Activar con `pre-commit install` una vez por clone.
+pre-commit==4.0.1
 
 # Testing
 pytest==8.3.4

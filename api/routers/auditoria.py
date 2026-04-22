@@ -19,6 +19,7 @@ Filtros admitidos (query params):
 
 Paginacion server-side: ``?page=N&limit=100`` (max 500).
 """
+
 from __future__ import annotations
 
 import csv
@@ -166,10 +167,20 @@ async def export_csv(
         buf = io.StringIO()
         writer = csv.writer(buf)
         writer.writerow(
-            ["ts", "user_email", "user_id", "ip", "method", "path", "status", "details_json"]
+            [
+                "ts",
+                "user_email",
+                "user_id",
+                "ip",
+                "method",
+                "path",
+                "status",
+                "details_json",
+            ]
         )
         yield buf.getvalue()
-        buf.seek(0); buf.truncate(0)
+        buf.seek(0)
+        buf.truncate(0)
 
         db = SessionLocalNexo()
         try:
@@ -194,7 +205,8 @@ async def export_csv(
                     ]
                 )
                 yield buf.getvalue()
-                buf.seek(0); buf.truncate(0)
+                buf.seek(0)
+                buf.truncate(0)
         finally:
             db.close()
 

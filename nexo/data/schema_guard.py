@@ -14,6 +14,7 @@ Comportamiento canónico (D-06 / D-07 del ``03-CONTEXT.md``):
 monkeypatchear la constante del módulo (patrón más robusto si
 ``CRITICAL_TABLES`` migra a ``frozenset`` / computed).
 """
+
 from __future__ import annotations
 
 import logging
@@ -77,9 +78,7 @@ def verify(
     missing = [t for t in critical_tables if t not in existing]
 
     if not missing:
-        log.info(
-            "schema_guard OK — %d tablas nexo.* presentes", len(critical_tables)
-        )
+        log.info("schema_guard OK — %d tablas nexo.* presentes", len(critical_tables))
         return
 
     if not _auto_migrate_enabled():

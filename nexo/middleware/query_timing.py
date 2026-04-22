@@ -42,6 +42,7 @@ Disciplina de errores (copiada de ``api.middleware.audit``):
   - Un fallo al escribir en ``nexo.query_log`` NUNCA tumba la response.
   - El fallo se loguea via ``logger.exception`` y la request sigue.
 """
+
 from __future__ import annotations
 
 import logging
@@ -74,10 +75,12 @@ _TIMED_PATHS: dict[str, str] = {
 # Paths excluidos explícitamente para evitar ruido en ``query_log`` si
 # algún día apareciesen en ``_TIMED_PATHS`` por error (p.ej. refactor
 # accidental del router de health).
-_EXCLUDED: frozenset[str] = frozenset({
-    "/api/health",
-    "/api/approvals/count",
-})
+_EXCLUDED: frozenset[str] = frozenset(
+    {
+        "/api/health",
+        "/api/approvals/count",
+    }
+)
 
 
 class QueryTimingMiddleware(BaseHTTPMiddleware):
@@ -105,18 +108,10 @@ class QueryTimingMiddleware(BaseHTTPMiddleware):
             # El router pobla estimated_ms/approval_id/params_json durante
             # la ejecución del handler (dentro de call_next). Leer antes
             # siempre da None para esos campos.
-            estimated_ms: Optional[int] = getattr(
-                request.state, "estimated_ms", None
-            )
-            approval_id: Optional[int] = getattr(
-                request.state, "approval_id", None
-            )
-            params_snapshot: Optional[str] = getattr(
-                request.state, "params_json", None
-            )
-            query_executed: bool = bool(
-                getattr(request.state, "query_executed", False)
-            )
+            estimated_ms: Optional[int] = getattr(request.state, "estimated_ms", None)
+            approval_id: Optional[int] = getattr(request.state, "approval_id", None)
+            params_snapshot: Optional[str] = getattr(request.state, "params_json", None)
+            query_executed: bool = bool(getattr(request.state, "query_executed", False))
 
             # Rango <=90d en capacidad/operarios: router NO pobló
             # estimated_ms (short-circuit per D-03). Saltamos el log:

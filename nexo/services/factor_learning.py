@@ -21,6 +21,7 @@ Ventana: últimos ``max_samples`` runs con ``status IN ('ok','slow')``.
 Si tras filtrar quedan < 10 muestras, devuelve ``(None, sample_size)``:
 el caller decide si levantar 400 (API) o skip (cron).
 """
+
 from __future__ import annotations
 
 import json
@@ -97,21 +98,24 @@ def compute_factor(
         if sample_size < _MIN_SAMPLE_SIZE:
             log.info(
                 "compute_factor %s: insuficientes muestras (%d < %d)",
-                endpoint, sample_size, _MIN_SAMPLE_SIZE,
+                endpoint,
+                sample_size,
+                _MIN_SAMPLE_SIZE,
             )
             return None, sample_size
         return float(statistics.median(per_unit)), sample_size
 
     # Endpoints no-pipeline: median(actual_ms) con outlier filter.
     durations = [
-        r.actual_ms for r in rows
-        if r.actual_ms and r.actual_ms > _MIN_ACTUAL_MS
+        r.actual_ms for r in rows if r.actual_ms and r.actual_ms > _MIN_ACTUAL_MS
     ]
     sample_size = len(durations)
     if sample_size < _MIN_SAMPLE_SIZE:
         log.info(
             "compute_factor %s: insuficientes muestras (%d < %d)",
-            endpoint, sample_size, _MIN_SAMPLE_SIZE,
+            endpoint,
+            sample_size,
+            _MIN_SAMPLE_SIZE,
         )
         return None, sample_size
     return float(statistics.median(durations)), sample_size

@@ -8,12 +8,12 @@ consumidores existentes (Landmine #9: ``api/services/pipeline.py`` tiene
 ~15 refs a ``MetricaOEE``, ``ReferenciaStats``, ``IncidenciaResumen``,
 ``Ejecucion``, ``InformeMeta``, ``DatosProduccion``).
 """
+
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from api.config import settings
@@ -21,9 +21,11 @@ from api.config import settings
 
 # -- Engine -------------------------------------------------------------------
 
+
 def _mssql_creator():
     """Crea conexion pyodbc directa (mas fiable que URL de SQLAlchemy)."""
     import pyodbc
+
     return pyodbc.connect(
         f"DRIVER={{ODBC Driver 18 for SQL Server}};"
         f"SERVER={settings.db_server},{settings.db_port};"
@@ -34,6 +36,7 @@ def _mssql_creator():
         f"Encrypt=yes;",
         timeout=10,
     )
+
 
 engine = create_engine(
     "mssql+pyodbc://",
@@ -67,6 +70,7 @@ from nexo.data.models_app import (  # noqa: E402, F401
 
 
 # -- Init ---------------------------------------------------------------------
+
 
 def init_db() -> None:
     """Verifica conexion y carga datos iniciales si tablas vacias."""
@@ -109,6 +113,7 @@ def _import_recursos_json(session: Session) -> None:
     # 1) Desde db_config.json (tienen centro_trabajo real)
     try:
         from OEE.db.connector import load_config as _load_cfg
+
         cfg = _load_cfg()
     except Exception:
         cfg = {}
@@ -117,12 +122,14 @@ def _import_recursos_json(session: Session) -> None:
         if not nombre or nombre in nombres_añadidos:
             continue
         seccion = SECTION_MAP.get(nombre.lower(), "GENERAL")
-        session.add(Recurso(
-            centro_trabajo=int(r.get("centro_trabajo", 0)),
-            nombre=nombre,
-            seccion=seccion,
-            activo=r.get("activo", True),
-        ))
+        session.add(
+            Recurso(
+                centro_trabajo=int(r.get("centro_trabajo", 0)),
+                nombre=nombre,
+                seccion=seccion,
+                activo=r.get("activo", True),
+            )
+        )
         nombres_añadidos.add(nombre)
 
     # 2) Maquinas que aparecen en ciclos.csv pero no en db_config
@@ -135,12 +142,14 @@ def _import_recursos_json(session: Session) -> None:
                 if not nombre or nombre in nombres_añadidos:
                     continue
                 seccion = SECTION_MAP.get(nombre.lower(), "GENERAL")
-                session.add(Recurso(
-                    centro_trabajo=0,
-                    nombre=nombre,
-                    seccion=seccion,
-                    activo=True,
-                ))
+                session.add(
+                    Recurso(
+                        centro_trabajo=0,
+                        nombre=nombre,
+                        seccion=seccion,
+                        activo=True,
+                    )
+                )
                 nombres_añadidos.add(nombre)
 
     session.commit()
@@ -159,6 +168,7 @@ def check_db_health() -> tuple[bool, str]:
     """Verifica conexion a la BBDD."""
     try:
         from sqlalchemy import text
+
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return True, "OK"

@@ -22,6 +22,7 @@ Contratos:
 Este módulo **no** emite email/banner/websocket — D-13 explícitamente
 descartó notificaciones push en Mark-III (SMTP Out of Scope).
 """
+
 from __future__ import annotations
 
 import json

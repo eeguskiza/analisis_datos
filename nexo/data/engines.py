@@ -16,6 +16,7 @@ Consumidores externos deben importar desde este módulo. El shim en
 ``nexo/db/engine.py`` re-exporta ``engine_nexo`` y ``SessionLocalNexo``
 para compatibilidad con Phase 2.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import create_engine
@@ -83,8 +84,8 @@ def _build_mes_dsn() -> str:
 
 engine_mes: Engine = create_engine(
     _build_mes_dsn(),
-    pool_pre_ping=True,        # DATA-11
-    pool_recycle=3600,         # DATA-11
+    pool_pre_ping=True,  # DATA-11
+    pool_recycle=3600,  # DATA-11
     pool_size=3,
     max_overflow=2,
     pool_timeout=15,

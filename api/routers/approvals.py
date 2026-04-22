@@ -32,6 +32,7 @@ Permisos:
   /cancel y /mis-solicitudes. El ownership check va en la lógica (no en
   el permiso) porque cada user gestiona sus propias solicitudes.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,6 +56,7 @@ router = APIRouter(tags=["approvals"])
 
 
 # ── H-01 fix: audit helper para state mutations ──────────────────────────
+
 
 def _audit_approval_event(
     db,
@@ -102,7 +104,8 @@ def _audit_approval_event(
     except Exception:
         logger.exception(
             "audit_log append failed for approval event=%s id=%d",
-            event, approval_id,
+            event,
+            approval_id,
         )
         try:
             db.rollback()
@@ -111,6 +114,7 @@ def _audit_approval_event(
 
 
 # ── Pydantic request body ────────────────────────────────────────────────
+
 
 class CreateApprovalBody(BaseModel):
     """Body del POST /api/approvals — disparado por el modal RED del
@@ -131,13 +135,13 @@ class CreateApprovalBody(BaseModel):
     def _endpoint_in_allowlist(cls, v: str) -> str:
         if v not in ALLOWED_ENDPOINTS:
             raise ValueError(
-                f"endpoint {v!r} no está en la allowlist "
-                f"({sorted(ALLOWED_ENDPOINTS)})"
+                f"endpoint {v!r} no está en la allowlist ({sorted(ALLOWED_ENDPOINTS)})"
             )
         return v
 
 
 # ── POST /api/approvals ───────────────────────────────────────────────────
+
 
 @router.post("/api/approvals")
 async def create(
@@ -164,12 +168,16 @@ async def create(
     )
     logger.info(
         "approval created id=%d user=%s endpoint=%s estimated_ms=%d",
-        approval_id, user.email, body.endpoint, body.estimated_ms,
+        approval_id,
+        user.email,
+        body.endpoint,
+        body.estimated_ms,
     )
     return {"approval_id": approval_id, "status": "pending"}
 
 
 # ── GET /api/approvals/count (badge sidebar HTMX) ────────────────────────
+
 
 @router.get(
     "/api/approvals/count",
@@ -195,6 +203,7 @@ def count(db: DbNexo) -> HTMLResponse:
 
 # ── POST /api/approvals/{id}/approve ──────────────────────────────────────
 
+
 @router.post(
     "/api/approvals/{approval_id}/approve",
     dependencies=[Depends(require_permission("aprobaciones:manage"))],
@@ -217,14 +226,18 @@ def approve(
         request=request,
     )
     logger.info(
-        "approval approved id=%d by=%s", approval_id, user.email,
+        "approval approved id=%d by=%s",
+        approval_id,
+        user.email,
     )
     return RedirectResponse(
-        "/ajustes/solicitudes?ok=approved", status_code=303,
+        "/ajustes/solicitudes?ok=approved",
+        status_code=303,
     )
 
 
 # ── POST /api/approvals/{id}/reject ───────────────────────────────────────
+
 
 @router.post(
     "/api/approvals/{approval_id}/reject",
@@ -248,14 +261,18 @@ def reject(
         request=request,
     )
     logger.info(
-        "approval rejected id=%d by=%s", approval_id, user.email,
+        "approval rejected id=%d by=%s",
+        approval_id,
+        user.email,
     )
     return RedirectResponse(
-        "/ajustes/solicitudes?ok=rejected", status_code=303,
+        "/ajustes/solicitudes?ok=rejected",
+        status_code=303,
     )
 
 
 # ── POST /api/approvals/{id}/cancel ───────────────────────────────────────
+
 
 @router.post("/api/approvals/{approval_id}/cancel")
 def cancel(
@@ -277,8 +294,7 @@ def cancel(
         raise HTTPException(
             status_code=403,
             detail=(
-                "No puedes cancelar esta solicitud "
-                "(no eres el dueño o no está pending)"
+                "No puedes cancelar esta solicitud (no eres el dueño o no está pending)"
             ),
         )
     _audit_approval_event(
@@ -289,14 +305,18 @@ def cancel(
         request=request,
     )
     logger.info(
-        "approval cancelled id=%d by=%s", approval_id, user.email,
+        "approval cancelled id=%d by=%s",
+        approval_id,
+        user.email,
     )
     return RedirectResponse(
-        "/mis-solicitudes?ok=cancelled", status_code=303,
+        "/mis-solicitudes?ok=cancelled",
+        status_code=303,
     )
 
 
 # ── GET /ajustes/solicitudes (HTML — propietario) ────────────────────────
+
 
 @router.get(
     "/ajustes/solicitudes",
@@ -344,6 +364,7 @@ def page_solicitudes(
 
 
 # ── GET /mis-solicitudes (HTML — cualquier user auth) ────────────────────
+
 
 @router.get("/mis-solicitudes", response_class=HTMLResponse)
 def page_mis_solicitudes(

@@ -1,0 +1,50 @@
+# Pre-commit hooks para Nexo (Phase 7 / Sprint 6 / DEVEX-01).
+#
+# Alcance: solo api/ + nexo/ (OEE/ legacy excluido por decision Mark-III).
+#
+# Activacion local (cada dev, una vez):
+#     pip install -r requirements-dev.txt
+#     pre-commit install
+#
+# Backfill previo (ya ejecutado en commit aislado Task 1 del Plan 07-01):
+#     ruff format api/ nexo/ && ruff check --fix api/ nexo/
+
+default_language_version:
+  python: python3.11
+
+repos:
+  # ── Higiene basica del repo completo ───────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^caddy/
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict
+      - id: check-toml
+
+  # ── Ruff: linter + formatter (scoped a api/+nexo/) ────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.11
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^(api|nexo)/
+      - id: ruff-format
+        files: ^(api|nexo)/
+
+  # ── Mypy: type checking ligero (scoped a api/+nexo/) ──────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        files: ^(api|nexo)/
+        args: [--config-file=pyproject.toml]
+        additional_dependencies:
+          - "fastapi==0.135.3"
+          - "pydantic-settings==2.13.1"
+          - "sqlalchemy==2.0.49"
+          - "types-requests"

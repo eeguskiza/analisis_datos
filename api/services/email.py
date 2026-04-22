@@ -1,4 +1,5 @@
 """Envío de informes por email via SMTP."""
+
 from __future__ import annotations
 
 import smtplib
@@ -23,7 +24,9 @@ def test_smtp() -> str:
     if not smtp_cfg.get("email"):
         return "ERROR: No hay config SMTP. Configura email en Ajustes."
     try:
-        with smtplib.SMTP(smtp_cfg["server"], int(smtp_cfg.get("port", 587)), timeout=15) as s:
+        with smtplib.SMTP(
+            smtp_cfg["server"], int(smtp_cfg.get("port", 587)), timeout=15
+        ) as s:
             s.ehlo()
             s.starttls()
             s.ehlo()
@@ -61,11 +64,15 @@ def enviar_informes(
         part = MIMEBase("application", "pdf")
         part.set_payload(pdf_path.read_bytes())
         encoders.encode_base64(part)
-        part.add_header("Content-Disposition", f'attachment; filename="{pdf_path.name}"')
+        part.add_header(
+            "Content-Disposition", f'attachment; filename="{pdf_path.name}"'
+        )
         msg.attach(part)
 
     try:
-        with smtplib.SMTP(smtp_cfg["server"], int(smtp_cfg.get("port", 587)), timeout=30) as s:
+        with smtplib.SMTP(
+            smtp_cfg["server"], int(smtp_cfg.get("port", 587)), timeout=30
+        ) as s:
             s.ehlo()
             s.starttls()
             s.ehlo()

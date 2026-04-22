@@ -17,6 +17,7 @@ Design notes:
 - **Token de sesión**: 32 bytes random URL-safe (``secrets.token_urlsafe``)
   serializados con ``itsdangerous`` usando ``settings.secret_key``.
 """
+
 from __future__ import annotations
 
 import secrets
@@ -92,6 +93,7 @@ def unsign_session_token(signed: str, max_age_seconds: int) -> Optional[str]:
 
 # ── Sesiones (tabla ``nexo.sessions``) ─────────────────────────────────────
 
+
 def create_session(db: Session, user_id: int) -> tuple[str, str]:
     """Crea una sesión en BD y devuelve ``(raw_token, signed_cookie_value)``."""
     raw = secrets.token_urlsafe(SESSION_TOKEN_BYTES)
@@ -115,7 +117,9 @@ def get_session(db: Session, raw_token: str) -> Optional[NexoSession]:
 
 def extend_session(db: Session, session: NexoSession) -> None:
     """Sliding expiration — renueva ``expires_at`` a TTL completo desde ahora."""
-    session.expires_at = datetime.now(timezone.utc) + timedelta(hours=settings.session_ttl_hours)
+    session.expires_at = datetime.now(timezone.utc) + timedelta(
+        hours=settings.session_ttl_hours
+    )
     db.commit()
 
 
@@ -133,6 +137,7 @@ def revoke_all_sessions(db: Session, user_id: int) -> None:
 
 # ── Lockout progresivo (tabla ``nexo.login_attempts``) ─────────────────────
 
+
 def _window_cutoff() -> datetime:
     return datetime.now(timezone.utc) - timedelta(minutes=LOCKOUT_WINDOW_MINUTES)
 
@@ -140,13 +145,10 @@ def _window_cutoff() -> datetime:
 def check_lockout(db: Session, email: str, ip: str) -> bool:
     """True si ``(email, ip)`` está bloqueado (≥5 fallos en los últimos 15 min)."""
     cutoff = _window_cutoff()
-    stmt = (
-        select(NexoLoginAttempt)
-        .where(
-            NexoLoginAttempt.email == email,
-            NexoLoginAttempt.ip == ip,
-            NexoLoginAttempt.failed_at > cutoff,
-        )
+    stmt = select(NexoLoginAttempt).where(
+        NexoLoginAttempt.email == email,
+        NexoLoginAttempt.ip == ip,
+        NexoLoginAttempt.failed_at > cutoff,
     )
     count = len(db.execute(stmt).scalars().all())
     return count >= LOCKOUT_THRESHOLD
@@ -172,6 +174,7 @@ def clear_attempts(db: Session, email: str, ip: str) -> None:
 
 # ── Helpers de usuario ─────────────────────────────────────────────────────
 
+
 def get_user_by_email(db: Session, email: str) -> Optional[NexoUser]:
     """Helper publico. Delegado a ``UserRepo.get_by_email_orm`` (DATA-04).
 
@@ -182,6 +185,7 @@ def get_user_by_email(db: Session, email: str) -> Optional[NexoUser]:
     # Lazy import para evitar ciclo: UserRepo importa models_nexo, que
     # es el mismo metadata que este modulo ya consume.
     from nexo.data.repositories.nexo import UserRepo
+
     return UserRepo(db).get_by_email_orm(email)
 
 
@@ -199,36 +203,36 @@ def get_user_by_email(db: Session, email: str) -> Optional[NexoUser]:
 # (regenerado al cerrar Phase 2 para trazabilidad).
 PERMISSION_MAP: dict[str, list[str]] = {
     # ── Modulos de produccion / planta ──────────────────────────────────
-    "pipeline:run":       ["ingenieria", "produccion"],
-    "pipeline:read":      ["ingenieria", "produccion", "gerencia"],
-    "recursos:read":      ["ingenieria", "produccion"],
-    "recursos:edit":      ["ingenieria"],
-    "ciclos:read":        ["ingenieria"],
-    "ciclos:edit":        ["ingenieria"],
-    "centro_mando:read":  ["produccion", "ingenieria", "gerencia"],
-    "luk4:read":          ["produccion", "ingenieria", "gerencia"],
-    "capacidad:read":     ["comercial", "ingenieria", "produccion", "gerencia"],
-    "historial:read":     ["ingenieria", "produccion", "comercial", "gerencia", "rrhh"],
-    "informes:read":      ["ingenieria", "produccion", "comercial", "gerencia", "rrhh"],
-    "informes:delete":    ["ingenieria"],
-    "datos:read":         ["ingenieria", "produccion"],
+    "pipeline:run": ["ingenieria", "produccion"],
+    "pipeline:read": ["ingenieria", "produccion", "gerencia"],
+    "recursos:read": ["ingenieria", "produccion"],
+    "recursos:edit": ["ingenieria"],
+    "ciclos:read": ["ingenieria"],
+    "ciclos:edit": ["ingenieria"],
+    "centro_mando:read": ["produccion", "ingenieria", "gerencia"],
+    "luk4:read": ["produccion", "ingenieria", "gerencia"],
+    "capacidad:read": ["comercial", "ingenieria", "produccion", "gerencia"],
+    "historial:read": ["ingenieria", "produccion", "comercial", "gerencia", "rrhh"],
+    "informes:read": ["ingenieria", "produccion", "comercial", "gerencia", "rrhh"],
+    "informes:delete": ["ingenieria"],
+    "datos:read": ["ingenieria", "produccion"],
     # ── RRHH ────────────────────────────────────────────────────────────
-    "operarios:read":     ["rrhh"],
-    "operarios:export":   ["rrhh"],
+    "operarios:read": ["rrhh"],
+    "operarios:export": ["rrhh"],
     # ── Administracion tecnica ─────────────────────────────────────────
-    "bbdd:read":          ["ingenieria"],
-    "conexion:read":      ["ingenieria"],
-    "conexion:config":    [],   # lista vacia → solo propietario (tocar credenciales)
-    "email:send":         ["rrhh", "ingenieria", "gerencia"],
-    "plantillas:read":    ["ingenieria"],
-    "plantillas:edit":    ["ingenieria"],
+    "bbdd:read": ["ingenieria"],
+    "conexion:read": ["ingenieria"],
+    "conexion:config": [],  # lista vacia → solo propietario (tocar credenciales)
+    "email:send": ["rrhh", "ingenieria", "gerencia"],
+    "plantillas:read": ["ingenieria"],
+    "plantillas:edit": ["ingenieria"],
     # ── Ajustes — Mark-III solo propietario ─────────────────────────────
-    "ajustes:manage":     [],
-    "auditoria:read":     [],
-    "usuarios:manage":    [],
+    "ajustes:manage": [],
+    "auditoria:read": [],
+    "usuarios:manage": [],
     "aprobaciones:manage": [],  # Plan 04-03 (QUERY-06) — propietario-only
-    "limites:manage":     [],   # Plan 04-04 (QUERY-02) — propietario-only
-    "rendimiento:read":   [],   # Plan 04-04 (D-11) — propietario-only
+    "limites:manage": [],  # Plan 04-04 (QUERY-02) — propietario-only
+    "rendimiento:read": [],  # Plan 04-04 (D-11) — propietario-only
 }
 
 
@@ -274,6 +278,7 @@ def require_permission(permission: str):
     Nota: el middleware eager-loadea ``user.departments`` antes de cerrar
     la sesion ORM para evitar DetachedInstanceError al llegar aqui.
     """
+
     async def _check(request: Request) -> NexoUser:
         user = getattr(request.state, "user", None)
         if user is None:

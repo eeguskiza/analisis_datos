@@ -11,6 +11,7 @@ y se borra en la response (Set-Cookie con Max-Age=0).
 NO depende de sesión (anon requests también pueden cargar flash).
 NO escribe en DB ni log — failure mode silencioso y seguro.
 """
+
 from __future__ import annotations
 
 from starlette.middleware.base import BaseHTTPMiddleware

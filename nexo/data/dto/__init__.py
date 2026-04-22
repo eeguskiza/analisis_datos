@@ -11,6 +11,7 @@ re-exportan aqui. Los DTOs de phases anteriores siguen importandose
 explicitamente desde su submodulo (patron vigente en repos/*.py y
 tests/*.py).
 """
+
 from nexo.data.dto.query import (  # noqa: F401
     Estimation,
     QueryApprovalRow,

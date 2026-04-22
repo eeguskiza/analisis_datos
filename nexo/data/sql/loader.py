@@ -14,6 +14,7 @@ opcional. ``mes/estado`` resuelve a ``mes/estado.sql``. El contenido
 se cachea en memoria (``lru_cache(maxsize=128)``); como los ``.sql``
 son estáticos no hay que invalidar entre requests.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache

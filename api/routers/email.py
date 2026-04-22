@@ -1,4 +1,5 @@
 """Endpoints para gestión de contactos y envío de informes por email."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +20,7 @@ router = APIRouter(
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
 
+
 class ContactoIn(BaseModel):
     nombre: str
     email: str
@@ -26,19 +28,19 @@ class ContactoIn(BaseModel):
 
 class EnviarRequest(BaseModel):
     destinatarios: list[str]  # lista de emails
-    pdfs: list[str]           # rutas relativas de PDFs (como las devuelve el pipeline)
+    pdfs: list[str]  # rutas relativas de PDFs (como las devuelve el pipeline)
     asunto: str = ""
 
 
 # ── Contactos ────────────────────────────────────────────────────────────────
 
+
 @router.get("/contactos")
 def listar_contactos(db: Session = Depends(get_db)):
     rows = db.query(Contacto).order_by(Contacto.nombre).all()
-    return {"contactos": [
-        {"id": c.id, "nombre": c.nombre, "email": c.email}
-        for c in rows
-    ]}
+    return {
+        "contactos": [{"id": c.id, "nombre": c.nombre, "email": c.email} for c in rows]
+    }
 
 
 @router.post("/contactos")
@@ -63,6 +65,7 @@ def borrar_contacto(contacto_id: int, db: Session = Depends(get_db)):
 
 # ── Test SMTP ────────────────────────────────────────────────────────────────
 
+
 @router.get("/test")
 def test_conexion_smtp():
     """Prueba que la conexión SMTP funciona."""
@@ -71,6 +74,7 @@ def test_conexion_smtp():
 
 
 # ── Enviar ───────────────────────────────────────────────────────────────────
+
 
 @router.post("/enviar")
 def enviar(payload: EnviarRequest):
@@ -81,7 +85,7 @@ def enviar(payload: EnviarRequest):
         raise HTTPException(400, "No hay PDFs seleccionados")
 
     # Resolver rutas de PDFs
-    from pathlib import Path
+
     pdf_paths = []
     for rel in payload.pdfs:
         full = settings.informes_dir / rel
@@ -92,11 +96,17 @@ def enviar(payload: EnviarRequest):
         raise HTTPException(404, "No se encontraron los PDFs")
 
     asunto = payload.asunto or f"Informes OEE — {len(pdf_paths)} PDFs"
-    cuerpo = f"Se adjuntan {len(pdf_paths)} informes OEE generados.\n\n— Nexo (automatico)"
+    cuerpo = (
+        f"Se adjuntan {len(pdf_paths)} informes OEE generados.\n\n— Nexo (automatico)"
+    )
 
     resultado = enviar_informes(payload.destinatarios, asunto, cuerpo, pdf_paths)
 
     if resultado != "OK":
         raise HTTPException(502, resultado)
 
-    return {"ok": True, "enviados": len(pdf_paths), "destinatarios": payload.destinatarios}
+    return {
+        "ok": True,
+        "enviados": len(pdf_paths),
+        "destinatarios": payload.destinatarios,
+    }

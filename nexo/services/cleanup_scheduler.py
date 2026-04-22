@@ -28,6 +28,7 @@ Diseño:
 - Excepciones de jobs se loggean como ``log.exception`` y el loop
   continúa (un job roto no tumba el scheduler).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,6 +41,7 @@ log = logging.getLogger("nexo.cleanup_scheduler")
 
 
 # ── Helpers de horario ────────────────────────────────────────────────────
+
 
 def _seconds_until(target_time: time, *, dow: int | None = None) -> float:
     """Segundos hasta ``target_time`` (UTC) del próximo día coincidente.
@@ -73,9 +75,9 @@ def _seconds_until(target_time: time, *, dow: int | None = None) -> float:
 
 # Monday = 0 (datetime.weekday())
 _DOW_MONDAY = 0
-_QUERY_LOG_TIME = time(3, 0, 0)   # 03:00 UTC (Plan 04-04 / D-10)
-_APPROVALS_TIME = time(3, 5, 0)   # 03:05 UTC (Plan 04-03 / D-14)
-_FACTOR_TIME = time(3, 10, 0)     # 03:10 UTC (Plan 04-04 / D-20)
+_QUERY_LOG_TIME = time(3, 0, 0)  # 03:00 UTC (Plan 04-04 / D-10)
+_APPROVALS_TIME = time(3, 5, 0)  # 03:05 UTC (Plan 04-03 / D-14)
+_FACTOR_TIME = time(3, 10, 0)  # 03:10 UTC (Plan 04-04 / D-20)
 
 # Tolerancia para disparos colapsados en el mismo wake-up.
 _TRIGGER_TOLERANCE_S = 60
@@ -101,7 +103,10 @@ async def cleanup_loop() -> None:
             log.info(
                 "cleanup_scheduler next run in %.0fs "
                 "(qlog=%.0fs, appr=%.0fs, fact=%.0fs)",
-                next_sec, sec_qlog, sec_appr, sec_fact,
+                next_sec,
+                sec_qlog,
+                sec_appr,
+                sec_fact,
             )
             await asyncio.sleep(next_sec)
 

@@ -4,6 +4,7 @@ Pydantic v2, ``frozen=True`` + ``from_attributes=True``. Los DTOs aqui
 cruzan la frontera router<->repo. El ORM (``nexo.data.models_app``)
 vive detras del repo; el router consume solo DTOs.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -37,6 +38,7 @@ class EjecucionRow(BaseModel):
     segun el backend (SQL Server legacy). Normalizamos a ``str``
     (ISO 8601) en la DTO aceptando ambos tipos en input.
     """
+
     model_config = ConfigDict(frozen=True, from_attributes=True)
     id: int
     fecha_inicio: str
@@ -120,6 +122,7 @@ class ContactoRow(BaseModel):
 
 class LukRow(BaseModel):
     """Snapshot de luk4.estado - shape consumida por api/routers/luk4.py."""
+
     model_config = ConfigDict(frozen=True, from_attributes=True)
     estado_global: int = 0
     codigo_error: int = 0

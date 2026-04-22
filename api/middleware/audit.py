@@ -17,6 +17,7 @@ Diseno segun research §Pattern 5 + §Pitfall 2:
 - Errores de escritura a BD no bloquean la request — el log fallido queda
   en ``logger.exception`` para investigacion offline.
 """
+
 from __future__ import annotations
 
 import json

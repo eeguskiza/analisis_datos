@@ -17,6 +17,7 @@ Decisiones implementadas:
 
 Permiso: ``rendimiento:read`` (lista vacía → propietario-only).
 """
+
 from __future__ import annotations
 
 import logging
@@ -117,17 +118,19 @@ def page(
     for ep in endpoints_to_show:
         summary = qrepo.summary(ep, df, dt)
         threshold = trepo.get(ep)
-        summaries.append({
-            "endpoint": ep,
-            "n_runs": summary.get("n_runs", 0) or 0,
-            "avg_est": summary.get("avg_est"),
-            "avg_actual": summary.get("avg_actual"),
-            "p95": summary.get("p95"),
-            "n_slow": summary.get("n_slow", 0) or 0,
-            "divergence_pct": summary.get("divergence_pct", 0.0),
-            "warn_ms": threshold.warn_ms if threshold else None,
-            "block_ms": threshold.block_ms if threshold else None,
-        })
+        summaries.append(
+            {
+                "endpoint": ep,
+                "n_runs": summary.get("n_runs", 0) or 0,
+                "avg_est": summary.get("avg_est"),
+                "avg_actual": summary.get("avg_actual"),
+                "p95": summary.get("p95"),
+                "n_slow": summary.get("n_slow", 0) or 0,
+                "divergence_pct": summary.get("divergence_pct", 0.0),
+                "warn_ms": threshold.warn_ms if threshold else None,
+                "block_ms": threshold.block_ms if threshold else None,
+            }
+        )
 
     users = UserRepo(db).list_all()
 
@@ -167,7 +170,9 @@ def api_summary(
     date_to: str = Query(...),
 ) -> dict:
     """JSON summary por endpoint + ventana temporal."""
-    df = _parse_iso_datetime(date_from) or datetime.now(timezone.utc) - timedelta(days=30)
+    df = _parse_iso_datetime(date_from) or datetime.now(timezone.utc) - timedelta(
+        days=30
+    )
     dt = _parse_iso_datetime(date_to) or datetime.now(timezone.utc)
     result = QueryLogRepo(db).summary(endpoint, df, dt)
     # Asegurar tipos JSON-friendly (Decimal / datetime).
@@ -180,7 +185,9 @@ def api_summary(
             float(result["avg_est"]) if result.get("avg_est") is not None else None
         ),
         "avg_actual_ms": (
-            float(result["avg_actual"]) if result.get("avg_actual") is not None else None
+            float(result["avg_actual"])
+            if result.get("avg_actual") is not None
+            else None
         ),
         "p95_actual_ms": (
             float(result["p95"]) if result.get("p95") is not None else None
@@ -205,10 +212,14 @@ def api_timeseries(
     Granularity auto: hora si rango <= 7d, día si rango > 7d (ver
     ``QueryLogRepo.timeseries``).
     """
-    df = _parse_iso_datetime(date_from) or datetime.now(timezone.utc) - timedelta(days=30)
+    df = _parse_iso_datetime(date_from) or datetime.now(timezone.utc) - timedelta(
+        days=30
+    )
     dt = _parse_iso_datetime(date_to) or datetime.now(timezone.utc)
     points, granularity = QueryLogRepo(db).timeseries(
-        endpoint=endpoint, date_from=df, date_to=dt,
+        endpoint=endpoint,
+        date_from=df,
+        date_to=dt,
     )
     return {
         "endpoint": endpoint,

@@ -1,4 +1,5 @@
 """Endpoints para listar, servir y borrar informes PDF generados."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException

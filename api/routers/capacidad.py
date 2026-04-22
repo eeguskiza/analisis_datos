@@ -18,6 +18,7 @@ estima coste y se aplica gate (green ejecuta, amber sin force -> 428,
 red sin approval -> 403). Rangos cortos saltan el preflight completamente
 (no modal, no query_log).
 """
+
 from __future__ import annotations
 
 import json
@@ -193,7 +194,11 @@ def capacidad(
                     entry["n_muestras_ciclo"] = len(muestras)
 
                     if entry["piezas_reales"] > 0 and entry["tiempo_trabajado_min"] > 0:
-                        ciclo_real = entry["tiempo_trabajado_min"] * 60.0 / entry["piezas_reales"]
+                        ciclo_real = (
+                            entry["tiempo_trabajado_min"]
+                            * 60.0
+                            / entry["piezas_reales"]
+                        )
                         entry["ciclo_real_seg"] = round(ciclo_real, 2)
                     else:
                         ciclo_real = None
@@ -203,7 +208,9 @@ def capacidad(
                     # ciclo real del periodo. Evita eficiencias > 100%.
                     candidatos = [c for c in (p10, ciclo_real) if c and c > 0]
                     ct_teorico = min(candidatos) if candidatos else None
-                    entry["ciclo_teorico_seg"] = round(ct_teorico, 2) if ct_teorico else None
+                    entry["ciclo_teorico_seg"] = (
+                        round(ct_teorico, 2) if ct_teorico else None
+                    )
 
                     if ct_teorico and entry["tiempo_trabajado_min"] > 0:
                         entry["piezas_teoricas"] = round(
@@ -215,25 +222,31 @@ def capacidad(
                     pt = entry["piezas_teoricas"]
                     entry["eficiencia_pct"] = (
                         round(100.0 * entry["piezas_reales"] / pt, 1)
-                        if pt and pt > 0 else None
+                        if pt and pt > 0
+                        else None
                     )
 
         por_referencia = sorted(base.values(), key=lambda x: -x["piezas_reales"])
         total_real = sum(x["piezas_reales"] for x in por_referencia)
         total_teorico = sum(x["piezas_teoricas"] or 0 for x in por_referencia)
         ef_global = (
-            round(100.0 * total_real / total_teorico, 1)
-            if total_teorico > 0 else None
+            round(100.0 * total_real / total_teorico, 1) if total_teorico > 0 else None
         )
 
         # Totales por linea (CT)
         por_linea: dict[str, dict] = {}
         for r in por_referencia:
             k = r["ct"]
-            d = por_linea.setdefault(k, {
-                "ct": k, "ct_nombre": r["ct_nombre"],
-                "piezas_reales": 0, "piezas_teoricas": 0, "tiempo_min": 0,
-            })
+            d = por_linea.setdefault(
+                k,
+                {
+                    "ct": k,
+                    "ct_nombre": r["ct_nombre"],
+                    "piezas_reales": 0,
+                    "piezas_teoricas": 0,
+                    "tiempo_min": 0,
+                },
+            )
             d["piezas_reales"] += r["piezas_reales"]
             d["piezas_teoricas"] += r["piezas_teoricas"] or 0
             d["tiempo_min"] += r["tiempo_trabajado_min"]
@@ -244,7 +257,8 @@ def capacidad(
             d["tiempo_min"] = int(round(d["tiempo_min"]))
             d["eficiencia_pct"] = (
                 round(100.0 * d["piezas_reales"] / d["piezas_teoricas"], 1)
-                if d["piezas_teoricas"] > 0 else None
+                if d["piezas_teoricas"] > 0
+                else None
             )
 
         return {
@@ -258,9 +272,7 @@ def capacidad(
                 "n_referencias": len({r["referencia"] for r in por_referencia}),
                 "n_lineas": len(por_linea),
             },
-            "por_linea": sorted(
-                por_linea.values(), key=lambda x: -x["piezas_reales"]
-            ),
+            "por_linea": sorted(por_linea.values(), key=lambda x: -x["piezas_reales"]),
             "por_referencia": por_referencia,
         }
 
