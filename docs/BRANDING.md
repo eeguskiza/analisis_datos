@@ -117,3 +117,62 @@ artefactos visuales conocidos. Sustitución prevista en Mark-V con:
    la versión definitiva.
 
 Hasta Mark-V el placeholder es aceptable para uso interno en LAN.
+
+## Tokens (Phase 8)
+
+Phase 8 introduce el sistema de tokens CSS en `static/css/tokens.css`. Dos capas:
+
+1. **Raw** — escalas (`--color-brand-*`, `--color-surface-*`, `--color-success-*`,
+   etc.). Se conservan para casos residuales (editor del pabellón, mapa).
+2. **Semántica** — alias consumidos por templates y `app.css` (`--color-primary`,
+   `--color-surface-base`, `--color-text-body`, `--shadow-card`, `--z-topbar`).
+   Los templates SOLO deben leer de esta capa.
+
+Formato: todos los tokens de color se declaran como triples RGB separados por
+espacios (`R G B`), sin comas ni wrapper `rgb()`. Tailwind los consume vía
+`rgb(var(--color-xxx) / <alpha-value>)`, lo que preserva las utilidades alpha
+(`bg-primary/20`).
+
+### Paleta — 60 / 30 / 10 (UIREDO-01)
+
+| Rol | Token | Hex | % uso |
+|-----|-------|-----|-------|
+| Dominante (60%) | `--color-surface-app` (`surface.50`) | `#f8fafc` | body, main content |
+| Secundario (30%) | `--color-surface-base` (`surface.0`) | `#ffffff` | cards, drawer, top bar, modals, form fields |
+| Acento (10%) | `--color-primary` (`brand.600`) | `#1a3a5c` | CTA primario, link, focus ring, nav activo |
+| Destructivo | `--color-error` (`error.600`) | `#dc2626` | botones destructivos, estados de error |
+
+El acento queda reservado a: (1) botón primario, (2) nav activo en drawer,
+(3) focus ring, (4) links en texto, (5) selected state (checkbox/radio/tab).
+
+### Tipografía
+
+4 tamaños (Body 14, Subtitle 16, Heading 20, Display 32) y 2 pesos
+(400 regular, 600 semibold). Fuentes system-stack (D-06) sin CDN.
+
+### Motion
+
+`--duration-fast: 150ms`, `--duration-base: 200ms` (drawer cap UIREDO-02),
+`--duration-slow: 300ms` (modal cap UIREDO-05). Respeta
+`prefers-reduced-motion` (regla global en `tokens.css`).
+
+### Z-index
+
+`--z-topbar: 30`, `--z-backdrop: 40`, `--z-drawer: 50`, `--z-modal: 60`,
+`--z-popover: 70`, `--z-toast: 90`. Escala cerrada — no usar valores fuera.
+
+### Tailwind mapping
+
+Consumido vía `static/js/tailwind.config.js` (extraído de `base.html` en
+Plan 08-01). Utilidades nuevas: `bg-surface`, `bg-surface-app`, `text-body`,
+`text-muted`, `bg-primary`, `bg-primary-subtle`, `border-subtle`,
+`shadow-card`, `z-topbar`. Utilidades legacy (`bg-brand-600`, `bg-surface-50`)
+siguen disponibles para compatibilidad.
+
+### Contraste WCAG 2.1 AA
+
+Matriz verificada manualmente (`pa11y-ci` la validará en CI en Plan 08-10):
+text-body sobre surface-app 14.2:1 (AAA), text-muted sobre surface-app 5.1:1
+(AA), on-accent sobre primary 10.3:1, success sobre surface-base 4.7:1 (AA
+ajustado — no aclarar), warn sobre surface-base 4.5:1 (AA ajustado — no
+aclarar), error sobre surface-base 4.9:1.
