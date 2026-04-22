@@ -120,7 +120,7 @@ Rediseño visual completo tras consolidar backend + permisos + deploy + devex.
 Discussion window-by-window con propuestas visuales antes de tocar código.
 Centro de Mando se mantiene en estructura; todo lo demás se reinterpreta.
 
-- [ ] **UIREDO-01**: Tema claro tokenizado — paleta definida en `docs/BRANDING.md` (neutros, acentos Nexo/ECS, semánticos success/warn/error) traducida a variables CSS `:root` en `static/css/tokens.css`. Tailwind config consume los tokens. Sin colores hardcoded en templates.
+- [x] **UIREDO-01**: Tema claro tokenizado — paleta definida en `docs/BRANDING.md` (neutros, acentos Nexo/ECS, semánticos success/warn/error) traducida a variables CSS `:root` en `static/css/tokens.css`. Tailwind config consume los tokens. Sin colores hardcoded en templates.
 - [ ] **UIREDO-02**: Sidebar convertida en drawer/popup colapsable — estado por defecto colapsado en desktop (solo icono rail); expandido como overlay con animación ≤200ms. En móvil siempre drawer. Honra `prefers-reduced-motion`. Preserva la lista de nav_items + permisos de Phase 5 (no regresión).
 - [ ] **UIREDO-03**: Centro de Mando (`/`) conserva layout de tarjetas pero adopta nuevo tema claro + tipografía + espaciados. Single source of truth: los datos/endpoints no cambian.
 - [ ] **UIREDO-04**: Cada pantalla funcional rediseñada individualmente con proceso "propuesta → selección → implementación": pipeline, bbdd, capacidad, operarios, recursos, ciclos-calc, historial, datos, ajustes hub + 5 sub-páginas (conexion, usuarios, auditoria, limites, rendimiento, solicitudes). Mínimo 2 propuestas visuales por pantalla antes de commit de implementación.
@@ -246,7 +246,7 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | DEVEX-05 | Phase 7 | Pending |
 | DEVEX-06 | Phase 7 | Pending |
 | DEVEX-07 | Phase 7 | Pending |
-| UIREDO-01 | Phase 8 | Pending |
+| UIREDO-01 | Phase 8 | Complete (08-01 — 2026-04-22) |
 | UIREDO-02 | Phase 8 | Pending |
 | UIREDO-03 | Phase 8 | Pending |
 | UIREDO-04 | Phase 8 | Pending |

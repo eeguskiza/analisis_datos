@@ -164,7 +164,7 @@ Plans:
 **Plans**: 13 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — tokens.css + tailwind.config.js + BRANDING.md tokens section (UIREDO-01)
+- [x] 08-01-PLAN.md — tokens.css + tailwind.config.js + BRANDING.md tokens section (UIREDO-01) ✓ 2026-04-22
 - [ ] 08-02-PLAN.md — Chrome rewrite: top bar + drawer + toast 3-arg fix + Alpine Focus/Persist + print.css + gif-corona.png (UIREDO-02, UIREDO-05, UIREDO-06, UIREDO-08)
 - [ ] 08-03-PLAN.md — nexo.users.nombre column migration + form update (UIREDO-02, UIREDO-06)
 - [ ] 08-04-PLAN.md — /bienvenida landing: saludo + reloj + hora_saludo filter + post-login redirect (UIREDO-02, UIREDO-05, UIREDO-06)

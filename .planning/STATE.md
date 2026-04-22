@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 8 UI-SPEC approved
-last_updated: "2026-04-22T17:55:25.600Z"
+status: executing
+stopped_at: Completed 08-01 tokens + tailwind config
+last_updated: "2026-04-22T18:07:13.004Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 38
-  completed_plans: 24
-  percent: 63
+  completed_plans: 25
+  percent: 66
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 8
-Plan: Not started
-Status: Ready to plan
+Plan: 08-01 ✓ (tokens + tailwind config) — next 08-02 chrome
+Status: In progress
 Last activity: 2026-04-22
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 66%
 
 ## Plans de Phase 2 (estado)
 
@@ -72,6 +72,7 @@ Progress: [██████████] 100%
 | Phase 06 P01 | 34min | 3 tasks | 8 files |
 | Phase 06 P02 | 18min | 3 tasks tasks | 5 files files |
 | Phase 06 P03 | 7min | 3 tasks | 3 files |
+| Phase 08 P01 | 9min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,7 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Plan 06-03: runbook docs/DEPLOY_LAN.md (740 lineas, 16 secciones, espanol, sin emojis) cubre Docker install + clone + ufw + root CA por SO + hosts-file por SO + cron nightly + restore + recovery RTO 1-2h + 7 landmines numeradas. Placeholders literales <IP_NEXO>/<SUBNET_LAN>/<ADMIN_BACKUP_NAME>/<URL_REPO_NEXO>. DEPLOY-05/06/07 cerrados a nivel doc + test regresion; validacion empirica en Ubuntu fisico queda deferred hasta asignacion por IT.
 - Plan 06-03: tests/infra/deploy_smoke.sh con 11 checks [DEPLOY-XX] OK|FAIL, exit code = FAILS count, bash set -uo pipefail (no -e para seguir tras fallos individuales). curl -k intencional: smoke valida Caddy+web vivos, no cadena TLS valida desde el servidor. Usable por cron diario post-deploy.
 - Plan 06-03: tests/infra/test_deploy_lan_doc.py con 24 tests de regresion doc+smoke. Validado end-to-end que borrar 'ufw allow 443/tcp'/'down -v'/inyectar emoji FALLA el test correspondiente. Suite tests/infra total: 73 tests (49 Wave 0/2 + 24 nuevos) <1s.
+- Plan 08-01 cierra substrate de tokens: tokens.css two-layer (raw + semantic), tailwind.config.js extraido de base.html (no wiring — ese es 08-02), BRANDING.md documenta 60/30/10 split + typography + motion + z-index. 56 tests regresión en tests/infra/test_tokens_css.py. Pre-existing test failure (thresholds_crud recalibrate) confirmado fuera de scope, deferred-items.md creado.
 
 ### Pending Todos
 
@@ -165,9 +167,9 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 8 UI-SPEC approved
+Last session: 2026-04-22T18:07:12.996Z
+Stopped at: Completed 08-01 tokens + tailwind config
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
-Resume file: --resume-file
+Resume file: None
 
 **Planned Phase:** 08 () — 0 plans — 2026-04-22T17:55:25.587Z
