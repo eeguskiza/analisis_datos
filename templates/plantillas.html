@@ -195,7 +195,7 @@ function plantillasEditor() {
       this.saving = false;
       this.saved = true;
       setTimeout(() => this.saved = false, 2000);
-      showToast('Plantilla guardada');
+      window.showToast('success', 'Plantilla guardada', '');
     },
 
     async crear() {
@@ -209,7 +209,7 @@ function plantillasEditor() {
       this.showNew = false;
       this.newName = '';
       await this.load();
-      showToast('Plantilla creada');
+      window.showToast('success', 'Plantilla creada', '');
     },
 
     moveSection(modKey, idx, dir) {

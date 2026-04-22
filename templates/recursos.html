@@ -551,7 +551,7 @@ function recursosPage() {
         this.detectFilter = '';
         this.showDetect = true;
       } catch (err) {
-        showToast('Error conectando con IZARO: ' + (err.message || ''), 'error');
+        window.showToast('error', 'Error conectando con IZARO', String(err.message || ''));
       }
       this.detecting = false;
     },
@@ -560,7 +560,7 @@ function recursosPage() {
       const nombre = m._nombre.trim().toLowerCase();
       if (!nombre) return;
       if (this.recursos.some(r => r.nombre === nombre)) {
-        showToast('Ya existe un recurso con ese nombre', 'error');
+        window.showToast('error', 'Ya existe un recurso con ese nombre', '');
         return;
       }
       try {
@@ -571,7 +571,7 @@ function recursosPage() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          showToast(err.detail || 'Error al añadir', 'error');
+          window.showToast('error', 'Error al añadir', String(err.detail || ''));
           return;
         }
         // Añadir al estado local
@@ -583,9 +583,9 @@ function recursosPage() {
         m.configurado = true;
         m.nombre_local = nombre;
         m.seccion_local = m._seccion;
-        showToast(nombre + ' añadida');
+        window.showToast('success', 'Recurso añadido', nombre);
       } catch (err) {
-        showToast('Error al añadir', 'error');
+        window.showToast('error', 'Error al añadir', '');
       }
     },
 
@@ -606,9 +606,9 @@ function recursosPage() {
         if (!r2.ok) throw new Error('Error guardando ciclos');
         await fetch('/api/ciclos/sync-csv', { method: 'POST' });
         this.dirty = false;
-        showToast('Guardado');
+        window.showToast('success', 'Guardado', '');
       } catch (err) {
-        showToast(err.message || 'Error al guardar', 'error');
+        window.showToast('error', 'Error al guardar', String(err.message || ''));
       }
       this.saving = false;
     },

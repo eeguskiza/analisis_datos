@@ -1,5 +1,162 @@
 /* ── Nexo — JavaScript helpers ──────────────────────────────────────────────── */
 
+// ── Toast notifications (UI-SPEC §Flash toast, D-30) ──────────────────────
+// Canonical signature: showToast(type, title, msg)
+//   type:  info | success | warn | error |
+//          (legacy alias) producing | stopped | incidence | alarm | turno
+//   title: short bold line (required)
+//   msg:   optional secondary text (may be null/undefined/empty)
+//
+// Phase 8 Pitfall 3: Historically `base.html` declared a 3-arg form and
+// `app.js` a 2-arg `(message, type)` form. Plan 08-02 locks the 3-arg
+// contract and updates every caller. Legacy type names map to the new
+// set so the Alpine pabellon telemetry keeps working without churn.
+
+const _TOAST_VARIANT_ALIAS = Object.freeze({
+  producing: 'success',
+  stopped:   'warn',
+  incidence: 'error',
+  alarm:     'error',
+  turno:     'info',
+});
+
+const _TOAST_ICON_PATH = Object.freeze({
+  info:    'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  success: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+  warn:    'M12 9v2m0 4h.01M12 3l9 16H3l9-16z',
+  error:   'M6 18L18 6M6 6l12 12',
+});
+
+const _TOAST_BORDER_COLOR = Object.freeze({
+  info:    'border-l-info',
+  success: 'border-l-success',
+  warn:    'border-l-warn',
+  error:   'border-l-error',
+});
+
+const _TOAST_ICON_COLOR = Object.freeze({
+  info:    'text-info',
+  success: 'text-success',
+  warn:    'text-warn',
+  error:   'text-error',
+});
+
+const _TOAST_ROLE = Object.freeze({
+  info:    'status',
+  success: 'status',
+  warn:    'alert',
+  error:   'alert',
+});
+
+window.showToast = function (type, title, msg) {
+  const root = document.getElementById('toast-root');
+  if (!root) return;
+
+  const variant = _TOAST_VARIANT_ALIAS[type] || type;
+  const safeVariant = ['info', 'success', 'warn', 'error'].includes(variant) ? variant : 'info';
+
+  const el = document.createElement('div');
+  el.setAttribute('role', _TOAST_ROLE[safeVariant]);
+  el.setAttribute('tabindex', '0');
+  el.className = [
+    'pointer-events-auto',
+    'bg-surface-base',
+    'border', 'border-subtle', 'border-l-4', _TOAST_BORDER_COLOR[safeVariant],
+    'rounded-md', 'shadow-popover',
+    'px-4', 'py-3',
+    'flex', 'items-start', 'gap-3',
+    'min-w-0',
+    'transition-base', 'ease-standard',
+  ].join(' ');
+  el.style.transform = 'translateX(16px)';
+  el.style.opacity = '0';
+
+  el.innerHTML = `
+    <svg class="w-5 h-5 shrink-0 mt-0.5 ${_TOAST_ICON_COLOR[safeVariant]}" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="${_TOAST_ICON_PATH[safeVariant]}"/>
+    </svg>
+    <div class="min-w-0 flex-1">
+      <div class="text-sm font-semibold text-heading">${_escape(title || '')}</div>
+      ${msg ? `<div class="text-sm text-body mt-0.5">${_escape(msg)}</div>` : ''}
+    </div>
+    <button type="button" aria-label="Cerrar aviso" class="btn-icon text-muted hover:text-body shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  `;
+
+  root.appendChild(el);
+  // Trigger enter animation on next frame
+  requestAnimationFrame(() => {
+    el.style.transform = 'translateX(0)';
+    el.style.opacity = '1';
+  });
+
+  let dismissTimer = null;
+  const dismiss = () => {
+    if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null; }
+    el.style.transform = 'translateX(16px)';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 200);
+  };
+  const arm = () => { dismissTimer = setTimeout(dismiss, 4000); };
+
+  // Pause on hover (D-30)
+  el.addEventListener('mouseenter', () => { if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null; } });
+  el.addEventListener('mouseleave', arm);
+  el.querySelector('button').addEventListener('click', dismiss);
+  arm();
+};
+
+function _escape(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+// ── nexoChrome() Alpine component (Phase 8 / Plan 08-02) ──────────────────
+// Drives the drawer open/close state + the [ keyboard shortcut.
+// Persists `drawerOpen` via @alpinejs/persist under key `nexo.ui.drawerOpen`.
+// Pitfall 5: $persist on first load without a persisted value returns the
+// default (false) — safe. No migration needed.
+// Pitfall 7: the [ listener guards against firing while typing in inputs.
+
+function nexoChrome() {
+  return {
+    drawerOpen: (window.Alpine && window.Alpine.$persist)
+      ? window.Alpine.$persist(false).as('nexo.ui.drawerOpen')
+      : false,  // Fallback if $persist not yet loaded — rare
+    toggleDrawer() { this.drawerOpen = !this.drawerOpen; },
+    openDrawer()   { this.drawerOpen = true; },
+    closeDrawer()  { this.drawerOpen = false; },
+    onKeydown(e) {
+      // Esc closes drawer first (z-order priority handled by Alpine @keydown)
+      if (e.key === 'Escape' && this.drawerOpen) {
+        this.closeDrawer();
+        return;
+      }
+      // [ toggles drawer, unless typing
+      if (e.key === '[' && !_isTyping(e.target)) {
+        e.preventDefault();
+        this.toggleDrawer();
+      }
+    },
+  };
+}
+
+function _isTyping(el) {
+  if (!el) return false;
+  const tag = (el.tagName || '').toUpperCase();
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (el.isContentEditable) return true;
+  return false;
+}
+
+// Expose for Alpine.data() auto-pickup
+window.nexoChrome = nexoChrome;
+
+
 // ── Conexion badge (responde al hx-get /api/conexion/status) ────────────────
 document.addEventListener('htmx:afterRequest', (evt) => {
   if (!evt.detail.pathInfo?.requestPath?.includes('/api/conexion/status')) return;
@@ -405,25 +562,6 @@ function _renderSection(container, secName, sec, pdfs, data, isMulti = false) {
 }
 
 
-// ── Toast notifications ─────────────────────────────────────────────────────
-
-function showToast(message, type = 'success') {
-  const colors = {
-    success: 'bg-green-600',
-    error: 'bg-red-600',
-    info: 'bg-brand-600',
-  };
-  const toast = document.createElement('div');
-  toast.className = `fixed bottom-4 right-4 ${colors[type] || colors.info} text-white px-4 py-2.5 rounded-xl shadow-lg text-sm z-50 transition-opacity duration-300`;
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 300);
-  }, 2500);
-}
-
-
 // ── Preflight modal (Phase 4 / Plan 04-02) ──────────────────────────────────
 // Humanizes milliseconds into operator-friendly strings.
 //
@@ -547,14 +685,14 @@ document.addEventListener('alpine:init', () => {
         if (res.ok) {
           const data = await res.json();
           const approvalId = data.approval_id != null ? data.approval_id : '?';
-          showToast(`Solicitud enviada. Ver en /mis-solicitudes (#${approvalId}).`, 'info');
+          window.showToast('info', 'Solicitud enviada', `Ver en /mis-solicitudes (#${approvalId}).`);
         } else {
           // Until Plan 04-03 lands, /api/approvals may 404 or 501.
           // Inform the user clearly instead of silently failing.
-          showToast('Aprobaciones aun no disponibles (Plan 04-03).', 'error');
+          window.showToast('error', 'Aprobaciones no disponibles', 'Esta función todavía no está habilitada.');
         }
       } catch (err) {
-        showToast('Error enviando la solicitud.', 'error');
+        window.showToast('error', 'Error', 'No se pudo enviar la solicitud.');
       }
       this.modalLevel = null;
     },

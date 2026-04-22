@@ -509,7 +509,7 @@ function ciclosCalc() {
       else value = this.saveCustom;
 
       if (value === null || value === undefined || value <= 0) {
-        showToast('Valor no valido', 'error');
+        window.showToast('error', 'Valor no válido', '');
         return;
       }
 
@@ -528,12 +528,12 @@ function ciclosCalc() {
         if (res.ok) {
           ref._applied = true;
           ref._saved = value;
-          showToast(`${ref.referencia}: ${value} pzas/h`);
+          window.showToast('success', 'Ciclo guardado', `${ref.referencia}: ${value} pzas/h`);
         } else {
           const err = await res.json().catch(() => ({}));
-          showToast(err.detail || 'Error', 'error');
+          window.showToast('error', 'Error', String(err.detail || 'Error al guardar'));
         }
-      } catch { showToast('Error guardando', 'error'); }
+      } catch { window.showToast('error', 'Error guardando', ''); }
       this.saveDialog = null;
     },
 
@@ -698,7 +698,7 @@ function ciclosCalc() {
       const a = document.createElement('a');
       a.href = url; a.download = `ciclos_${this.result.recurso}_${new Date().toISOString().slice(0,10)}.csv`;
       a.click(); URL.revokeObjectURL(url);
-      showToast('CSV exportado');
+      window.showToast('success', 'CSV exportado', '');
     },
   };
 }

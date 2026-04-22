@@ -135,7 +135,7 @@ function ajustesConexionPage() {
       this.saving = true;
       await fetch('/api/conexion/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.cfg) });
       this.saving = false; this.saved = true; setTimeout(() => this.saved = false, 2000);
-      showToast('Configuracion guardada'); await this.testConnection();
+      window.showToast('success', 'Configuración guardada', ''); await this.testConnection();
     },
     async testConnection() {
       this.testing = true; this.connStatus = 'checking'; this.connMsg = 'Probando...';

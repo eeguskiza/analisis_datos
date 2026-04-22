@@ -241,7 +241,7 @@ function datosPage() {
         this.logLines.push('ERROR: ' + err.message);
       }
       this.running = false;
-      if (this.done) showToast('Extraccion completada');
+      if (this.done) window.showToast('success', 'Extracción completada', '');
     },
   };
 }

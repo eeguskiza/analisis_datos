@@ -136,7 +136,7 @@ function ciclosEditor() {
       this.saving = false;
       this.saved = true;
       setTimeout(() => this.saved = false, 2000);
-      showToast('Ciclos guardados');
+      window.showToast('success', 'Ciclos guardados', '');
       await this.loadCiclos();
     }
   };

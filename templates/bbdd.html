@@ -149,7 +149,7 @@ function bbddExplorer() {
         if (!res.ok) throw new Error();
         const data = await res.json();
         this.databases = data.databases || [];
-      } catch { showToast('Error conectando al servidor', 'error'); }
+      } catch { window.showToast('error', 'Error conectando al servidor', ''); }
       this.loadingDbs = false;
     },
 
@@ -275,7 +275,7 @@ function bbddExplorer() {
           a.download = `esquema_${db}_${new Date().toISOString().slice(0,10)}.png`;
           a.click();
           URL.revokeObjectURL(a.href);
-          showToast('Diagrama exportado');
+          window.showToast('success', 'Diagrama exportado', '');
         }, 'image/png');
       };
       img.onerror = () => {
@@ -285,7 +285,7 @@ function bbddExplorer() {
         a.href = URL.createObjectURL(blob);
         a.download = `esquema_${db}_${new Date().toISOString().slice(0,10)}.svg`;
         a.click();
-        showToast('Exportado como SVG');
+        window.showToast('success', 'Exportado como SVG', '');
       };
       img.src = url;
     },
@@ -300,7 +300,7 @@ function bbddExplorer() {
         const data = await res.json();
         this.previewCols = data.columns || [];
         this.previewRows = data.rows || [];
-      } catch { showToast('Error cargando datos', 'error'); }
+      } catch { window.showToast('error', 'Error cargando datos', ''); }
       this.loadingPreview = false;
     },
   };

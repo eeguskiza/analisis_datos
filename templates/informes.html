@@ -274,14 +274,14 @@ function informesPage() {
         const res = await fetch(`/api/historial/${this.selected.id}/regenerar`, { method: 'POST' });
         const data = await res.json();
         if (data.ok) {
-          showToast(`${data.n_pdfs} PDF(s) generados`);
+          window.showToast('success', 'Informe generado', `${data.n_pdfs} PDF(s) generados.`);
           await this.selectEjecucion(this.selected);
           this.selected.n_pdfs = data.n_pdfs;
         } else {
-          showToast('Error al regenerar', 'error');
+          window.showToast('error', 'Error al regenerar', '');
         }
       } catch (err) {
-        showToast('Error: ' + err, 'error');
+        window.showToast('error', 'Error', String(err));
       }
       this.regenerando = false;
     },

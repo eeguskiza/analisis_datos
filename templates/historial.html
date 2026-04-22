@@ -407,14 +407,14 @@ function historialPage() {
         const res = await fetch(`/api/historial/${this.selected.id}/regenerar`, { method: 'POST' });
         const data = await res.json();
         if (data.ok) {
-          showToast(`${data.n_pdfs} PDF(s) generados`);
+          window.showToast('success', 'Informe generado', `${data.n_pdfs} PDF(s) generados.`);
           this.selected.n_pdfs = data.n_pdfs;
           await this.selectEjecucion(this.selected);
           this.activeTab = 'pdfs';
         } else {
-          showToast(data.detail || 'Error', 'error');
+          window.showToast('error', 'Error', String(data.detail || 'Error al regenerar'));
         }
-      } catch (err) { showToast('Error: ' + err, 'error'); }
+      } catch (err) { window.showToast('error', 'Error', String(err)); }
       this.regenerando = false;
     },
 
@@ -424,7 +424,7 @@ function historialPage() {
       this.selected = null;
       this.informes = [];
       await this.load();
-      showToast('Ejecucion borrada');
+      window.showToast('success', 'Ejecución borrada', '');
     },
 
     // ── Tendencias ──────────────────────────────────────────────────
@@ -444,7 +444,7 @@ function historialPage() {
         this.tendData = data.dias || [];
         this.$nextTick(() => { this.renderTendOeeChart(); this.renderTendPiezasChart(); });
       } catch (err) {
-        showToast('Error: ' + err.message, 'error');
+        window.showToast('error', 'Error', String(err.message));
         this.tendData = [];
       }
       this.tendLoading = false;
@@ -521,7 +521,7 @@ function historialPage() {
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
       a.download = `tendencias_${this.tendRecurso}_${new Date().toISOString().slice(0,10)}.csv`;
       a.click(); URL.revokeObjectURL(a.href);
-      showToast('CSV exportado');
+      window.showToast('success', 'CSV exportado', '');
     },
   };
 }
