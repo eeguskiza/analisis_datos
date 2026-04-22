@@ -1,0 +1,184 @@
+/* ──────────────────────────────────────────────────────────────
+   Nexo — Design Tokens (Phase 8, per D-01 + D-05)
+   Two layers:
+     Layer 1 (raw)       — palette scales used occasionally for edge cases.
+     Layer 2 (semantic)  — the only layer templates should read from.
+   Format: space-separated R G B for Tailwind's
+           rgb(var(--color-xxx) / <alpha-value>) pattern.
+   Do NOT wrap values in rgb() and do NOT use commas.
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Layer 1: Raw palette ─────────────────────────────────────── */
+  /* Brand (kept from base.html:18) */
+  --color-brand-50:   238 245 255;
+  --color-brand-100:  217 232 255;
+  --color-brand-200:  188 213 255;
+  --color-brand-300:  142 187 255;
+  --color-brand-400:   89 149 255;
+  --color-brand-500:   51 109 255;
+  --color-brand-600:   26  58  92;   /* primary accent */
+  --color-brand-700:   20  45  71;   /* primary hover  */
+  --color-brand-800:   15  34  54;   /* text body      */
+  --color-brand-900:   10  23  36;   /* text heading   */
+
+  /* Surface (50-300 kept; 0 + 400-900 new) */
+  --color-surface-0:   255 255 255;
+  --color-surface-50:  248 250 252;
+  --color-surface-100: 241 245 249;
+  --color-surface-200: 226 232 240;
+  --color-surface-300: 203 213 225;
+  --color-surface-400: 148 163 184;
+  --color-surface-500: 100 116 139;
+  --color-surface-600:  71  85 105;
+  --color-surface-700:  51  65  85;
+  --color-surface-800:  30  41  59;
+  --color-surface-900:  15  23  42;
+
+  /* Success */
+  --color-success-50:  236 253 245;
+  --color-success-100: 209 250 229;
+  --color-success-500:  16 185 129;
+  --color-success-600:   5 150 105;
+  --color-success-700:   4 120  87;
+
+  /* Warn */
+  --color-warn-50:  255 251 235;
+  --color-warn-100: 254 243 199;
+  --color-warn-500: 245 158  11;
+  --color-warn-600: 217 119   6;
+  --color-warn-700: 180  83   9;
+
+  /* Error */
+  --color-error-50:  254 242 242;
+  --color-error-100: 254 226 226;
+  --color-error-500: 239  68  68;
+  --color-error-600: 220  38  38;
+  --color-error-700: 185  28  28;
+
+  /* Info */
+  --color-info-50:  239 246 255;
+  --color-info-100: 219 234 254;
+  --color-info-500:  59 130 246;
+  --color-info-600:  37  99 235;
+  --color-info-700:  29  78 216;
+
+  /* ── Layer 2: Semantic tokens ─────────────────────────────────── */
+  /* Base surfaces */
+  --color-surface-base:    var(--color-surface-0);
+  --color-surface-app:     var(--color-surface-50);
+  --color-surface-subtle:  var(--color-surface-100);
+  --color-surface-muted:   var(--color-surface-200);
+
+  /* Text */
+  --color-text-body:       var(--color-brand-800);
+  --color-text-heading:    var(--color-brand-900);
+  --color-text-muted:      var(--color-surface-500);
+  --color-text-disabled:   var(--color-surface-400);
+  --color-text-on-accent:  255 255 255;
+
+  /* Border */
+  --color-border-subtle:   var(--color-surface-200);
+  --color-border-strong:   var(--color-surface-300);
+
+  /* Accent (brand) */
+  --color-primary:         var(--color-brand-600);
+  --color-primary-hover:   var(--color-brand-700);
+  --color-primary-active:  var(--color-brand-800);
+  --color-primary-subtle:  var(--color-brand-50);
+  --color-focus-ring:      var(--color-brand-500);
+
+  /* Semantic states */
+  --color-success:         var(--color-success-600);
+  --color-success-subtle:  var(--color-success-50);
+  --color-warn:            var(--color-warn-600);
+  --color-warn-subtle:     var(--color-warn-50);
+  --color-error:           var(--color-error-600);
+  --color-error-subtle:    var(--color-error-50);
+  --color-info:            var(--color-info-600);
+  --color-info-subtle:     var(--color-info-50);
+
+  /* Typography scale (D-05) */
+  --text-body-size: 14px;
+  --text-body-lh:   1.5;
+  --text-body-weight-regular: 400;
+  --text-body-weight-semibold: 600;
+  --text-subtitle-size: 16px;
+  --text-subtitle-lh:   1.4;
+  --text-heading-size: 20px;
+  --text-heading-lh:   1.3;
+  --text-heading-ls:   -0.01em;
+  --text-display-size: 32px;
+  --text-display-lh:   1.2;
+  --text-display-ls:   -0.02em;
+
+  /* Font stacks (D-06) */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               monospace;
+
+  /* Spacing aliases (D-05) */
+  --space-field-gap: 16px;
+  --space-card-padding: 24px;
+  --space-card-gap: 16px;
+  --space-section-gap: 32px;
+  --space-page-gutter-x: 24px;
+  --space-page-gutter-x-mobile: 16px;
+  --space-topbar-h: 56px;
+  --space-topbar-h-mobile: 52px;
+  --space-drawer-w: 280px;
+  --space-drawer-padding: 16px;
+
+  /* Elevation (shadow) */
+  --shadow-card:     0 1px 2px 0 rgb(15 34 54 / 0.04),
+                     0 1px 3px 0 rgb(15 34 54 / 0.06);
+  --shadow-popover:  0 4px 6px -1px rgb(15 34 54 / 0.08),
+                     0 2px 4px -2px rgb(15 34 54 / 0.06);
+  --shadow-modal:    0 20px 25px -5px rgb(15 34 54 / 0.12),
+                     0 8px 10px -6px rgb(15 34 54 / 0.08);
+  --shadow-drawer:   4px 0 24px -4px rgb(15 34 54 / 0.12);
+
+  /* Radius */
+  --radius-sm:   6px;
+  --radius-md:  10px;
+  --radius-lg:  16px;
+  --radius-xl:  24px;
+  --radius-pill: 9999px;
+
+  /* Motion (D-05 — budget ≤200ms drawer, ≤300ms modal) */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --ease-standard:    cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized:  cubic-bezier(0.3, 0, 0, 1);
+  --ease-accelerate:  cubic-bezier(0.3, 0, 1, 1);
+
+  /* Z-index scale */
+  --z-base:      0;
+  --z-sticky:   10;
+  --z-topbar:   30;
+  --z-backdrop: 40;
+  --z-drawer:   50;
+  --z-modal:    60;
+  --z-popover:  70;
+  --z-toast:    90;
+  --z-reserved: 100;
+}
+
+/* Reduced motion — applies globally (D-05 + UI-SPEC §Reduced motion) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* The spinner and the loading hero GIF are exempt — they signal progress. */
+  .spinner,
+  .loading-hero img,
+  .spinner-panel .spinner {
+    animation-duration: 1.5s !important;
+  }
+}
