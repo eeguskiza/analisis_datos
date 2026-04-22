@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v1.0.0
 milestone_name: milestone
 status: planning
 stopped_at: Phase 8 UI-SPEC approved
-last_updated: "2026-04-22T16:10:18.471Z"
+last_updated: "2026-04-22T17:55:25.600Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 24
+  total_plans: 38
   completed_plans: 24
-  percent: 100
+  percent: 63
 ---
 
 # Project State
@@ -170,4 +170,4 @@ Stopped at: Phase 8 UI-SPEC approved
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
 Resume file: --resume-file
 
-**Planned Phase:** 7 (DevEx hardening) — 4 plans — 2026-04-21T18:26:59.441Z
+**Planned Phase:** 08 () — 0 plans — 2026-04-22T17:55:25.587Z
