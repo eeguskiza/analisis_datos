@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-04 bienvenida landing
-last_updated: "2026-04-22T18:56:00Z"
+stopped_at: Completed 08-05 Centro de Mando / luk4 visual refactor
+last_updated: "2026-04-22T19:20:54.910Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 38
-  completed_plans: 28
-  percent: 74
+  completed_plans: 29
+  percent: 76
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 8
-Plan: 08-04 ✓ (bienvenida landing + saludo + reloj + post-login redirect) — next 08-05 Centro de Mando visual refactor
+Plan: 08-05 ✓ (Centro de Mando / luk4 visual refactor — D-16 LOCKED preserved) — next 08-06 Auth screens refactor
 Status: In progress
 Last activity: 2026-04-22
 
-Progress: [███████░░░] 74%
+Progress: [████████░░] 76%
 
 ## Plans de Phase 2 (estado)
 
@@ -76,6 +76,7 @@ Progress: [███████░░░] 74%
 | Phase 08 P02 | 15 | 4 tasks | 13 files |
 | Phase 08 P03 | 30 | 3 tasks | 9 files |
 | Phase 08 P04 | 10min | 3 tasks | 6 files |
+| Phase 08 P08-05 | 18 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -133,6 +134,7 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Plan 08-02: Alpine Focus + Persist CDN plugins loaded BEFORE Alpine core via base.html rewrite; drawerOpen persisted to localStorage.nexo.ui.drawerOpen; [ shortcut with _isTyping input-guard; 3-arg showToast canonical API with XSS-safe _escape helper; legacy producing/stopped/incidence/alarm/turno mapped via _TOAST_VARIANT_ALIAS; getattr exposed as Jinja global for defensive getattr(current_user, 'nombre', None) pre-08-03
 - Plan 08-03: nexo.users.nombre column added (VARCHAR(120) NULL) + idempotent migration + backfill + ORM/DTO/repo wiring + /ajustes/usuarios form field; schema_guard extended with generic REQUIRED_COLUMNS mechanism; Rule 1 bugfix: _serialize_user datetime tojson explosion (latente desde 02-04)
 - Plan 08-04: /bienvenida landing shipped. hora_saludo Jinja filter (Europe/Madrid, 3 bands D-23) in api/deps.py; bienvenidaPage() Alpine component with setInterval(1s) + destroy() cleanup (Pitfall 6); post-login redirect target switched from / to /bienvenida (must_change_password branch preserved); templates/bienvenida.html extends base.html with Display/Heading role swap (hidden/md:hidden twin <h2>), server-rendered Spanish day+date, client-side reloj via x-text="clock" (role="timer", tabular-nums). Defensive getattr(current_user, 'nombre', None) fallback for rows without backfill. GET /bienvenida route sin require_permission — AuthMiddleware global es suficiente. 17 tests: 4 unit (hora_saludo bands incl. UTC→Madrid DST conversion) + 6 integration (login redirect, render, auth-required, Spanish day/month). Phase 5 RBAC suite intacta (41 tests green). 2 pre-existing thresholds_crud failures diferred (verificadas en HEAD~2).
+- Plan 08-05: luk4.html outer chrome migrated to tokens with D-16 LOCKED preserved byte-for-byte (4 pabPage() roots + 4 mapa_pabellon includes + pabPage function body identical); Variant 3 selected autonomously per D-12 override; regression test strips <script> block so LOCKED zoneClass helpers keep LEGACY-ALLOWED raw state colors per UI-SPEC; sketch-findings-centro-mando-luk4 skill committed
 
 ### Pending Todos
 
@@ -173,8 +175,8 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-22T18:56:00Z
-Stopped at: Completed 08-04 bienvenida landing
+Last session: 2026-04-22T19:20:54.903Z
+Stopped at: Completed 08-05 Centro de Mando / luk4 visual refactor
 Tests: 73 focused pass (17 bienvenida + 41 Phase 5 RBAC + 15 other Phase 8). 3 pre-existing thresholds_crud failures diferred (verificados en HEAD~2, documentados en deferred-items.md — owner: Phase 4 backport o Phase 8 plan que toque thresholds).
 Resume file: None
 

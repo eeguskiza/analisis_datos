@@ -168,7 +168,7 @@ Plans:
 - [x] 08-02-PLAN.md — Chrome rewrite: top bar + drawer + toast 3-arg fix + Alpine Focus/Persist + print.css + gif-corona.png (UIREDO-02, UIREDO-05, UIREDO-06, UIREDO-08) ✓ 2026-04-22
 - [x] 08-03-PLAN.md — nexo.users.nombre column migration + form update (UIREDO-02, UIREDO-06) ✓ 2026-04-22
 - [x] 08-04-PLAN.md — /bienvenida landing: saludo + reloj + hora_saludo filter + post-login redirect (UIREDO-02, UIREDO-05, UIREDO-06) ✓ 2026-04-22
-- [ ] 08-05-PLAN.md — Centro de Mando / luk4 visual refactor (LOCKED interaction D-16) (UIREDO-03, UIREDO-04, UIREDO-06)
+- [x] 08-05-PLAN.md — Centro de Mando / luk4 visual refactor (LOCKED interaction D-16) (UIREDO-03, UIREDO-04, UIREDO-06) ✓ 2026-04-22
 - [ ] 08-06-PLAN.md — Auth screens refactor (login, cambiar_password, mis_solicitudes) (UIREDO-04, UIREDO-05, UIREDO-06, UIREDO-08)
 - [ ] 08-07-PLAN.md — Data screens refactor (pipeline, historial, bbdd, datos, informes) (UIREDO-04, UIREDO-05, UIREDO-06)
 - [ ] 08-08a-PLAN.md — Config screens filter/KPI refactor (capacidad + operarios) (UIREDO-04, UIREDO-05, UIREDO-06)
@@ -193,4 +193,4 @@ Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 5. UI por roles | 5/5 | Complete | 2026-04-20 |
 | 6. Despliegue LAN HTTPS | 0/? | Not started | - |
 | 7. DevEx hardening | 0/? | Not started | - |
-| 8. Rediseño UI (modo claro moderno) | 4/13 | In progress | - |
+| 8. Rediseño UI (modo claro moderno) | 5/14 | In progress | - |
