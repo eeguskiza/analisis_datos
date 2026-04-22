@@ -12,6 +12,7 @@ bootstrap (``init_db``, ``_import_*``), el dependency (``get_db``) y
 ``check_db_health`` NO se migran - siguen en ``api/database.py`` porque
 son infraestructura, no modelos.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -36,6 +37,7 @@ class Base(DeclarativeBase):
 
 
 # -- Modelos ------------------------------------------------------------------
+
 
 class Ciclo(Base):
     __tablename__ = "ciclos"
@@ -94,6 +96,7 @@ class InformeMeta(Base):
 
 class DatosProduccion(Base):
     """Datos extraidos de IZARO, almacenados por extraccion."""
+
     __tablename__ = "datos"
     __table_args__ = {"schema": "oee"}
 
@@ -115,6 +118,7 @@ class DatosProduccion(Base):
 
 class Contacto(Base):
     """Lista de contactos para envio de informes."""
+
     __tablename__ = "contactos"
     __table_args__ = {"schema": "cfg"}
 
@@ -125,8 +129,10 @@ class Contacto(Base):
 
 # Tablas adicionales para Power BI (solo escritura desde pipeline)
 
+
 class MetricaOEE(Base):
     """Metricas OEE calculadas - tabla principal para Power BI."""
+
     __tablename__ = "metricas"
     __table_args__ = {"schema": "oee"}
 
@@ -183,8 +189,14 @@ class IncidenciaResumen(Base):
 # -- Mapa seccion -------------------------------------------------------------
 
 SECTION_MAP = {
-    "luk1": "LINEAS", "luk2": "LINEAS", "luk3": "LINEAS", "luk6": "LINEAS",
-    "coroa": "LINEAS", "vw1": "LINEAS", "omr": "LINEAS", "t48": "TALLADORAS",
+    "luk1": "LINEAS",
+    "luk2": "LINEAS",
+    "luk3": "LINEAS",
+    "luk6": "LINEAS",
+    "coroa": "LINEAS",
+    "vw1": "LINEAS",
+    "omr": "LINEAS",
+    "t48": "TALLADORAS",
 }
 
 

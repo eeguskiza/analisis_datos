@@ -9,6 +9,7 @@ La fuente de verdad de los campos es el output real de
 ``OEE.db.connector.*``; si el legacy cambia su shape, estos DTOs deben
 actualizarse.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime

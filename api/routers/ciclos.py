@@ -4,6 +4,7 @@ Plan 03-03 Task 4.1: las queries ORM inline se encapsulan en
 ``CicloRepo`` (``nexo.data.repositories.app``). El router solo hace
 transport logic: validacion de payload + grouping + return shape.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -49,11 +50,13 @@ def listar(db: DbApp):
             grouped[sec] = {}
         if r.maquina not in grouped[sec]:
             grouped[sec][r.maquina] = []
-        grouped[sec][r.maquina].append({
-            "id": r.id,
-            "referencia": r.referencia,
-            "tiempo_ciclo": r.tiempo_ciclo,
-        })
+        grouped[sec][r.maquina].append(
+            {
+                "id": r.id,
+                "referencia": r.referencia,
+                "tiempo_ciclo": r.tiempo_ciclo,
+            }
+        )
 
     return {"rows": flat, "grouped": grouped}
 
@@ -119,10 +122,18 @@ def sync_to_csv(db: DbApp):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
-        writer = csv_mod.DictWriter(f, fieldnames=["maquina", "referencia", "tiempo_ciclo"])
+        writer = csv_mod.DictWriter(
+            f, fieldnames=["maquina", "referencia", "tiempo_ciclo"]
+        )
         writer.writeheader()
         for r in rows:
-            writer.writerow({"maquina": r.maquina, "referencia": r.referencia, "tiempo_ciclo": r.tiempo_ciclo})
+            writer.writerow(
+                {
+                    "maquina": r.maquina,
+                    "referencia": r.referencia,
+                    "tiempo_ciclo": r.tiempo_ciclo,
+                }
+            )
 
     return {"ok": True, "count": len(rows), "path": str(path)}
 

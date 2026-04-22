@@ -20,6 +20,7 @@ Endpoints:
 Todo via forms HTML + RedirectResponse 303. Sin JSON en este router -
 la UI es pura Jinja2/Alpine.
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,7 +51,9 @@ router = APIRouter(
 
 MIN_PASSWORD_LEN = 12
 VALID_ROLES = frozenset({"propietario", "directivo", "usuario"})
-VALID_DEPT_CODES = frozenset({"rrhh", "comercial", "ingenieria", "produccion", "gerencia"})
+VALID_DEPT_CODES = frozenset(
+    {"rrhh", "comercial", "ingenieria", "produccion", "gerencia"}
+)
 
 
 def _serialize_user(u: NexoUser) -> dict:
@@ -116,27 +119,47 @@ async def crear(
 
     # Validaciones
     if role not in VALID_ROLES:
-        return _render_list(request, db, error=f"Rol no valido: {role}", open_create=True)
+        return _render_list(
+            request, db, error=f"Rol no valido: {role}", open_create=True
+        )
     if password != password_repetir:
-        return _render_list(request, db, error="Las contrasenas no coinciden.", open_create=True)
+        return _render_list(
+            request, db, error="Las contrasenas no coinciden.", open_create=True
+        )
     if len(password) < MIN_PASSWORD_LEN:
         return _render_list(
-            request, db, error=f"Password minima {MIN_PASSWORD_LEN} caracteres.", open_create=True
+            request,
+            db,
+            error=f"Password minima {MIN_PASSWORD_LEN} caracteres.",
+            open_create=True,
         )
     for code in departments:
         if code not in VALID_DEPT_CODES:
-            return _render_list(request, db, error=f"Departamento invalido: {code}", open_create=True)
+            return _render_list(
+                request, db, error=f"Departamento invalido: {code}", open_create=True
+            )
 
     # Unicidad de email
-    if db.execute(select(NexoUser).where(NexoUser.email == email_norm)).scalar_one_or_none():
-        return _render_list(request, db, error=f"Ya existe un usuario con email {email_norm}.", open_create=True)
+    if db.execute(
+        select(NexoUser).where(NexoUser.email == email_norm)
+    ).scalar_one_or_none():
+        return _render_list(
+            request,
+            db,
+            error=f"Ya existe un usuario con email {email_norm}.",
+            open_create=True,
+        )
 
     # Cargar departamentos
     depts = []
     if departments:
-        depts = db.execute(
-            select(NexoDepartment).where(NexoDepartment.code.in_(departments))
-        ).scalars().all()
+        depts = (
+            db.execute(
+                select(NexoDepartment).where(NexoDepartment.code.in_(departments))
+            )
+            .scalars()
+            .all()
+        )
 
     new_user = NexoUser(
         email=email_norm,
@@ -148,7 +171,9 @@ async def crear(
     new_user.departments = list(depts)
     db.add(new_user)
     db.commit()
-    logger.info("usuario creado: %s (rol=%s, depts=%s)", email_norm, role, sorted(departments))
+    logger.info(
+        "usuario creado: %s (rol=%s, depts=%s)", email_norm, role, sorted(departments)
+    )
 
     return RedirectResponse(
         f"/ajustes/usuarios?ok=usuario-creado:{email_norm}", status_code=303
@@ -174,10 +199,14 @@ async def editar(
     is_self = current_user.id == user.id
 
     if role not in VALID_ROLES:
-        return _render_list(request, db, error=f"Rol no valido: {role}", edit_id=user_id)
+        return _render_list(
+            request, db, error=f"Rol no valido: {role}", edit_id=user_id
+        )
     for code in departments:
         if code not in VALID_DEPT_CODES:
-            return _render_list(request, db, error=f"Departamento invalido: {code}", edit_id=user_id)
+            return _render_list(
+                request, db, error=f"Departamento invalido: {code}", edit_id=user_id
+            )
 
     new_active = active == "on"
 
@@ -193,9 +222,13 @@ async def editar(
     # Cargar departamentos nuevos
     new_depts = []
     if departments:
-        new_depts = db.execute(
-            select(NexoDepartment).where(NexoDepartment.code.in_(departments))
-        ).scalars().all()
+        new_depts = (
+            db.execute(
+                select(NexoDepartment).where(NexoDepartment.code.in_(departments))
+            )
+            .scalars()
+            .all()
+        )
 
     role_changed = user.role != role
     deactivated_now = user.active and not new_active
@@ -212,7 +245,11 @@ async def editar(
 
     logger.info(
         "usuario editado: %s (id=%d, rol=%s, depts=%s, active=%s)",
-        user.email, user.id, role, sorted(departments), new_active,
+        user.email,
+        user.id,
+        role,
+        sorted(departments),
+        new_active,
     )
 
     return RedirectResponse(
@@ -233,7 +270,10 @@ async def reset_password(
 
     if len(password_nueva) < MIN_PASSWORD_LEN:
         return _render_list(
-            request, db, error=f"Password minima {MIN_PASSWORD_LEN} caracteres.", edit_id=user_id
+            request,
+            db,
+            error=f"Password minima {MIN_PASSWORD_LEN} caracteres.",
+            edit_id=user_id,
         )
 
     user.password_hash = hash_password(password_nueva)
@@ -260,22 +300,25 @@ async def desactivar(
 
     current_user = request.state.user
     if current_user.id == user.id:
-        return _render_list(
-            request, db, error="No puedes desactivarte a ti mismo."
-        )
+        return _render_list(request, db, error="No puedes desactivarte a ti mismo.")
 
     # No permitir desactivar el ultimo propietario activo.
     if user.role == "propietario":
-        other_owners = db.execute(
-            select(NexoUser).where(
-                NexoUser.role == "propietario",
-                NexoUser.active.is_(True),
-                NexoUser.id != user.id,
+        other_owners = (
+            db.execute(
+                select(NexoUser).where(
+                    NexoUser.role == "propietario",
+                    NexoUser.active.is_(True),
+                    NexoUser.id != user.id,
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         if not other_owners:
             return _render_list(
-                request, db,
+                request,
+                db,
                 error="No puedes desactivar al unico propietario activo del sistema.",
             )
 

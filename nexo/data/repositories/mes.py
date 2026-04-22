@@ -14,6 +14,7 @@ el engine y delegan en el connector legacy via su propia conexion
 pyodbc; el engine se usa unicamente por ``consulta_readonly`` y
 ``centro_mando_fmesmic``.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -66,8 +67,7 @@ class MesRepository:
             cfg = {
                 **cfg,
                 "recursos": [
-                    r for r in cfg.get("recursos", [])
-                    if r.get("nombre") in recursos
+                    r for r in cfg.get("recursos", []) if r.get("nombre") in recursos
                 ],
             }
         return _legacy_extraer_datos(cfg, fecha_inicio, fecha_fin)

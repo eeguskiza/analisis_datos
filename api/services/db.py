@@ -16,6 +16,7 @@ Beneficio: ``pipeline.py`` sigue llamando ``mes_service.extract_data(...)``
 y automaticamente usa el backend nuevo — NO se toca ``pipeline.py``
 en este plan (propiedad de 03-03 per ``<context_handoff>`` del PLAN.md).
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -46,11 +47,13 @@ def _repo():
     """
     from nexo.data.engines import engine_mes
     from nexo.data.repositories.mes import MesRepository
+
     return MesRepository(engine=engine_mes)
 
 
 def get_config() -> dict:
     from api.config import settings
+
     cfg = load_config()
     # Inyectar credenciales desde settings (.env) si no vienen del JSON
     if not cfg.get("server") or cfg["server"] == "":
@@ -101,7 +104,9 @@ def extract_data(
     )
 
 
-def compute_real_cycles(centro_trabajo: int, dias_atras: int = 30) -> tuple[List[dict], str]:
+def compute_real_cycles(
+    centro_trabajo: int, dias_atras: int = 30
+) -> tuple[List[dict], str]:
     """Calcula ciclos reales desde contadores de IZARO. Devuelve (resultados, fuente)."""
     return _repo().calcular_ciclos_reales(centro_trabajo, dias_atras)
 

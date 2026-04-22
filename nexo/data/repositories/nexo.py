@@ -17,6 +17,7 @@ audit). A nivel DB, el rol ``nexo_app`` solo tiene
 INSERT/SELECT sobre ``nexo.audit_log`` - defensa en profundidad sobre
 el contrato del repo.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -71,32 +72,36 @@ class UserRepo:
         orm = self.get_by_email_orm(email)
         if not orm:
             return None
-        return UserRow.model_validate({
-            "id": orm.id,
-            "email": orm.email,
-            "role": orm.role,
-            "active": orm.active,
-            "must_change_password": orm.must_change_password,
-            "last_login": orm.last_login,
-            "created_at": orm.created_at,
-            "departments": tuple(d.code for d in orm.departments),
-        })
+        return UserRow.model_validate(
+            {
+                "id": orm.id,
+                "email": orm.email,
+                "role": orm.role,
+                "active": orm.active,
+                "must_change_password": orm.must_change_password,
+                "last_login": orm.last_login,
+                "created_at": orm.created_at,
+                "departments": tuple(d.code for d in orm.departments),
+            }
+        )
 
     def list_all(self) -> list[UserRow]:
-        rows = self._db.execute(
-            select(NexoUser).order_by(NexoUser.email)
-        ).scalars().all()
+        rows = (
+            self._db.execute(select(NexoUser).order_by(NexoUser.email)).scalars().all()
+        )
         return [
-            UserRow.model_validate({
-                "id": u.id,
-                "email": u.email,
-                "role": u.role,
-                "active": u.active,
-                "must_change_password": u.must_change_password,
-                "last_login": u.last_login,
-                "created_at": u.created_at,
-                "departments": tuple(d.code for d in u.departments),
-            })
+            UserRow.model_validate(
+                {
+                    "id": u.id,
+                    "email": u.email,
+                    "role": u.role,
+                    "active": u.active,
+                    "must_change_password": u.must_change_password,
+                    "last_login": u.last_login,
+                    "created_at": u.created_at,
+                    "departments": tuple(d.code for d in u.departments),
+                }
+            )
             for u in rows
         ]
 
@@ -108,15 +113,17 @@ class RoleRepo:
         self._db = db
 
     def list_all(self) -> list[RoleRow]:
-        rows = self._db.execute(
-            select(NexoRole).order_by(NexoRole.code)
-        ).scalars().all()
+        rows = (
+            self._db.execute(select(NexoRole).order_by(NexoRole.code)).scalars().all()
+        )
         return [RoleRow.model_validate(r) for r in rows]
 
     def list_departments(self) -> list[DepartmentRow]:
-        rows = self._db.execute(
-            select(NexoDepartment).order_by(NexoDepartment.code)
-        ).scalars().all()
+        rows = (
+            self._db.execute(select(NexoDepartment).order_by(NexoDepartment.code))
+            .scalars()
+            .all()
+        )
         return [DepartmentRow.model_validate(d) for d in rows]
 
 
@@ -146,14 +153,16 @@ class AuditRepo:
         ``tests/data/test_nexo_repository.py`` verifica ausencia de
         ``commit()`` / ``flush()`` en el source.
         """
-        self._db.add(NexoAuditLog(
-            user_id=user_id,
-            ip=ip,
-            method=method,
-            path=path,
-            status=status,
-            details_json=details_json,
-        ))
+        self._db.add(
+            NexoAuditLog(
+                user_id=user_id,
+                ip=ip,
+                method=method,
+                path=path,
+                status=status,
+                details_json=details_json,
+            )
+        )
 
     def count_filtered(
         self,
@@ -166,8 +175,11 @@ class AuditRepo:
     ) -> int:
         """Cuenta total de filas que matchean los filtros."""
         from sqlalchemy import func
-        stmt = select(func.count()).select_from(NexoAuditLog).outerjoin(
-            NexoUser, NexoUser.id == NexoAuditLog.user_id
+
+        stmt = (
+            select(func.count())
+            .select_from(NexoAuditLog)
+            .outerjoin(NexoUser, NexoUser.id == NexoAuditLog.user_id)
         )
         if user_email:
             stmt = stmt.where(NexoUser.email == user_email)
@@ -214,17 +226,19 @@ class AuditRepo:
 
         rows = self._db.execute(stmt).all()
         return [
-            AuditLogRow.model_validate({
-                "id": log.id,
-                "ts": log.ts,
-                "user_id": log.user_id,
-                "user_email": user.email if user else None,
-                "ip": log.ip,
-                "method": log.method,
-                "path": log.path,
-                "status": log.status,
-                "details_json": log.details_json,
-            })
+            AuditLogRow.model_validate(
+                {
+                    "id": log.id,
+                    "ts": log.ts,
+                    "user_id": log.user_id,
+                    "user_email": user.email if user else None,
+                    "ip": log.ip,
+                    "method": log.method,
+                    "path": log.path,
+                    "status": log.status,
+                    "details_json": log.details_json,
+                }
+            )
             for log, user in rows
         ]
 
@@ -253,21 +267,21 @@ class AuditRepo:
             stmt = stmt.where(NexoAuditLog.path.ilike(f"%{path}%"))
         if status is not None:
             stmt = stmt.where(NexoAuditLog.status == status)
-        stmt = stmt.order_by(NexoAuditLog.ts.desc()).execution_options(
-            yield_per=500
-        )
+        stmt = stmt.order_by(NexoAuditLog.ts.desc()).execution_options(yield_per=500)
         for log, user in self._db.execute(stmt):
-            yield AuditLogRow.model_validate({
-                "id": log.id,
-                "ts": log.ts,
-                "user_id": log.user_id,
-                "user_email": user.email if user else None,
-                "ip": log.ip,
-                "method": log.method,
-                "path": log.path,
-                "status": log.status,
-                "details_json": log.details_json,
-            })
+            yield AuditLogRow.model_validate(
+                {
+                    "id": log.id,
+                    "ts": log.ts,
+                    "user_id": log.user_id,
+                    "user_email": user.email if user else None,
+                    "ip": log.ip,
+                    "method": log.method,
+                    "path": log.path,
+                    "status": log.status,
+                    "details_json": log.details_json,
+                }
+            )
 
 
 class QueryLogRepo:
@@ -303,17 +317,19 @@ class QueryLogRepo:
         responsable del commit. Contract test verifica la ausencia de
         ``commit()`` / ``flush()`` en el source.
         """
-        self._db.add(NexoQueryLog(
-            user_id=user_id,
-            ip=ip,
-            endpoint=endpoint,
-            params_json=params_json,
-            estimated_ms=estimated_ms,
-            actual_ms=actual_ms,
-            rows=rows,
-            status=status,
-            approval_id=approval_id,
-        ))
+        self._db.add(
+            NexoQueryLog(
+                user_id=user_id,
+                ip=ip,
+                endpoint=endpoint,
+                params_json=params_json,
+                estimated_ms=estimated_ms,
+                actual_ms=actual_ms,
+                rows=rows,
+                status=status,
+                approval_id=approval_id,
+            )
+        )
 
     def list_filtered(
         self,
@@ -347,19 +363,21 @@ class QueryLogRepo:
         )
         rows = self._db.execute(stmt).all()
         return [
-            QueryLogRow.model_validate({
-                "id": log.id,
-                "ts": log.ts,
-                "user_id": log.user_id,
-                "endpoint": log.endpoint,
-                "params_json": log.params_json,
-                "estimated_ms": log.estimated_ms,
-                "actual_ms": log.actual_ms,
-                "rows": log.rows,
-                "status": log.status,
-                "approval_id": log.approval_id,
-                "ip": log.ip,
-            })
+            QueryLogRow.model_validate(
+                {
+                    "id": log.id,
+                    "ts": log.ts,
+                    "user_id": log.user_id,
+                    "endpoint": log.endpoint,
+                    "params_json": log.params_json,
+                    "estimated_ms": log.estimated_ms,
+                    "actual_ms": log.actual_ms,
+                    "rows": log.rows,
+                    "status": log.status,
+                    "approval_id": log.approval_id,
+                    "ip": log.ip,
+                }
+            )
             for log, _user in rows
         ]
 
@@ -409,23 +427,23 @@ class QueryLogRepo:
             stmt = stmt.where(NexoQueryLog.ts >= date_from)
         if date_to:
             stmt = stmt.where(NexoQueryLog.ts <= date_to)
-        stmt = stmt.order_by(NexoQueryLog.ts.desc()).execution_options(
-            yield_per=500
-        )
+        stmt = stmt.order_by(NexoQueryLog.ts.desc()).execution_options(yield_per=500)
         for log, _user in self._db.execute(stmt):
-            yield QueryLogRow.model_validate({
-                "id": log.id,
-                "ts": log.ts,
-                "user_id": log.user_id,
-                "endpoint": log.endpoint,
-                "params_json": log.params_json,
-                "estimated_ms": log.estimated_ms,
-                "actual_ms": log.actual_ms,
-                "rows": log.rows,
-                "status": log.status,
-                "approval_id": log.approval_id,
-                "ip": log.ip,
-            })
+            yield QueryLogRow.model_validate(
+                {
+                    "id": log.id,
+                    "ts": log.ts,
+                    "user_id": log.user_id,
+                    "endpoint": log.endpoint,
+                    "params_json": log.params_json,
+                    "estimated_ms": log.estimated_ms,
+                    "actual_ms": log.actual_ms,
+                    "rows": log.rows,
+                    "status": log.status,
+                    "approval_id": log.approval_id,
+                    "ip": log.ip,
+                }
+            )
 
     def timeseries(
         self,
@@ -459,9 +477,14 @@ class QueryLogRepo:
             "GROUP BY bucket "
             "ORDER BY bucket ASC"
         )
-        rows = self._db.execute(
-            sql, {"ep": endpoint, "df": date_from, "dt": date_to},
-        ).mappings().all()
+        rows = (
+            self._db.execute(
+                sql,
+                {"ep": endpoint, "df": date_from, "dt": date_to},
+            )
+            .mappings()
+            .all()
+        )
         points = [
             {
                 "ts": r["bucket"].isoformat() if r["bucket"] is not None else None,
@@ -494,13 +517,22 @@ class QueryLogRepo:
             "FROM nexo.query_log "
             "WHERE endpoint = :ep AND ts BETWEEN :df AND :dt"
         )
-        row = self._db.execute(
-            sql, {"ep": endpoint, "df": date_from, "dt": date_to}
-        ).mappings().first()
-        result = dict(row) if row else {
-            "n_runs": 0, "avg_est": None, "avg_actual": None,
-            "p95": None, "n_slow": 0,
-        }
+        row = (
+            self._db.execute(sql, {"ep": endpoint, "df": date_from, "dt": date_to})
+            .mappings()
+            .first()
+        )
+        result = (
+            dict(row)
+            if row
+            else {
+                "n_runs": 0,
+                "avg_est": None,
+                "avg_actual": None,
+                "p95": None,
+                "n_slow": 0,
+            }
+        )
         avg_est = result.get("avg_est")
         avg_actual = result.get("avg_actual")
         if avg_est and avg_actual:
@@ -526,9 +558,7 @@ class ThresholdRepo:
     def get(self, endpoint: str) -> QueryThresholdRow | None:
         """Fetch una fila; None si no existe."""
         row = self._db.execute(
-            select(NexoQueryThreshold).where(
-                NexoQueryThreshold.endpoint == endpoint
-            )
+            select(NexoQueryThreshold).where(NexoQueryThreshold.endpoint == endpoint)
         ).scalar_one_or_none()
         if row is None:
             return None
@@ -536,9 +566,13 @@ class ThresholdRepo:
 
     def list_all(self) -> list[QueryThresholdRow]:
         """Full scan (4 filas esperadas por seed inicial)."""
-        rows = self._db.execute(
-            select(NexoQueryThreshold).order_by(NexoQueryThreshold.endpoint)
-        ).scalars().all()
+        rows = (
+            self._db.execute(
+                select(NexoQueryThreshold).order_by(NexoQueryThreshold.endpoint)
+            )
+            .scalars()
+            .all()
+        )
         return [QueryThresholdRow.model_validate(r) for r in rows]
 
     def update(
@@ -558,9 +592,7 @@ class ThresholdRepo:
         mensual fallback (D-20).
         """
         row = self._db.execute(
-            select(NexoQueryThreshold).where(
-                NexoQueryThreshold.endpoint == endpoint
-            )
+            select(NexoQueryThreshold).where(NexoQueryThreshold.endpoint == endpoint)
         ).scalar_one()
         now = _utcnow()
         row.warn_ms = warn_ms
@@ -616,9 +648,7 @@ class ApprovalRepo:
     def get(self, approval_id: int) -> QueryApprovalRow | None:
         """Fetch single approval as DTO."""
         row = self._db.execute(
-            select(NexoQueryApproval).where(
-                NexoQueryApproval.id == approval_id
-            )
+            select(NexoQueryApproval).where(NexoQueryApproval.id == approval_id)
         ).scalar_one_or_none()
         if row is None:
             return None
@@ -631,9 +661,7 @@ class ApprovalRepo:
         statuses: list[str] | None = None,
     ) -> list[QueryApprovalRow]:
         """Para ``/mis-solicitudes`` (D-16) — filas del usuario, mas recientes primero."""
-        stmt = select(NexoQueryApproval).where(
-            NexoQueryApproval.user_id == user_id
-        )
+        stmt = select(NexoQueryApproval).where(NexoQueryApproval.user_id == user_id)
         if statuses:
             stmt = stmt.where(NexoQueryApproval.status.in_(statuses))
         stmt = stmt.order_by(NexoQueryApproval.created_at.desc())
@@ -642,11 +670,15 @@ class ApprovalRepo:
 
     def list_pending(self) -> list[QueryApprovalRow]:
         """Para ``/ajustes/solicitudes`` — solo pending, mas recientes primero."""
-        rows = self._db.execute(
-            select(NexoQueryApproval)
-            .where(NexoQueryApproval.status == "pending")
-            .order_by(NexoQueryApproval.created_at.desc())
-        ).scalars().all()
+        rows = (
+            self._db.execute(
+                select(NexoQueryApproval)
+                .where(NexoQueryApproval.status == "pending")
+                .order_by(NexoQueryApproval.created_at.desc())
+            )
+            .scalars()
+            .all()
+        )
         return [QueryApprovalRow.model_validate(r) for r in rows]
 
     def list_recent_non_pending(
@@ -659,31 +691,36 @@ class ApprovalRepo:
         Consumido por Plan 04-03 en la tabla "Histórico" que muestra
         approved/rejected/cancelled/expired/consumed.
         """
-        rows = self._db.execute(
-            select(NexoQueryApproval)
-            .where(
-                NexoQueryApproval.status != "pending",
-                NexoQueryApproval.created_at >= cutoff,
+        rows = (
+            self._db.execute(
+                select(NexoQueryApproval)
+                .where(
+                    NexoQueryApproval.status != "pending",
+                    NexoQueryApproval.created_at >= cutoff,
+                )
+                .order_by(NexoQueryApproval.created_at.desc())
+                .limit(limit)
             )
-            .order_by(NexoQueryApproval.created_at.desc())
-            .limit(limit)
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return [QueryApprovalRow.model_validate(r) for r in rows]
 
     def count_pending(self) -> int:
         """Badge sidebar del propietario (D-13)."""
-        return self._db.execute(
-            select(func.count()).select_from(NexoQueryApproval).where(
-                NexoQueryApproval.status == "pending"
-            )
-        ).scalar_one() or 0
+        return (
+            self._db.execute(
+                select(func.count())
+                .select_from(NexoQueryApproval)
+                .where(NexoQueryApproval.status == "pending")
+            ).scalar_one()
+            or 0
+        )
 
     def approve(self, approval_id: int, approved_by: int) -> None:
         """pending -> approved. Commit inline."""
         row = self._db.execute(
-            select(NexoQueryApproval).where(
-                NexoQueryApproval.id == approval_id
-            )
+            select(NexoQueryApproval).where(NexoQueryApproval.id == approval_id)
         ).scalar_one()
         row.status = "approved"
         row.approved_at = _utcnow()
@@ -698,9 +735,7 @@ class ApprovalRepo:
         outcomes — evita duplicar schema).
         """
         row = self._db.execute(
-            select(NexoQueryApproval).where(
-                NexoQueryApproval.id == approval_id
-            )
+            select(NexoQueryApproval).where(NexoQueryApproval.id == approval_id)
         ).scalar_one()
         row.status = "rejected"
         row.rejected_at = _utcnow()
@@ -715,9 +750,7 @@ class ApprovalRepo:
         lanza — el router devuelve 403/409 segun corresponda).
         """
         row = self._db.execute(
-            select(NexoQueryApproval).where(
-                NexoQueryApproval.id == approval_id
-            )
+            select(NexoQueryApproval).where(NexoQueryApproval.id == approval_id)
         ).scalar_one_or_none()
         if row is None:
             return False
@@ -768,14 +801,18 @@ class ApprovalRepo:
             "          rejected_at, cancelled_at, expired_at, consumed_at, "
             "          consumed_run_id, status"
         )
-        result = self._db.execute(
-            sql,
-            {
-                "id": approval_id,
-                "uid": user_id,
-                "pj": current_params_json,
-            },
-        ).mappings().first()
+        result = (
+            self._db.execute(
+                sql,
+                {
+                    "id": approval_id,
+                    "uid": user_id,
+                    "pj": current_params_json,
+                },
+            )
+            .mappings()
+            .first()
+        )
         if result is None:
             return None
         self._db.commit()

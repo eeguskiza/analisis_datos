@@ -26,6 +26,7 @@ Uso::
 Llamar UNA vez al arrancar el proceso (import-time en api/main.py).
 Idempotente: llamarlo dos veces no duplica handlers.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,11 +40,11 @@ _DIM = "\x1b[2m"
 _BOLD = "\x1b[1m"
 
 _LEVEL_COLORS = {
-    logging.DEBUG: "\x1b[36m",        # cyan
-    logging.INFO: "\x1b[32m",         # green
-    logging.WARNING: "\x1b[33m",      # yellow
-    logging.ERROR: "\x1b[31m",        # red
-    logging.CRITICAL: "\x1b[35;1m",   # bold magenta
+    logging.DEBUG: "\x1b[36m",  # cyan
+    logging.INFO: "\x1b[32m",  # green
+    logging.WARNING: "\x1b[33m",  # yellow
+    logging.ERROR: "\x1b[31m",  # red
+    logging.CRITICAL: "\x1b[35;1m",  # bold magenta
 }
 
 
@@ -78,7 +79,7 @@ class _ColorFormatter(logging.Formatter):
         name = record.name
         if len(name) > self._LOGGER_WIDTH:
             # Conservar el sufijo (mas informativo que el prefijo).
-            name = "…" + name[-(self._LOGGER_WIDTH - 1):]
+            name = "…" + name[-(self._LOGGER_WIDTH - 1) :]
         else:
             name = name.ljust(self._LOGGER_WIDTH)
         msg = record.getMessage()

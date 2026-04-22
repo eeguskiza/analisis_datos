@@ -29,6 +29,7 @@ Endpoints no soportados o sin threshold configurado devuelven un ``green``
 defensivo con ``reason`` explícita — falla segura (no bloqueamos queries
 válidas por config ausente).
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -46,8 +47,8 @@ Level = Literal["green", "amber", "red"]
 # calibración aún no ejecutada). Mantienen estimate_cost puro — no dependen
 # del estado del cache para poder estimar algo razonable.
 _FALLBACK_PIPELINE_FACTOR_MS: float = 2000.0  # D-04 seed inicial
-_FALLBACK_BBDD_FACTOR_MS: float = 1000.0      # baseline 1s para SQL libre
-_FALLBACK_RANGO_FACTOR_MS: float = 50.0       # ms por día para capacidad/operarios
+_FALLBACK_BBDD_FACTOR_MS: float = 1000.0  # baseline 1s para SQL libre
+_FALLBACK_RANGO_FACTOR_MS: float = 50.0  # ms por día para capacidad/operarios
 
 
 def estimate_cost(endpoint: str, params: dict) -> Estimation:
@@ -93,13 +94,11 @@ def estimate_cost(endpoint: str, params: dict) -> Estimation:
 
 # ── Endpoint-specific estimators ───────────────────────────────────────────
 
-def _estimate_pipeline(
-    endpoint: str, params: dict, t: ThresholdEntry
-) -> Estimation:
+
+def _estimate_pipeline(endpoint: str, params: dict, t: ThresholdEntry) -> Estimation:
     """Pipeline OEE: coste ~ n_recursos × n_dias × factor (D-04)."""
     n_recursos = int(
-        params.get("n_recursos", 0)
-        or len(params.get("recursos", []) or [])
+        params.get("n_recursos", 0) or len(params.get("recursos", []) or [])
     )
     n_dias = int(params.get("n_dias", 0) or _calc_days(params))
     factor = t.factor_ms if t.factor_ms is not None else _FALLBACK_PIPELINE_FACTOR_MS
@@ -111,16 +110,14 @@ def _estimate_pipeline(
         estimated_ms=estimated,
         level=level,
         reason=_reason_for(level, t),
-        breakdown=f"{n_recursos} recursos × {n_dias} días × ~{factor/1000:.1f}s/run",
+        breakdown=f"{n_recursos} recursos × {n_dias} días × ~{factor / 1000:.1f}s/run",
         factor_used_ms=factor,
         warn_ms=t.warn_ms,
         block_ms=t.block_ms,
     )
 
 
-def _estimate_bbdd(
-    endpoint: str, params: dict, t: ThresholdEntry
-) -> Estimation:
+def _estimate_bbdd(endpoint: str, params: dict, t: ThresholdEntry) -> Estimation:
     """SQL libre sobre MES: baseline plano (sin EXPLAIN — D-03 research)."""
     factor = t.factor_ms if t.factor_ms is not None else _FALLBACK_BBDD_FACTOR_MS
     estimated = int(factor)
@@ -130,16 +127,14 @@ def _estimate_bbdd(
         estimated_ms=estimated,
         level=level,
         reason=_reason_for(level, t),
-        breakdown=f"baseline ~{factor/1000:.1f}s (sin EXPLAIN)",
+        breakdown=f"baseline ~{factor / 1000:.1f}s (sin EXPLAIN)",
         factor_used_ms=factor,
         warn_ms=t.warn_ms,
         block_ms=t.block_ms,
     )
 
 
-def _estimate_rango(
-    endpoint: str, params: dict, t: ThresholdEntry
-) -> Estimation:
+def _estimate_rango(endpoint: str, params: dict, t: ThresholdEntry) -> Estimation:
     """Capacidad/operarios: sólo preflight si rango_dias > 90 (D-03).
 
     Para rangos cortos devolvemos green con ``reason`` clara — la UI no
@@ -177,6 +172,7 @@ def _estimate_rango(
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+
 def _classify(estimated_ms: int, t: ThresholdEntry) -> Level:
     """Clasifica en ``green|amber|red`` según umbrales (strict less-than).
 
@@ -195,7 +191,7 @@ def _reason_for(level: Level, t: ThresholdEntry) -> str:
         return "Ejecución estándar"
     if level == "amber":
         return f"Supera umbral de aviso ({t.warn_ms}ms)"
-    return f"Excede límite configurado de {t.block_ms/1000/60:.0f} min"
+    return f"Excede límite configurado de {t.block_ms / 1000 / 60:.0f} min"
 
 
 def _calc_days(params: dict) -> int:

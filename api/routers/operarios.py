@@ -11,6 +11,7 @@ Plan 04-02: preflight condicional por D-03 — si ``rango_dias > 90`` se
 estima coste y se aplica gate en ``/operarios/{codigo}``. El endpoint
 de listado (``GET /operarios``) no tiene rango asociado y pasa directo.
 """
+
 from __future__ import annotations
 
 import json
@@ -59,13 +60,15 @@ def listar_operarios(engine_mes: EngineMes, activos: bool = True):
     for r in rows:
         if activos and r[3] == 0:
             continue
-        result.append({
-            "codigo": r[0],
-            "nombre": (r[1] or "").strip(),
-            "activo": r[2] == 1,
-            "n_registros_mes": r[3],
-            "ultimo_registro": r[4].isoformat() if r[4] else None,
-        })
+        result.append(
+            {
+                "codigo": r[0],
+                "nombre": (r[1] or "").strip(),
+                "activo": r[2] == 1,
+                "n_registros_mes": r[3],
+                "ultimo_registro": r[4].isoformat() if r[4] else None,
+            }
+        )
     return {"operarios": result}
 
 
@@ -197,18 +200,22 @@ def ficha_operario(
         for r in centros_rows:
             piezas = float(r[4] or 0)
             horas_prod = float(r[5] or 0)
-            centros.append({
-                "codigo_ct": r[0],
-                "nombre_ct": (r[1] or "").strip(),
-                "registros": r[2],
-                "regs_produccion": r[3],
-                "piezas": piezas,
-                "horas_produccion": round(horas_prod, 2),
-                "horas_preparacion": round(float(r[6] or 0), 2),
-                "horas_incidencia": round(float(r[7] or 0), 2),
-                "dias_trabajados": r[8],
-                "piezas_hora": round(piezas / horas_prod, 1) if horas_prod > 0 else 0,
-            })
+            centros.append(
+                {
+                    "codigo_ct": r[0],
+                    "nombre_ct": (r[1] or "").strip(),
+                    "registros": r[2],
+                    "regs_produccion": r[3],
+                    "piezas": piezas,
+                    "horas_produccion": round(horas_prod, 2),
+                    "horas_preparacion": round(float(r[6] or 0), 2),
+                    "horas_incidencia": round(float(r[7] or 0), 2),
+                    "dias_trabajados": r[8],
+                    "piezas_hora": round(piezas / horas_prod, 1)
+                    if horas_prod > 0
+                    else 0,
+                }
+            )
             total_piezas += piezas
             total_horas_prod += horas_prod
             total_horas_prep += float(r[6] or 0)
@@ -243,15 +250,17 @@ def ficha_operario(
         for r in refs_rows:
             pzas = float(r[3] or 0)
             hrs = float(r[4] or 0)
-            referencias.append({
-                "referencia": (r[0] or "").strip(),
-                "codigo_ct": r[1],
-                "nombre_ct": (r[2] or "").strip(),
-                "piezas": pzas,
-                "horas": round(hrs, 2),
-                "piezas_hora": round(pzas / hrs, 1) if hrs > 0 else 0,
-                "registros": r[5],
-            })
+            referencias.append(
+                {
+                    "referencia": (r[0] or "").strip(),
+                    "codigo_ct": r[1],
+                    "nombre_ct": (r[2] or "").strip(),
+                    "piezas": pzas,
+                    "horas": round(hrs, 2),
+                    "piezas_hora": round(pzas / hrs, 1) if hrs > 0 else 0,
+                    "registros": r[5],
+                }
+            )
 
         # 4. Evolución diaria
         evo_rows = conn.execute(
@@ -276,24 +285,24 @@ def ficha_operario(
         for r in evo_rows:
             pzas = float(r[1] or 0)
             hrs = float(r[2] or 0)
-            evolucion.append({
-                "fecha": r[0].isoformat(),
-                "piezas": pzas,
-                "horas_produccion": round(hrs, 2),
-                "horas_preparacion": round(float(r[3] or 0), 2),
-                "horas_incidencia": round(float(r[4] or 0), 2),
-                "piezas_hora": round(pzas / hrs, 1) if hrs > 0 else 0,
-                "registros": r[5],
-            })
+            evolucion.append(
+                {
+                    "fecha": r[0].isoformat(),
+                    "piezas": pzas,
+                    "horas_produccion": round(hrs, 2),
+                    "horas_preparacion": round(float(r[3] or 0), 2),
+                    "horas_incidencia": round(float(r[4] or 0), 2),
+                    "piezas_hora": round(pzas / hrs, 1) if hrs > 0 else 0,
+                    "registros": r[5],
+                }
+            )
 
     # Cargar ciclos teóricos para comparar
     from api.database import Ciclo, SessionLocal
+
     with SessionLocal() as db:
         ciclos_db = db.query(Ciclo).all()
-        ciclos_teoricos = {
-            (c.maquina, c.referencia): c.tiempo_ciclo
-            for c in ciclos_db
-        }
+        ciclos_teoricos = {(c.maquina, c.referencia): c.tiempo_ciclo for c in ciclos_db}
 
     # Añadir teórico a referencias
     # Mapeo inverso CT -> nombre recurso
@@ -304,9 +313,9 @@ def ficha_operario(
         nombre_recurso = ct_to_nombre.get(ref["codigo_ct"], "")
         teorico = ciclos_teoricos.get((nombre_recurso, ref["referencia"]), 0)
         ref["piezas_hora_teorico"] = teorico
-        ref["eficiencia_pct"] = round(
-            (ref["piezas_hora"] / teorico) * 100, 1
-        ) if teorico > 0 else None
+        ref["eficiencia_pct"] = (
+            round((ref["piezas_hora"] / teorico) * 100, 1) if teorico > 0 else None
+        )
 
     return {
         "operario": operario,
@@ -316,7 +325,9 @@ def ficha_operario(
             "total_horas_produccion": round(total_horas_prod, 2),
             "total_horas_preparacion": round(total_horas_prep, 2),
             "total_horas_incidencia": round(total_horas_inci, 2),
-            "piezas_hora_media": round(total_piezas / total_horas_prod, 1) if total_horas_prod > 0 else 0,
+            "piezas_hora_media": round(total_piezas / total_horas_prod, 1)
+            if total_horas_prod > 0
+            else 0,
             "n_centros": len(centros),
             "n_dias": len(evolucion),
         },

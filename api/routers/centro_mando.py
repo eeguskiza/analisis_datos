@@ -6,6 +6,7 @@ Plan 03-02 Task 3.2: elimina la query inline con 3-part names hacia
 names + bindparam expanding, DATA-09). El router solo orquesta
 cache y shape de respuesta.
 """
+
 from __future__ import annotations
 
 import logging
@@ -76,9 +77,11 @@ def _get_cached_data(
     now = time.time()
     hoy = _fecha_produccion()
 
-    if (_cache["fecha"] == hoy
-            and (now - _cache["timestamp"]) < CACHE_TTL
-            and _cache["data"] is not None):
+    if (
+        _cache["fecha"] == hoy
+        and (now - _cache["timestamp"]) < CACHE_TTL
+        and _cache["data"] is not None
+    ):
         return _cache["data"], _cache["error"], _cache["timestamp"]
 
     try:
@@ -122,25 +125,31 @@ def summary(db: DbApp, engine_mes: EngineMes):
         else:
             estado = "sin_datos"
 
-        maquinas.append({
-            "nombre": rec.nombre,
-            "seccion": rec.seccion or "GENERAL",
-            "estado": estado,
-            "piezas_hoy": info.get("piezas_hoy", 0),
-            "ultimo_evento": info.get("ultimo_evento"),
-            "referencia": info.get("referencia", ""),
-        })
+        maquinas.append(
+            {
+                "nombre": rec.nombre,
+                "seccion": rec.seccion or "GENERAL",
+                "estado": estado,
+                "piezas_hoy": info.get("piezas_hoy", 0),
+                "ultimo_evento": info.get("ultimo_evento"),
+                "referencia": info.get("referencia", ""),
+            }
+        )
 
     estado_order = {"produciendo": 0, "incidencia": 1, "sin_datos": 2}
     sec_order = {"LINEAS": 0, "TALLADORAS": 1, "GENERAL": 9}
-    maquinas.sort(key=lambda m: (
-        estado_order.get(m["estado"], 9),
-        sec_order.get(m["seccion"], 5),
-        m["nombre"],
-    ))
+    maquinas.sort(
+        key=lambda m: (
+            estado_order.get(m["estado"], 9),
+            sec_order.get(m["seccion"], 5),
+            m["nombre"],
+        )
+    )
 
     n_activas = sum(1 for m in maquinas if m["estado"] == "produciendo")
-    last_izaro = datetime.fromtimestamp(cache_ts).strftime("%H:%M:%S") if cache_ts > 0 else None
+    last_izaro = (
+        datetime.fromtimestamp(cache_ts).strftime("%H:%M:%S") if cache_ts > 0 else None
+    )
 
     return {
         "fecha": hoy.isoformat(),

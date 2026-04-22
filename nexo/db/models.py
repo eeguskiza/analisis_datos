@@ -6,6 +6,7 @@ para no romper consumidores (``nexo.services.auth``,
 Se elimina cuando todos los consumers migren sus imports a
 ``nexo.data.models_nexo`` (Mark-IV).
 """
+
 from nexo.data.models_nexo import (  # noqa: F401
     NEXO_SCHEMA,
     NexoAuditLog,

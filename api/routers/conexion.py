@@ -1,4 +1,5 @@
 """Endpoints de conexion y configuracion del SQL Server MES."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -17,6 +18,7 @@ router = APIRouter(
 
 # ── Modelos ───────────────────────────────────────────────────────────────────
 
+
 class MesConfig(BaseModel):
     server: str = ""
     port: str = "1433"
@@ -30,6 +32,7 @@ class MesConfig(BaseModel):
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/status", response_model=ConnectionStatus)
 def status():

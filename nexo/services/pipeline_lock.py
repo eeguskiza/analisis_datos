@@ -50,6 +50,7 @@ O explícitamente:
             timeout=PIPELINE_TIMEOUT_SEC,
         )
 """
+
 from __future__ import annotations
 
 import asyncio

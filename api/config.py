@@ -5,6 +5,7 @@ Durante Mark-III convive compat layer: cada campo acepta el nombre nuevo
 permite migrar el ``.env`` de disco sin romper instalaciones existentes.
 La compat se elimina en Mark-IV.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

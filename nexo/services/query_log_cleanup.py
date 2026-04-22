@@ -12,6 +12,7 @@ Cada ejecucion graba una fila en ``nexo.audit_log`` con
 ``path='__cleanup_query_log__'`` + ``details_json={rows_deleted,
 cutoff_ts, retention_days}`` para trazabilidad.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,9 +34,7 @@ def run_once() -> int:
     Abre su propia Session (no depende del lifespan FastAPI — se puede
     llamar desde el scheduler async o desde tests sync).
     """
-    retention_days = int(
-        os.environ.get("NEXO_QUERY_LOG_RETENTION_DAYS", "90")
-    )
+    retention_days = int(os.environ.get("NEXO_QUERY_LOG_RETENTION_DAYS", "90"))
     if retention_days <= 0:
         log.info(
             "query_log_cleanup: retention_days=%d (forever) — skip",
@@ -62,11 +61,13 @@ def run_once() -> int:
                 method="DELETE",
                 path="__cleanup_query_log__",
                 status=200,
-                details_json=json.dumps({
-                    "rows_deleted": rows_deleted,
-                    "cutoff_ts": cutoff.isoformat(),
-                    "retention_days": retention_days,
-                }),
+                details_json=json.dumps(
+                    {
+                        "rows_deleted": rows_deleted,
+                        "cutoff_ts": cutoff.isoformat(),
+                        "retention_days": retention_days,
+                    }
+                ),
             )
             db.commit()
         except Exception:
@@ -75,7 +76,9 @@ def run_once() -> int:
 
         log.info(
             "query_log_cleanup: %d filas borradas (retention_days=%d, cutoff=%s)",
-            rows_deleted, retention_days, cutoff.isoformat(),
+            rows_deleted,
+            retention_days,
+            cutoff.isoformat(),
         )
         return rows_deleted
     finally:

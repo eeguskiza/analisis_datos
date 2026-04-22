@@ -1,4 +1,5 @@
 """Orquesta la extraccion de datos + generacion de informes OEE."""
+
 from __future__ import annotations
 
 import csv as csv_mod
@@ -44,30 +45,40 @@ def _sync_ciclos_to_csv(target_dir: Path | None = None) -> None:
         path = (target_dir / "ciclos.csv") if target_dir else settings.ciclos_path
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8-sig", newline="") as f:
-            writer = csv_mod.DictWriter(f, fieldnames=["maquina", "referencia", "tiempo_ciclo"])
+            writer = csv_mod.DictWriter(
+                f, fieldnames=["maquina", "referencia", "tiempo_ciclo"]
+            )
             writer.writeheader()
             for r in rows:
-                writer.writerow({"maquina": r.maquina, "referencia": r.referencia, "tiempo_ciclo": r.tiempo_ciclo})
+                writer.writerow(
+                    {
+                        "maquina": r.maquina,
+                        "referencia": r.referencia,
+                        "tiempo_ciclo": r.tiempo_ciclo,
+                    }
+                )
 
 
 def _save_datos_to_db(db, ejec_id: int, rows: list[dict]) -> int:
     """Guarda datos extraídos en la tabla datos_produccion. Devuelve nº de filas."""
     for r in rows:
-        db.add(DatosProduccion(
-            ejecucion_id=ejec_id,
-            recurso=r["recurso"],
-            seccion=r["seccion"],
-            fecha=r["fecha"],
-            h_ini=r["h_ini"],
-            h_fin=r["h_fin"],
-            tiempo=r["tiempo"],
-            proceso=r["proceso"],
-            incidencia=r["incidencia"],
-            cantidad=r["cantidad"],
-            malas=r["malas"],
-            recuperadas=r["recuperadas"],
-            referencia=r["referencia"],
-        ))
+        db.add(
+            DatosProduccion(
+                ejecucion_id=ejec_id,
+                recurso=r["recurso"],
+                seccion=r["seccion"],
+                fecha=r["fecha"],
+                h_ini=r["h_ini"],
+                h_fin=r["h_fin"],
+                tiempo=r["tiempo"],
+                proceso=r["proceso"],
+                incidencia=r["incidencia"],
+                cantidad=r["cantidad"],
+                malas=r["malas"],
+                recuperadas=r["recuperadas"],
+                referencia=r["referencia"],
+            )
+        )
     db.commit()
     return len(rows)
 
@@ -85,7 +96,12 @@ def _parse_pdf_metadata(pdf_path: str, fecha_str: str) -> dict:
             break
     if "oee_seccion" in filename.lower():
         modulo = "oee_secciones"
-    return {"fecha": fecha_str, "seccion": seccion, "maquina": maquina, "modulo": modulo}
+    return {
+        "fecha": fecha_str,
+        "seccion": seccion,
+        "maquina": maquina,
+        "modulo": modulo,
+    }
 
 
 def run_pipeline(
@@ -147,7 +163,9 @@ def run_pipeline(
             _log(msg)
             yield msg
             try:
-                data_rows = db_service.extract_data(fecha_inicio, fecha_fin, recursos=recursos)
+                data_rows = db_service.extract_data(
+                    fecha_inicio, fecha_fin, recursos=recursos
+                )
                 if not data_rows:
                     msg = "ERROR: Sin datos para el periodo/recursos indicados."
                     _log(msg)
@@ -251,14 +269,16 @@ def run_pipeline(
         fecha_str = datetime.now().strftime("%Y-%m-%d")
         for pdf_rel in pdfs:
             meta = _parse_pdf_metadata(pdf_rel, fecha_str)
-            db.add(InformeMeta(
-                ejecucion_id=ejec_id,
-                fecha=meta["fecha"],
-                seccion=meta["seccion"],
-                maquina=meta["maquina"],
-                modulo=meta["modulo"],
-                pdf_path=pdf_rel,
-            ))
+            db.add(
+                InformeMeta(
+                    ejecucion_id=ejec_id,
+                    fecha=meta["fecha"],
+                    seccion=meta["seccion"],
+                    maquina=meta["maquina"],
+                    modulo=meta["modulo"],
+                    pdf_path=pdf_rel,
+                )
+            )
 
         _finalize(db, ejec_id, status, log_lines, len(pdfs))
 
@@ -268,7 +288,9 @@ def run_pipeline(
             _log(msg)
             yield msg
             _save_metrics_to_db(db, ejec_id)
-            msg = "Metricas guardadas en oee.metricas, oee.referencias, oee.incidencias."
+            msg = (
+                "Metricas guardadas en oee.metricas, oee.referencias, oee.incidencias."
+            )
             _log(msg)
             yield msg
         except Exception as exc:
@@ -302,19 +324,31 @@ def generar_informes_desde_bd(
         if not ejec:
             raise ValueError(f"Ejecución {ejecucion_id} no encontrada")
 
-        datos = db.query(DatosProduccion).filter(
-            DatosProduccion.ejecucion_id == ejecucion_id
-        ).all()
+        datos = (
+            db.query(DatosProduccion)
+            .filter(DatosProduccion.ejecucion_id == ejecucion_id)
+            .all()
+        )
         if not datos:
             raise ValueError("No hay datos para esta ejecución")
 
-        rows = [{
-            "recurso": d.recurso, "seccion": d.seccion, "fecha": d.fecha,
-            "h_ini": d.h_ini, "h_fin": d.h_fin, "tiempo": d.tiempo,
-            "proceso": d.proceso, "incidencia": d.incidencia,
-            "cantidad": d.cantidad, "malas": d.malas,
-            "recuperadas": d.recuperadas, "referencia": d.referencia,
-        } for d in datos]
+        rows = [
+            {
+                "recurso": d.recurso,
+                "seccion": d.seccion,
+                "fecha": d.fecha,
+                "h_ini": d.h_ini,
+                "h_fin": d.h_fin,
+                "tiempo": d.tiempo,
+                "proceso": d.proceso,
+                "incidencia": d.incidencia,
+                "cantidad": d.cantidad,
+                "malas": d.malas,
+                "recuperadas": d.recuperadas,
+                "referencia": d.referencia,
+            }
+            for d in datos
+        ]
     finally:
         db.close()
 
@@ -374,65 +408,114 @@ def _save_metrics_to_db(db, ejec_id: int) -> None:
     for sec_name, sec in result.get("secciones", {}).items():
         for maq in sec.get("maquinas", []):
             # Total de la maquina (turno=NULL)
-            db.add(MetricaOEE(
-                ejecucion_id=ejec_id, seccion=sec_name, recurso=maq["nombre"],
-                fecha=None, turno=None,
-                horas_brutas=maq["horas_brutas"], horas_disponible=maq["horas_disponible"],
-                horas_operativo=maq["horas_operativo"], horas_preparacion=maq["horas_preparacion"],
-                horas_indisponibilidad=maq["horas_indisponibilidad"], horas_paros=maq["horas_paros"],
-                tiempo_ideal=maq["tiempo_ideal"], perdidas_rend=maq["perdidas_rend"],
-                piezas_totales=maq["piezas_totales"], piezas_malas=maq["piezas_malas"],
-                piezas_recuperadas=maq["piezas_recuperadas"], buenas_finales=maq["buenas_finales"],
-                disponibilidad_pct=maq["disponibilidad_pct"], rendimiento_pct=maq["rendimiento_pct"],
-                calidad_pct=maq["calidad_pct"], oee_pct=maq["oee_pct"],
-            ))
+            db.add(
+                MetricaOEE(
+                    ejecucion_id=ejec_id,
+                    seccion=sec_name,
+                    recurso=maq["nombre"],
+                    fecha=None,
+                    turno=None,
+                    horas_brutas=maq["horas_brutas"],
+                    horas_disponible=maq["horas_disponible"],
+                    horas_operativo=maq["horas_operativo"],
+                    horas_preparacion=maq["horas_preparacion"],
+                    horas_indisponibilidad=maq["horas_indisponibilidad"],
+                    horas_paros=maq["horas_paros"],
+                    tiempo_ideal=maq["tiempo_ideal"],
+                    perdidas_rend=maq["perdidas_rend"],
+                    piezas_totales=maq["piezas_totales"],
+                    piezas_malas=maq["piezas_malas"],
+                    piezas_recuperadas=maq["piezas_recuperadas"],
+                    buenas_finales=maq["buenas_finales"],
+                    disponibilidad_pct=maq["disponibilidad_pct"],
+                    rendimiento_pct=maq["rendimiento_pct"],
+                    calidad_pct=maq["calidad_pct"],
+                    oee_pct=maq["oee_pct"],
+                )
+            )
 
             # Por turno
             for turno, tm in maq.get("turnos", {}).items():
                 if tm.get("piezas_totales", 0) == 0:
                     continue
-                db.add(MetricaOEE(
-                    ejecucion_id=ejec_id, seccion=sec_name, recurso=maq["nombre"],
-                    fecha=None, turno=turno,
-                    horas_brutas=tm["horas_brutas"], horas_disponible=tm["horas_disponible"],
-                    horas_operativo=tm["horas_operativo"], horas_preparacion=tm["horas_preparacion"],
-                    horas_indisponibilidad=tm["horas_indisponibilidad"], horas_paros=tm["horas_paros"],
-                    tiempo_ideal=tm["tiempo_ideal"], perdidas_rend=tm["perdidas_rend"],
-                    piezas_totales=tm["piezas_totales"], piezas_malas=tm["piezas_malas"],
-                    piezas_recuperadas=tm["piezas_recuperadas"], buenas_finales=tm["buenas_finales"],
-                    disponibilidad_pct=tm["disponibilidad_pct"], rendimiento_pct=tm["rendimiento_pct"],
-                    calidad_pct=tm["calidad_pct"], oee_pct=tm["oee_pct"],
-                ))
+                db.add(
+                    MetricaOEE(
+                        ejecucion_id=ejec_id,
+                        seccion=sec_name,
+                        recurso=maq["nombre"],
+                        fecha=None,
+                        turno=turno,
+                        horas_brutas=tm["horas_brutas"],
+                        horas_disponible=tm["horas_disponible"],
+                        horas_operativo=tm["horas_operativo"],
+                        horas_preparacion=tm["horas_preparacion"],
+                        horas_indisponibilidad=tm["horas_indisponibilidad"],
+                        horas_paros=tm["horas_paros"],
+                        tiempo_ideal=tm["tiempo_ideal"],
+                        perdidas_rend=tm["perdidas_rend"],
+                        piezas_totales=tm["piezas_totales"],
+                        piezas_malas=tm["piezas_malas"],
+                        piezas_recuperadas=tm["piezas_recuperadas"],
+                        buenas_finales=tm["buenas_finales"],
+                        disponibilidad_pct=tm["disponibilidad_pct"],
+                        rendimiento_pct=tm["rendimiento_pct"],
+                        calidad_pct=tm["calidad_pct"],
+                        oee_pct=tm["oee_pct"],
+                    )
+                )
 
             # Por dia
             for day_entry in maq.get("resumen_diario", []):
-                db.add(MetricaOEE(
-                    ejecucion_id=ejec_id, seccion=sec_name, recurso=maq["nombre"],
-                    fecha=day_entry["fecha"], turno=None,
-                    horas_brutas=day_entry["horas_brutas"], horas_disponible=day_entry["horas_disponible"],
-                    horas_operativo=day_entry["horas_operativo"], horas_preparacion=day_entry["horas_preparacion"],
-                    horas_indisponibilidad=day_entry["horas_indisponibilidad"], horas_paros=day_entry["horas_paros"],
-                    tiempo_ideal=day_entry["tiempo_ideal"], perdidas_rend=day_entry["perdidas_rend"],
-                    piezas_totales=day_entry["piezas_totales"], piezas_malas=day_entry["piezas_malas"],
-                    piezas_recuperadas=day_entry["piezas_recuperadas"], buenas_finales=day_entry["buenas_finales"],
-                    disponibilidad_pct=day_entry["disponibilidad_pct"], rendimiento_pct=day_entry["rendimiento_pct"],
-                    calidad_pct=day_entry["calidad_pct"], oee_pct=day_entry["oee_pct"],
-                ))
+                db.add(
+                    MetricaOEE(
+                        ejecucion_id=ejec_id,
+                        seccion=sec_name,
+                        recurso=maq["nombre"],
+                        fecha=day_entry["fecha"],
+                        turno=None,
+                        horas_brutas=day_entry["horas_brutas"],
+                        horas_disponible=day_entry["horas_disponible"],
+                        horas_operativo=day_entry["horas_operativo"],
+                        horas_preparacion=day_entry["horas_preparacion"],
+                        horas_indisponibilidad=day_entry["horas_indisponibilidad"],
+                        horas_paros=day_entry["horas_paros"],
+                        tiempo_ideal=day_entry["tiempo_ideal"],
+                        perdidas_rend=day_entry["perdidas_rend"],
+                        piezas_totales=day_entry["piezas_totales"],
+                        piezas_malas=day_entry["piezas_malas"],
+                        piezas_recuperadas=day_entry["piezas_recuperadas"],
+                        buenas_finales=day_entry["buenas_finales"],
+                        disponibilidad_pct=day_entry["disponibilidad_pct"],
+                        rendimiento_pct=day_entry["rendimiento_pct"],
+                        calidad_pct=day_entry["calidad_pct"],
+                        oee_pct=day_entry["oee_pct"],
+                    )
+                )
 
             # Referencias
             for ref in maq.get("ref_stats", []):
-                db.add(ReferenciaStats(
-                    ejecucion_id=ejec_id, recurso=maq["nombre"],
-                    referencia=ref["referencia"], ciclo_ideal=ref.get("ciclo_ideal"),
-                    ciclo_real=ref.get("ciclo_real"), cantidad=ref.get("cantidad", 0),
-                    horas=ref.get("horas", 0),
-                ))
+                db.add(
+                    ReferenciaStats(
+                        ejecucion_id=ejec_id,
+                        recurso=maq["nombre"],
+                        referencia=ref["referencia"],
+                        ciclo_ideal=ref.get("ciclo_ideal"),
+                        ciclo_real=ref.get("ciclo_real"),
+                        cantidad=ref.get("cantidad", 0),
+                        horas=ref.get("horas", 0),
+                    )
+                )
 
             # Incidencias
             for inc in maq.get("incidencias", []):
-                db.add(IncidenciaResumen(
-                    ejecucion_id=ejec_id, recurso=maq["nombre"],
-                    nombre=inc["nombre"], tipo="paros", horas=inc["horas"],
-                ))
+                db.add(
+                    IncidenciaResumen(
+                        ejecucion_id=ejec_id,
+                        recurso=maq["nombre"],
+                        nombre=inc["nombre"],
+                        tipo="paros",
+                        horas=inc["horas"],
+                    )
+                )
 
     db.commit()

@@ -9,6 +9,7 @@ Research §Pattern 9: ``key_func=get_remote_address`` usa
 ``X-Forwarded-For`` para evitar que todos los clientes compartan la IP
 del proxy — no bloqueante para Sprint 1 (LAN interna), pendiente Mark-IV.
 """
+
 from __future__ import annotations
 
 from slowapi import Limiter

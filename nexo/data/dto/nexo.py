@@ -4,6 +4,7 @@ Los DTOs aqui cruzan la frontera router<->repo para el schema ``nexo``
 en Postgres. El ORM (``nexo.data.models_nexo``) es uso interno de los
 repos + ``nexo.services.auth``.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

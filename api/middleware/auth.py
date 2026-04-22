@@ -9,6 +9,7 @@ Implementacion segun research §Pattern 3 (AuthMiddleware + Pitfall 1 sobre
 orden LIFO de Starlette) y §Pattern 2 (cookie firmada con itsdangerous,
 BD como fuente de verdad del mapeo token → user).
 """
+
 from __future__ import annotations
 
 import logging
@@ -104,7 +105,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
     5. OK → ``request.state.user = user`` + sliding expiration.
     """
 
-    def __init__(self, app: ASGIApp, *, public_paths: Iterable[str] | None = None) -> None:
+    def __init__(
+        self, app: ASGIApp, *, public_paths: Iterable[str] | None = None
+    ) -> None:
         super().__init__(app)
         self._extra_public = frozenset(public_paths or ())
 
@@ -124,7 +127,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         max_age = settings.session_ttl_hours * 3600
         raw_token = unsign_session_token(signed, max_age)
         if raw_token is None:
-            logger.info("AuthMiddleware: cookie con firma invalida o expirada en %s", path)
+            logger.info(
+                "AuthMiddleware: cookie con firma invalida o expirada en %s", path
+            )
             return _unauthenticated_response(request)
 
         # (4) lookup en BD. Sesion propia: abrimos/cerramos sesion del pool
@@ -139,7 +144,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
             user = session.user
             if user is None or not user.active:
                 logger.info(
-                    "AuthMiddleware: sesion %s apunta a usuario inactivo o borrado", session.id
+                    "AuthMiddleware: sesion %s apunta a usuario inactivo o borrado",
+                    session.id,
                 )
                 return _unauthenticated_response(request)
 
@@ -150,7 +156,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # Sliding expiration: renovamos expires_at solo si ya estamos en
             # la segunda mitad del TTL. Asi evitamos un UPDATE por request.
             now = datetime.now(timezone.utc)
-            halfway = session.expires_at - ((session.expires_at - session.created_at) / 2)
+            halfway = session.expires_at - (
+                (session.expires_at - session.created_at) / 2
+            )
             if now > halfway:
                 extend_session(db, session)
 

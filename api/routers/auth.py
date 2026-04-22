@@ -7,6 +7,7 @@ fuerza cambio de password en primer login. Rate limit por IP via slowapi.
 Todas las rutas publicas estan whitelisteadas en ``api.middleware.auth`` —
 el middleware no bloquea la entrada.
 """
+
 from __future__ import annotations
 
 import logging
@@ -40,6 +41,7 @@ router = APIRouter(tags=["auth"])
 
 
 # ── Dependencia de sesion de BD (scope por request) ──────────────────────────
+
 
 def get_nexo_db():
     db = SessionLocalNexo()
@@ -91,6 +93,7 @@ def _render_cambiar_password(
 
 # ── /login ────────────────────────────────────────────────────────────────────
 
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_get(request: Request):
     return _render_login(request)
@@ -120,15 +123,11 @@ async def login_post(
     user = get_user_by_email(db, email_norm)
     if user is None:
         record_failed_attempt(db, email_norm, ip)
-        return _render_login(
-            request, error="Credenciales invalidas", status_code=401
-        )
+        return _render_login(request, error="Credenciales invalidas", status_code=401)
 
     if not verify_password(user.password_hash, password):
         record_failed_attempt(db, email_norm, ip)
-        return _render_login(
-            request, error="Credenciales invalidas", status_code=401
-        )
+        return _render_login(request, error="Credenciales invalidas", status_code=401)
 
     # 3) Login valido
     clear_attempts(db, email_norm, ip)
@@ -156,6 +155,7 @@ async def login_post(
 
 # ── /logout ───────────────────────────────────────────────────────────────────
 
+
 @router.post("/logout")
 async def logout_post(request: Request, db: Session = Depends(get_nexo_db)):
     signed = request.cookies.get(settings.session_cookie_name)
@@ -171,6 +171,7 @@ async def logout_post(request: Request, db: Session = Depends(get_nexo_db)):
 
 
 # ── /cambiar-password ─────────────────────────────────────────────────────────
+
 
 @router.get("/cambiar-password", response_class=HTMLResponse)
 async def cambiar_password_get(request: Request):

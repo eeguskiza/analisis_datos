@@ -6,6 +6,7 @@ logica de transport (validacion de payload, auto-detect, _auto_name,
 sync a config). ``_sync_to_config`` es service-layer helper y se queda
 aqui (no es CRUD puro).
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,7 +17,6 @@ from api.deps import DbApp
 from api.models import RecursosPayload
 from api.models import Recurso as RecursoModel
 from api.services import db as mes_service
-from nexo.data.models_app import Recurso
 from nexo.data.repositories.app import RecursoRepo
 from nexo.services.auth import require_permission
 
@@ -34,16 +34,18 @@ SECCIONES_DISPONIBLES = sorted(set(SECTION_MAP.values()) | {"GENERAL"})
 @router.get("")
 def listar(db: DbApp):
     rows = RecursoRepo(db).list_all()
-    return {"recursos": [
-        {
-            "id": r.id,
-            "centro_trabajo": r.centro_trabajo,
-            "nombre": r.nombre,
-            "seccion": r.seccion,
-            "activo": r.activo,
-        }
-        for r in rows
-    ]}
+    return {
+        "recursos": [
+            {
+                "id": r.id,
+                "centro_trabajo": r.centro_trabajo,
+                "nombre": r.nombre,
+                "seccion": r.seccion,
+                "activo": r.activo,
+            }
+            for r in rows
+        ]
+    }
 
 
 @router.put("", dependencies=_edit)
@@ -111,33 +113,33 @@ def detectar(db: DbApp):
 
 _NAME_RULES = [
     # (substring_in_izaro_name, section, name_format)
-    ("soldadora",    "SOLDADORAS",  None),
-    ("soldad",       "SOLDADORAS",  None),
-    ("horno",        "HORNOS",      None),
-    ("talladora",    "TALLADORAS",  None),
-    ("tallado",      "TALLADORAS",  None),
-    ("talla",        "TALLADORAS",  None),
-    ("linea luk",    "LINEAS",      None),
-    ("linea vw",     "LINEAS",      None),
-    ("linea coroa",  "LINEAS",      None),
-    ("luk",          "LINEAS",      None),
-    ("vw",           "LINEAS",      None),
-    ("coroa",        "LINEAS",      None),
-    ("omr",          "LINEAS",      None),
-    ("prensa",       "PRENSAS",     None),
-    ("rectificad",   "RECTIFICADORAS", None),
-    ("embalaje",     "EMBALAJE",    None),
-    ("robot",        "ROBOTS",      None),
-    ("lavadora",     "LAVADORAS",   None),
-    ("transport",    "TRANSPORTE",  None),
-    ("almacen",      "ALMACEN",     None),
-    ("centro mecan", "MECANIZADO",  None),
-    ("mecaniz",      "MECANIZADO",  None),
-    ("torneado",     "MECANIZADO",  None),
-    ("fresado",      "MECANIZADO",  None),
-    ("equilibrad",   "EQUILIBRADO", None),
-    ("control",      "CALIDAD",     None),
-    ("inspecc",      "CALIDAD",     None),
+    ("soldadora", "SOLDADORAS", None),
+    ("soldad", "SOLDADORAS", None),
+    ("horno", "HORNOS", None),
+    ("talladora", "TALLADORAS", None),
+    ("tallado", "TALLADORAS", None),
+    ("talla", "TALLADORAS", None),
+    ("linea luk", "LINEAS", None),
+    ("linea vw", "LINEAS", None),
+    ("linea coroa", "LINEAS", None),
+    ("luk", "LINEAS", None),
+    ("vw", "LINEAS", None),
+    ("coroa", "LINEAS", None),
+    ("omr", "LINEAS", None),
+    ("prensa", "PRENSAS", None),
+    ("rectificad", "RECTIFICADORAS", None),
+    ("embalaje", "EMBALAJE", None),
+    ("robot", "ROBOTS", None),
+    ("lavadora", "LAVADORAS", None),
+    ("transport", "TRANSPORTE", None),
+    ("almacen", "ALMACEN", None),
+    ("centro mecan", "MECANIZADO", None),
+    ("mecaniz", "MECANIZADO", None),
+    ("torneado", "MECANIZADO", None),
+    ("fresado", "MECANIZADO", None),
+    ("equilibrad", "EQUILIBRADO", None),
+    ("control", "CALIDAD", None),
+    ("inspecc", "CALIDAD", None),
 ]
 
 
@@ -163,7 +165,7 @@ def _auto_name(codigo: int, nombre_izaro: str) -> tuple[str, str]:
     # Quitar prefijos comunes tipo "Linea ", "Centro "
     for prefix in ["Linea ", "LINEA ", "Centro ", "CENTRO "]:
         if nombre.startswith(prefix):
-            nombre = nombre[len(prefix):]
+            nombre = nombre[len(prefix) :]
 
     # Si tiene numeros, formatear como "Tipo Numero"
     nombre = nombre.strip()
@@ -216,12 +218,14 @@ def auto_detectar(db: DbApp):
             seccion=seccion,
             activo=True,
         )
-        añadidas.append({
-            "codigo": codigo,
-            "nombre_izaro": nombre_izaro,
-            "nombre": nombre,
-            "seccion": seccion,
-        })
+        añadidas.append(
+            {
+                "codigo": codigo,
+                "nombre_izaro": nombre_izaro,
+                "nombre": nombre,
+                "seccion": seccion,
+            }
+        )
 
     if añadidas:
         db.commit()

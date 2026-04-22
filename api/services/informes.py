@@ -1,4 +1,5 @@
 """Servicio para listar y gestionar informes generados."""
+
 from __future__ import annotations
 
 import shutil
@@ -20,19 +21,23 @@ def _build_tree(directory: Path, base: Path) -> list[dict]:
         if child.is_dir():
             children = _build_tree(child, base)
             if children:
-                entries.append({
+                entries.append(
+                    {
+                        "name": child.name,
+                        "path": rel,
+                        "type": "dir",
+                        "children": children,
+                    }
+                )
+        elif child.suffix.lower() == ".pdf":
+            entries.append(
+                {
                     "name": child.name,
                     "path": rel,
-                    "type": "dir",
-                    "children": children,
-                })
-        elif child.suffix.lower() == ".pdf":
-            entries.append({
-                "name": child.name,
-                "path": rel,
-                "type": "pdf",
-                "children": [],
-            })
+                    "type": "pdf",
+                    "children": [],
+                }
+            )
     return entries
 
 
@@ -48,7 +53,11 @@ def list_dates() -> list[str]:
     if not settings.informes_dir.exists():
         return []
     return sorted(
-        [d.name for d in settings.informes_dir.iterdir() if d.is_dir() and not d.name.startswith(".")],
+        [
+            d.name
+            for d in settings.informes_dir.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        ],
         reverse=True,
     )
 
