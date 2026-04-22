@@ -11,17 +11,21 @@ on:
       - feature/Mark-III
 
 jobs:
-  # ── Lint ───────────────────────────────────────────────────────────────────
+  # ── Lint (matriz 3.11 + 3.12) ───────────────────────────────────────────────
   lint:
-    name: Lint (ruff)
+    name: Lint (ruff + mypy) / Py ${{ matrix.python-version }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: requirements-dev.txt
 
@@ -29,36 +33,119 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Ruff check
-        run: ruff check .
+        run: ruff check api/ nexo/
 
-      # Format check no bloquea Sprint 0 — el codigo legacy no ha pasado por
-      # ruff format todavia. El commit masivo de format llega en Sprint 6.
+      # Tras el backfill de Phase 7 / Plan 07-01 este step es bloqueante:
+      # el codigo de api/ y nexo/ ya paso por `ruff format`.
       - name: Ruff format --check
-        continue-on-error: true
-        run: ruff format --check .
+        run: ruff format --check api/ nexo/
 
-  # ── Tests ──────────────────────────────────────────────────────────────────
+      - name: Mypy
+        run: mypy api/ nexo/
+
+  # ── Tests + coverage (matriz 3.11 + 3.12, bloqueante) ──────────────────────
   test:
-    name: Tests (pytest)
+    name: Tests / Py ${{ matrix.python-version }}
     runs-on: ubuntu-24.04
-    # No bloquea merges en Sprint 0. Se volvera bloqueante en Sprint 6
-    # cuando haya cobertura y tests de routers.
-    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    # Service container Postgres aislado del compose del smoke (puerto 5433
+    # en el host para no colisionar con el default interno del compose).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: oee
+          POSTGRES_PASSWORD: oee
+          POSTGRES_DB: oee_planta
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U oee"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: requirements-dev.txt
 
       - name: Install dev dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run pytest
-        run: pytest -q
+      - name: Init schema (Postgres service)
+        env:
+          NEXO_PG_HOST: localhost
+          NEXO_PG_PORT: "5433"
+          NEXO_PG_USER: oee
+          NEXO_PG_PASSWORD: oee
+          NEXO_PG_DB: oee_planta
+        run: python scripts/init_nexo_schema.py
+
+      - name: Run pytest with coverage
+        env:
+          NEXO_PG_HOST: localhost
+          NEXO_PG_PORT: "5433"
+          NEXO_PG_USER: oee
+          NEXO_PG_PASSWORD: oee
+          NEXO_PG_DB: oee_planta
+        run: |
+          pytest tests/ -q \
+            --cov=api --cov=nexo \
+            --cov-report=term \
+            --cov-report=xml \
+            --cov-fail-under=60
+
+      - name: Upload coverage (Py ${{ matrix.python-version }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
+
+  # ── Smoke: docker compose up + curl /api/health ────────────────────────────
+  smoke:
+    name: Smoke (docker compose + /api/health)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seed .env from example
+        run: |
+          cp .env.example .env
+          echo "NEXO_SECRET_KEY=ci-smoke-$(openssl rand -hex 16)" >> .env
+
+      - name: Start db + web
+        # Solo db + web. Explicitamente NO `--profile mcp` (invariante Phase 1).
+        run: docker compose up -d --build db web
+
+      - name: Wait for web healthy
+        run: |
+          for i in {1..45}; do
+            if curl -fs http://localhost:8001/api/health > /dev/null 2>&1; then
+              echo "web healthy after ${i} attempts"
+              curl -s http://localhost:8001/api/health | python3 -m json.tool
+              exit 0
+            fi
+            echo "attempt $i failed, retrying..."
+            sleep 2
+          done
+          echo "--- web logs ---"
+          docker compose logs web
+          echo "--- db logs ---"
+          docker compose logs db
+          exit 1
+
+      - name: Tear down
+        if: always()
+        run: docker compose down
 
   # ── Docker build (sin push) ────────────────────────────────────────────────
   build:
@@ -77,8 +164,9 @@ jobs:
   secrets:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-24.04
-    # No bloquea Sprint 0 — SECURITY_AUDIT.md ya documenta los hallazgos
-    # conocidos del historial y la rotacion va fuera del sprint.
+    # Historical findings ya documentados en docs/SECURITY_AUDIT.md. Se mantiene
+    # no-bloqueante hasta Mark-IV donde se evalua filter-repo para limpiar
+    # historial. Ver key-decision en .planning/PROJECT.md.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
