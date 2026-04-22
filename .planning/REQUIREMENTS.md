@@ -251,11 +251,11 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | DEVEX-06 | Phase 7 | Pending |
 | DEVEX-07 | Phase 7 | Pending |
 | UIREDO-01 | Phase 8 | Complete (08-01 — 2026-04-22) |
-| UIREDO-02 | Phase 8 | Pending |
+| UIREDO-02 | Phase 8 | In progress (08-02/08-03/08-04 — 2026-04-22) |
 | UIREDO-03 | Phase 8 | Pending |
 | UIREDO-04 | Phase 8 | Pending |
-| UIREDO-05 | Phase 8 | Pending |
-| UIREDO-06 | Phase 8 | Pending |
+| UIREDO-05 | Phase 8 | In progress (08-02/08-04 — 2026-04-22) |
+| UIREDO-06 | Phase 8 | In progress (08-02/08-03/08-04 — 2026-04-22) |
 | UIREDO-07 | Phase 8 | Pending |
 | UIREDO-08 | Phase 8 | Pending |
 

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-03 users nombre column migration
-last_updated: "2026-04-22T18:43:05.976Z"
+stopped_at: Completed 08-04 bienvenida landing
+last_updated: "2026-04-22T18:56:00Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 38
-  completed_plans: 27
-  percent: 71
+  completed_plans: 28
+  percent: 74
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 ## Current Position
 
 Phase: 8
-Plan: 08-03 ✓ (users nombre column + migration + form) — next 08-04 bienvenida landing
+Plan: 08-04 ✓ (bienvenida landing + saludo + reloj + post-login redirect) — next 08-05 Centro de Mando visual refactor
 Status: In progress
 Last activity: 2026-04-22
 
-Progress: [███████░░░] 71%
+Progress: [███████░░░] 74%
 
 ## Plans de Phase 2 (estado)
 
@@ -75,6 +75,7 @@ Progress: [███████░░░] 71%
 | Phase 08 P01 | 9min | 3 tasks | 6 files |
 | Phase 08 P02 | 15 | 4 tasks | 13 files |
 | Phase 08 P03 | 30 | 3 tasks | 9 files |
+| Phase 08 P04 | 10min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,7 @@ Ver `docs/SECURITY_AUDIT.md` para el cierre de H1/H2.
 - Plan 08-01 cierra substrate de tokens: tokens.css two-layer (raw + semantic), tailwind.config.js extraido de base.html (no wiring — ese es 08-02), BRANDING.md documenta 60/30/10 split + typography + motion + z-index. 56 tests regresión en tests/infra/test_tokens_css.py. Pre-existing test failure (thresholds_crud recalibrate) confirmado fuera de scope, deferred-items.md creado.
 - Plan 08-02: Alpine Focus + Persist CDN plugins loaded BEFORE Alpine core via base.html rewrite; drawerOpen persisted to localStorage.nexo.ui.drawerOpen; [ shortcut with _isTyping input-guard; 3-arg showToast canonical API with XSS-safe _escape helper; legacy producing/stopped/incidence/alarm/turno mapped via _TOAST_VARIANT_ALIAS; getattr exposed as Jinja global for defensive getattr(current_user, 'nombre', None) pre-08-03
 - Plan 08-03: nexo.users.nombre column added (VARCHAR(120) NULL) + idempotent migration + backfill + ORM/DTO/repo wiring + /ajustes/usuarios form field; schema_guard extended with generic REQUIRED_COLUMNS mechanism; Rule 1 bugfix: _serialize_user datetime tojson explosion (latente desde 02-04)
+- Plan 08-04: /bienvenida landing shipped. hora_saludo Jinja filter (Europe/Madrid, 3 bands D-23) in api/deps.py; bienvenidaPage() Alpine component with setInterval(1s) + destroy() cleanup (Pitfall 6); post-login redirect target switched from / to /bienvenida (must_change_password branch preserved); templates/bienvenida.html extends base.html with Display/Heading role swap (hidden/md:hidden twin <h2>), server-rendered Spanish day+date, client-side reloj via x-text="clock" (role="timer", tabular-nums). Defensive getattr(current_user, 'nombre', None) fallback for rows without backfill. GET /bienvenida route sin require_permission — AuthMiddleware global es suficiente. 17 tests: 4 unit (hora_saludo bands incl. UTC→Madrid DST conversion) + 6 integration (login redirect, render, auth-required, Spanish day/month). Phase 5 RBAC suite intacta (41 tests green). 2 pre-existing thresholds_crud failures diferred (verificadas en HEAD~2).
 
 ### Pending Todos
 
@@ -171,9 +173,9 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-22T18:43:05.873Z
-Stopped at: Completed 08-03 users nombre column migration
-Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
+Last session: 2026-04-22T18:56:00Z
+Stopped at: Completed 08-04 bienvenida landing
+Tests: 73 focused pass (17 bienvenida + 41 Phase 5 RBAC + 15 other Phase 8). 3 pre-existing thresholds_crud failures diferred (verificados en HEAD~2, documentados en deferred-items.md — owner: Phase 4 backport o Phase 8 plan que toque thresholds).
 Resume file: None
 
 **Planned Phase:** 08 () — 0 plans — 2026-04-22T17:55:25.587Z
