@@ -3,79 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ app_name }} — Acceso</title>
+  <title>Entrar · {{ app_name }}</title>
+
+  {# Phase 8 / Plan 08-06: public route does NOT extend base.html, but
+     uses the same stylesheet + Tailwind config so semantic tokens
+     resolve identically. Token CSS is imported from app.css. #}
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/print.css" media="print">
+
+  <script src="/static/js/tailwind.config.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand:   { 50:'#eef5ff', 100:'#d9e8ff', 200:'#bcd5ff', 300:'#8ebbff', 400:'#5995ff', 500:'#336dff', 600:'#1a3a5c', 700:'#142d47', 800:'#0f2236', 900:'#0a1724' },
-            surface: { 50:'#f8fafc', 100:'#f1f5f9', 200:'#e2e8f0', 300:'#cbd5e1' },
-          }
-        }
-      }
-    }
-  </script>
 </head>
-<body class="h-full bg-brand-800 text-gray-800 font-sans antialiased">
+<body class="h-full bg-surface-app text-body font-sans antialiased flex items-center justify-center min-h-screen px-4">
 
-<main class="min-h-full flex items-center justify-center px-4 py-12">
-  <div class="w-full max-w-md">
+  <div class="w-full max-w-[400px] mx-auto">
 
-    <!-- Brand -->
-    <div class="flex flex-col items-center mb-8">
-      <img src="{{ logo_path }}" alt="{{ app_name }}" class="w-32 h-32 object-contain"
-           onerror="this.outerHTML='<span class=&quot;font-bold text-white text-3xl&quot;>NEXO</span>'">
-      <span class="text-xs font-normal tracking-widest text-brand-300 uppercase mt-1">
-        by {{ company_name }}
-      </span>
+    {# ── Brand block ───────────────────────────────────────────────── #}
+    <div class="flex flex-col items-center mb-6">
+      <img src="{{ logo_path }}" alt="{{ app_name }}" class="w-24 h-24 object-contain"
+           onerror="this.outerHTML='<span class=&quot;text-heading text-xl font-semibold&quot;>NEXO</span>'">
+      <span class="text-sm text-muted tracking-wide mt-1">by {{ company_name|upper }}</span>
     </div>
 
-    <!-- Card -->
-    <div class="bg-white rounded-2xl shadow-2xl p-8">
-      <h1 class="text-xl font-semibold text-brand-800 mb-6">Iniciar sesion</h1>
+    {# ── Login card ────────────────────────────────────────────────── #}
+    <div class="card">
+      <div class="card-body">
+        <h1 class="text-heading mb-6">Entrar</h1>
 
-      {% if request.query_params.get('ok') == 'password-cambiado' %}
-      <div class="mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
-        Contrasena actualizada. Vuelve a iniciar sesion.
-      </div>
-      {% endif %}
-
-      {% if error %}
-      <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-        {{ error }}
-      </div>
-      {% endif %}
-
-      <form method="post" action="/login" class="space-y-4" autocomplete="on">
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <input type="email" id="email" name="email" required autofocus autocomplete="username"
-                 class="block w-full px-3 py-2 rounded-lg border border-surface-300
-                        focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none
-                        text-sm">
+        {# Success banner after password change (302 redirect from
+           POST /cambiar-password). #}
+        {% if request.query_params.get('ok') == 'password-cambiado' %}
+        <div class="rounded-md bg-success-subtle text-success border border-subtle p-4 mb-4 text-sm" role="status">
+          Contrasena actualizada. Vuelve a iniciar sesion.
         </div>
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contrasena</label>
-          <input type="password" id="password" name="password" required autocomplete="current-password"
-                 class="block w-full px-3 py-2 rounded-lg border border-surface-300
-                        focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none
-                        text-sm">
+        {% endif %}
+
+        {# Lockout (429) or invalid credentials (401) — server-authoritative (D-25). #}
+        {% if error %}
+        <div class="rounded-md bg-error-subtle text-error border border-subtle p-4 mb-4 text-sm" role="alert">
+          {{ error }}
         </div>
-        <button type="submit"
-                class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white
-                       font-medium text-sm transition-colors">
-          Entrar
-        </button>
-      </form>
+        {% endif %}
+
+        <form method="post" action="/login" class="flex flex-col gap-4" autocomplete="on">
+          <div>
+            <label for="login-email" class="block text-sm font-semibold text-body mb-1">Email</label>
+            <input type="email" id="login-email" name="email"
+                   required autofocus autocomplete="username"
+                   class="input-inline">
+          </div>
+          <div>
+            <label for="login-password" class="block text-sm font-semibold text-body mb-1">Contrasena</label>
+            <input type="password" id="login-password" name="password"
+                   required autocomplete="current-password"
+                   class="input-inline">
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg">Entrar</button>
+        </form>
+      </div>
     </div>
 
-    <p class="mt-6 text-center text-xs text-brand-300">
+    <p class="mt-6 text-center text-sm text-muted">
       © {{ company_name }} — {{ app_name }}
     </p>
   </div>
-</main>
 
 </body>
 </html>
