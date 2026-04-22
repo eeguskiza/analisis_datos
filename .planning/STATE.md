@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-04-22T13:37:32.685Z"
-last_activity: 2026-04-22 -- Phase 07 execution started
+status: planning
+stopped_at: Phase 8 context gathered
+last_updated: "2026-04-22T15:29:51.858Z"
+last_activity: 2026-04-22
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 24
-  completed_plans: 20
-  percent: 88
+  completed_plans: 24
+  percent: 100
 ---
 
 # Project State
@@ -165,9 +165,9 @@ Verificaciones bloqueantes que se ejecutan fuera de la sesión donde se cerró e
 
 ## Session Continuity
 
-Last session: 2026-04-21T17:33:33.912Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: --stopped-at
+Stopped at: Phase 8 context gathered
 Tests: 173 pass / 28 skip / 0 fail (+4 deselected SQL Server infra pre-existing). Rule 1 fix: `notify_changed` usaba `engine_nexo.raw_connection()` lo que polucionaba el pool SQLAlchemy con isolation_level=AUTOCOMMIT; fix con psycopg2.connect() dedicado que no toca el pool.
-Resume file: None
+Resume file: --resume-file
 
 **Planned Phase:** 7 (DevEx hardening) — 4 plans — 2026-04-21T18:26:59.441Z
