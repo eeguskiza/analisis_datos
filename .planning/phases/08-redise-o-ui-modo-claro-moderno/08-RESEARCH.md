@@ -971,7 +971,7 @@ python -c "from PIL import Image; im = Image.open('static/img/gif-corona.gif'); 
 
 ---
 
-## Open Questions (from UI-SPEC) — research-backed recommendations
+## Open Questions (RESOLVED — recommendations passed to planner)
 
 ### 1. Keyboard shortcut for drawer toggle
 
@@ -1053,6 +1053,8 @@ Options:
 
 **Recommendation to planner:** **Option B.** Document in Plan 08-03 that `nombre` column is Mark-IV scope (user profile editable).
 
+**FINAL RESOLUTION (operator decision):** Option A adopted — `nexo.users.nombre` column migrated in Plan 08-03. Option B (email local-part only, defer to Mark-IV) rejected per UI-SPEC + session discuss. Plan 08-02 uses `getattr(...)` fallback so the intermediate state between 08-02 and 08-03 deploys cleanly.
+
 ---
 
 ## Assumptions Log
@@ -1075,7 +1077,7 @@ Options:
 
 ---
 
-## Open Questions (Research-level, separate from UI-SPEC open questions)
+## Open Questions (RESOLVED — research-level, actioned in Phase 8 plans)
 
 1. **RUNBOOK anchor slugs — do we rewrite UI-SPEC or RUNBOOK?** (Pitfall 8). Recommendation: rewrite UI-SPEC because RUNBOOK has been cited in Phase 7 test `tests/infra/test_devex_docs.py`.
    - What we know: UI-SPEC uses short anchors; RUNBOOK uses long descriptive headings.

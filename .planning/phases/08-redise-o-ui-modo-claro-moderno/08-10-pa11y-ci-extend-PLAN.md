@@ -3,7 +3,7 @@ phase: 08-redise-o-ui-modo-claro-moderno
 plan: 10
 type: execute
 wave: 7
-depends_on: [08-06, 08-07, 08-08, 08-09]
+depends_on: [08-06, 08-07, 08-08a, 08-08b, 08-09a, 08-09b, 08-09c]
 files_modified:
   - .github/workflows/ci.yml
   - .pa11yci.json

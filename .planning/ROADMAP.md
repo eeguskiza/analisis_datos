@@ -161,7 +161,7 @@ Plans:
   6. Secciones nuevas propuestas (si las hay) validadas contra scope Mark-III antes de añadir al roadmap — nada se añade silenciosamente
   7. Transición sin regresión funcional: cada página rediseñada pasa su smoke test de Phase anterior antes de mergear
   8. Accesibilidad mínima: contraste AA, focus visible, navegación por teclado funcional en drawer + modales
-**Plans**: 11 plans
+**Plans**: 13 plans
 
 Plans:
 - [ ] 08-01-PLAN.md — tokens.css + tailwind.config.js + BRANDING.md tokens section (UIREDO-01)
@@ -171,8 +171,11 @@ Plans:
 - [ ] 08-05-PLAN.md — Centro de Mando / luk4 visual refactor (LOCKED interaction D-16) (UIREDO-03, UIREDO-04, UIREDO-06)
 - [ ] 08-06-PLAN.md — Auth screens refactor (login, cambiar_password, mis_solicitudes) (UIREDO-04, UIREDO-05, UIREDO-06, UIREDO-08)
 - [ ] 08-07-PLAN.md — Data screens refactor (pipeline, historial, bbdd, datos, informes) (UIREDO-04, UIREDO-05, UIREDO-06)
-- [ ] 08-08-PLAN.md — Config screens refactor (capacidad, operarios, recursos, ciclos, ciclos_calc, plantillas) (UIREDO-04, UIREDO-05, UIREDO-06)
-- [ ] 08-09-PLAN.md — Ajustes suite refactor (hub + 6 sub-pages) (UIREDO-04, UIREDO-05, UIREDO-06)
+- [ ] 08-08a-PLAN.md — Config screens filter/KPI refactor (capacidad + operarios) (UIREDO-04, UIREDO-05, UIREDO-06)
+- [ ] 08-08b-PLAN.md — Config screens CRUD refactor (recursos, ciclos, ciclos_calc, plantillas) (UIREDO-04, UIREDO-05, UIREDO-06)
+- [ ] 08-09a-PLAN.md — Ajustes hub + user-facing sub-pages refactor (hub + conexión + usuarios) (UIREDO-04, UIREDO-05, UIREDO-06)
+- [ ] 08-09b-PLAN.md — Ajustes audit + limits refactor (auditoría + límites) (UIREDO-04, UIREDO-05, UIREDO-06)
+- [ ] 08-09c-PLAN.md — Ajustes rendimiento + solicitudes refactor (rendimiento + solicitudes) (UIREDO-04, UIREDO-05, UIREDO-06)
 - [ ] 08-10-PLAN.md — pa11y-ci CI extension (WCAG2AA on 10 URLs via smoke job) (UIREDO-08)
 - [ ] 08-11-PLAN.md — Release v1.0.0 tag local + CHANGELOG bump (UIREDO-01..UIREDO-08, Mark-III closure)
 

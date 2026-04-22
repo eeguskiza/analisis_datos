@@ -318,8 +318,13 @@ Also **create `static/css/print.css`** with the @media print rules.
       </div>
 
       {% if current_user %}
-        {# User display name: nombre if set (Plan 08-03 migration) else email local-part #}
-        {% set display_name = current_user.nombre if current_user.nombre else (current_user.email.split('@')[0]|capitalize) %}
+        {# User display name — BLOCKER fix (checker): use getattr so this renders
+           correctly BEFORE Plan 08-03 adds the `nombre` ORM attribute (D-03/08-03).
+           Between Wave 2 (this plan) and Wave 3 (08-03) the column does not exist on
+           NexoUser; `getattr(..., 'nombre', None)` returns None and the fallback
+           (email local-part, capitalized) renders. Once 08-03 lands, the attribute
+           exists and the happy path (user.nombre) takes over automatically. #}
+        {% set display_name = getattr(current_user, 'nombre', None) or current_user.email.split('@')[0]|capitalize %}
         <span class="text-sm text-muted hidden sm:inline">{{ current_user.email }}</span>
         <span class="text-sm font-semibold tracking-wide uppercase px-2 py-0.5 rounded-pill bg-primary-subtle text-primary">
           {{ current_user.role }}
@@ -609,6 +614,8 @@ match `PERMISSION_MAP` in `nexo/services/auth.py`.
     - `grep -c "Configuración" templates/base.html` returns 1 or more.
     - `grep -c "can(current_user," templates/base.html` returns 10 or more (one per gated item).
     - `grep -c "Análisis" templates/base.html` returns 1 (accent fix).
+    - `grep -c "getattr(current_user, 'nombre'" templates/base.html` returns 1 or more (BLOCKER fix — guarded fallback so base.html renders correctly before Plan 08-03 lands).
+    - `! grep -qE "current_user\.nombre[^'\"]*(if|else)" templates/base.html` exit 0 (no unguarded `current_user.nombre` access: the only permitted access is via `getattr(current_user, 'nombre', ...)`).
     - `test -f static/css/print.css` returns 0.
     - `grep -c "@media print" static/css/print.css` returns 1.
     - `grep -c "href=\"/static/css/print.css\" media=\"print\"" templates/base.html` returns 1.
@@ -1605,5 +1612,5 @@ After completion, create `.planning/phases/08-redise-o-ui-modo-claro-moderno/08-
 - Any pre-existing tests that had to be updated to the new chrome — list each with a one-line rationale.
 - Notable deviations from UI-SPEC (should be none).
 - Was ffmpeg available for `gif-corona.png`? If not, note stopgap.
-- Handoff to 08-03: `current_user.nombre` column is referenced in base.html display_name logic — Plan 08-03 creates the column + migration + form update so the fallback (`email.split('@')[0]|capitalize`) is only used for legacy accounts without `nombre`.
+- Handoff to 08-03: `current_user.nombre` is accessed via `getattr(current_user, 'nombre', None)` in `base.html` (BLOCKER fix — the ORM attribute does not exist until 08-03 lands). Plan 08-03 creates the column + migration + form update; once merged, the happy path (`user.nombre`) takes over automatically and the `email.split('@')[0]|capitalize` fallback is only used for legacy accounts without `nombre`.
 </output>

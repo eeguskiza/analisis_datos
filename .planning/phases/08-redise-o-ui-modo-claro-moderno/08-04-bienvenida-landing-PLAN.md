@@ -22,7 +22,7 @@ must_haves:
     - "A new GET `/bienvenida` route renders `templates/bienvenida.html` guarded by authentication (no specific permission — every authenticated user sees it)."
     - "Post-login redirect in `api/routers/auth.py` changes from `/` to `/bienvenida` (EXCEPT the must_change_password redirect stays `/cambiar-password`)."
     - "The greeting band is computed server-side via a Jinja filter `hora_saludo(now)` (06–11→Buenos días, 12–20→Buenas tardes, 21–05→Buenas noches) using Europe/Madrid timezone."
-    - "The greeting uses `user.nombre` (Plan 08-03 column) with fallback to email local-part capitalized."
+    - "The greeting uses `getattr(current_user, 'nombre', None) or email.split('@')[0]|capitalize` — this guards against Plan 08-03 not yet having landed (BLOCKER fix per checker); once 08-03 ships, `user.nombre` is the happy path."
     - "The reloj ticks every second via Alpine `setInterval` inside a `bienvenidaPage()` component; the interval is cleared on Alpine `destroy()` to avoid leaks (Pitfall 6)."
     - "A primary `btn-lg` CTA `Ir a Centro de Mando` navigates to `/`."
     - "The page honours `prefers-reduced-motion` — no gratuitous animation on the reloj (tick is a text update, not an animated transition)."
@@ -279,9 +279,11 @@ The tick is pure JS; no animation, no CSS transition — respects
 {% block page_title %}Bienvenida{% endblock %}
 
 {% block content %}
-{# Display name = nombre if populated (Plan 08-03), else email local-part capitalized. #}
-{% set display_name = current_user.nombre if current_user and current_user.nombre
-   else (current_user.email.split('@')[0]|capitalize if current_user else '') %}
+{# Display name — use getattr so the template renders correctly BEFORE Plan 08-03
+   adds the `nombre` ORM attribute. `getattr(current_user, 'nombre', None)` returns
+   None when the column does not exist yet; once 08-03 ships, the happy path takes
+   over automatically (BLOCKER fix per checker). #}
+{% set display_name = (getattr(current_user, 'nombre', None) or current_user.email.split('@')[0]|capitalize) if current_user else '' %}
 
 <section x-data="bienvenidaPage()"
          class="max-w-[640px] mx-auto py-16 flex flex-col items-center text-center gap-6">
@@ -362,6 +364,7 @@ transitional state. Do NOT add a "Bienvenida" nav item to the drawer.
     - `grep -c "@router.get(\"/bienvenida\")" api/routers/pages.py` returns 1.
     - `grep -c "now_madrid" api/routers/pages.py` returns 1 or more.
     - `grep -c "now_madrid" templates/bienvenida.html` returns 2 or more.
+    - `grep -c "getattr(current_user, 'nombre'" templates/bienvenida.html` returns 1 (BLOCKER fix — guarded fallback so the landing renders before Plan 08-03 lands).
     - App starts locally without error.
   </acceptance_criteria>
   <verify>

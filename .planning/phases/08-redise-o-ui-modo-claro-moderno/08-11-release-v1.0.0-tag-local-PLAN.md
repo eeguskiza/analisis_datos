@@ -22,6 +22,7 @@ must_haves:
     - "No deploy is executed — `docs/DEPLOY_LAN.md` is the next step for the operator."
     - "STATE.md is updated with a session-continuity note pointing the operator at the next manual steps (`git push --tags origin feature/Mark-III`, then `docs/DEPLOY_LAN.md`)."
     - "The tag is listed by `git tag --list v1.0.0` and has an annotated commit message (not a lightweight tag)."
+    - "Every Phase 8 addition beyond ROADMAP's original Phase 8 scope is documented: /bienvenida landing (CONTEXT.md D-23), 'Configuración' drawer section (this session), '[' keyboard shortcut (this session), `nexo.users.nombre` column (this session). No silent scope additions — UIREDO-07 satisfied."
   artifacts:
     - path: "CHANGELOG.md"
       provides: "Versioned changelog with 1.0.0 entry and new Unreleased block"
@@ -215,7 +216,7 @@ Execute the following git commands. **Do NOT run `git push`.**
 ```bash
 # 1) Stage + commit CHANGELOG (this is a separate commit from the tag point)
 git add CHANGELOG.md
-git commit -m "release: prepare v1.0.0 — Mark-III closure
+git commit -m "chore: prepare v1.0.0 release — Mark-III closure
 
 - Cut CHANGELOG.md [Unreleased] to [1.0.0] - 2026-04-22.
 - Record Phase 8 (UI redesign + /bienvenida + pa11y-ci + users.nombre).
