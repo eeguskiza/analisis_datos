@@ -4,8 +4,8 @@ Este archivo es el mapa que le damos a cualquier IA (Claude Code, Copilot,
 Gemini, etc.) o dev humano que entre a tocar este repo. Lo actualizamos con
 cada sprint de Mark-III.
 
-Última revisión: 2026-04-18 (sesión de arranque de Sprint 0, antes de
-`/gsd-execute-phase 1`).
+Última revisión: 2026-04-22 (cierre Mark-III / Sprint 6 / Phase 7 —
+DevEx hardening + quartet docs + CI coverage gate + pre-commit activo).
 
 ---
 
@@ -34,6 +34,11 @@ Despliegue: LAN interna ECS (Ubuntu Server 24.04). Sin exposición a internet.
 - `docs/GLOSSARY.md` — términos de dominio (Nexo, MES, APP, rol, departamento, audit_log, preflight, postflight).
 - `docs/SECURITY_AUDIT.md` — hallazgos del audit de historial git (generado en Sprint 0).
 - `docs/DATA_MIGRATION_NOTES.md` — decisiones de migración (p. ej. `data/oee.db` en Sprint 0).
+- `docs/ARCHITECTURE.md` — mapa técnico del repo (3 engines `engine_mes` / `engine_app` / `engine_nexo`, middleware stack, schedulers, layout del paquete). Entregable Phase 7.
+- `docs/RUNBOOK.md` — 5 escenarios de incidencia runtime (MES caído, Postgres no arranca, certificado Caddy expira, pipeline atascado, lockout del único propietario) con hallazgos críticos sobre helpers que NO existen. Entregable Phase 7.
+- `docs/RELEASE.md` — checklist reproducible de release versionado (semver `vMAJOR.MINOR.PATCH` + deploy + smoke externo + rollback). Entregable Phase 7.
+- `docs/DEPLOY_LAN.md` — runbook de instalación y recuperación del servidor LAN (Ubuntu + Docker + root CA + hosts-file + cron backup). Entregable Phase 6.
+- `CHANGELOG.md` — Keep a Changelog 1.1.0 con historial Mark-III completo (Phases 1-7).
 
 **Artefactos de ejecución (runtime de GSD):**
 
@@ -135,6 +140,83 @@ divergido, regenerar `.planning/` conversacionalmente.
 
 ---
 
+## Tooling DevEx (Phase 7)
+
+Pre-commit + ruff + ruff-format + mypy + coverage gate están activos desde
+Phase 7. Cada dev tras clonar debe correr una sola vez:
+
+```bash
+pip install -r requirements-dev.txt
+pre-commit install
+```
+
+Tras `pre-commit install`, cada `git commit` dispara los hooks scoped a
+`api/` + `nexo/` (ruff-check, ruff-format, mypy) + hooks de higiene sobre
+todo el repo. `OEE/` queda fuera del scope (decisión Mark-III).
+
+**Targets Makefile para el dev loop**:
+
+| Target | Propósito |
+|--------|-----------|
+| `make test` | `pytest -q --cov=api --cov=nexo --cov-fail-under=60` (gate bloqueante) |
+| `make lint` | `ruff check api/ nexo/` + `ruff format --check api/ nexo/` + `mypy api/ nexo/` |
+| `make format` | `ruff check --fix api/ nexo/` + `ruff format api/ nexo/` (auto-fix seguro) |
+| `make migrate` | `docker compose exec web python scripts/init_nexo_schema.py` |
+| `make backup` | `bash scripts/backup_nightly.sh` (cron-ready) |
+
+**CI** (`.github/workflows/ci.yml`) corre 5 jobs: `lint` y `test` sobre
+matriz Python 3.11 + 3.12 con coverage gate `--cov-fail-under=60`
+bloqueante; `smoke` (arranca `docker compose up -d --build db web` + curl
+a `:8001/api/health`); `build` (docker build nexo-web + nexo-mcp); y
+`secrets` (gitleaks, único `continue-on-error: true` por hallazgos
+históricos ya rotados en Sprint 0).
+
+**Referencias de navegación**:
+
+- `docs/ARCHITECTURE.md` — cómo está hecho Nexo por dentro (3 engines,
+  middleware stack, schedulers, layout del repo).
+- `docs/RUNBOOK.md` — qué hacer cuando algo se rompe (5 escenarios con
+  hallazgos críticos sobre helpers que NO existen).
+- `docs/RELEASE.md` — cómo cortar un release (semver + deploy + smoke +
+  rollback).
+- `CHANGELOG.md` — historial Mark-III completo (Keep a Changelog 1.1.0).
+- `.pre-commit-config.yaml` — hooks scoped a `^(api|nexo)/`.
+- `pyproject.toml` — single source of truth de config ruff + mypy +
+  pytest + coverage.
+
+---
+
+## Despliegue productivo (Phase 6)
+
+Deploy LAN HTTPS con Caddy `tls internal`. Hostname
+`nexo.ecsmobility.local` resuelto via hosts-file en cada cliente + root
+CA interna distribuida manualmente (Windows `certutil`, Linux
+`update-ca-certificates`, macOS `add-trusted-cert`). Sin exposición a
+internet — LAN-only.
+
+**Targets Makefile para prod** (usan `docker-compose.yml` +
+`docker-compose.prod.yml`):
+
+| Target | Propósito |
+|--------|-----------|
+| `make prod-up` | Arranca stack prod (requiere `/opt/nexo/.env` con secretos reales, 600 perms) |
+| `make prod-down` | Para stack prod (SIN `-v` — `pgdata` persiste; Landmine 6) |
+| `make prod-logs` | Logs stack prod en tiempo real |
+| `make prod-status` | Estado de containers prod |
+| `make prod-health` | Health check via `/api/health` (MES caído devuelve 200 con `ok:false`) |
+| `make deploy` | `scripts/deploy.sh` (git pull + build + up + smoke con pre-deploy backup atómico) |
+| `make backup` | `scripts/backup_nightly.sh` (pg_dump + rotación 7d en `/var/backups/nexo/`) |
+
+**Runbook completo de instalación y recuperación**: `docs/DEPLOY_LAN.md`
+(Docker install + clone + ufw + root CA por SO + hosts-file por SO +
+cron nightly + restore zcat|psql + 7 landmines numeradas; RTO 1-2h).
+
+**Smoke externo post-deploy**: `bash tests/infra/deploy_smoke.sh` (11
+checks `[DEPLOY-XX] OK|FAIL`, exit code = número de fallos, usable desde
+cron o peer LAN con CA + hosts-file instalados).
+
+---
+
 ## Qué NO hacer
 
 Decisiones explícitas del operador que **no** se tocan sin preguntar:
@@ -149,3 +231,5 @@ Decisiones explícitas del operador que **no** se tocan sin preguntar:
 - No implementar 2FA ni LDAP en Mark-III.
 - No mover `cfg.recursos`/`cfg.ciclos`/`cfg.contactos` de `ecs_mobility.cfg.*` a Postgres.
 - No sustituir matplotlib por otro motor de PDFs salvo que preflight demuestre que es inviable.
+- No commitear con `git commit --no-verify` (pre-commit entró en Phase 7). Si un hook falla: inspeccionar con `git diff`, dejar que `make format` auto-fixee lo que pueda, `git add` y volver a commitear. Los hooks no son opcionales.
+- No bajar la cobertura por debajo del gate configurado en `pyproject.toml` (`[tool.coverage.report].fail_under = 60`) ni en `.github/workflows/ci.yml` (`--cov-fail-under=60`). CI bloquea PRs que regresionen cobertura; si tu PR añade lógica nueva, añade tests antes de abrirlo.
