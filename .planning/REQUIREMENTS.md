@@ -104,6 +104,9 @@ Cada requirement se mapea a exactamente una phase del ROADMAP.
 ### DEVEX — Phase 7 / Sprint 6 (hardening)
 
 - [ ] **DEVEX-01**: Pre-commit con ruff + black + mypy ligero (sólo `api/` y `nexo/`, OEE excluido); black + ruff --fix ejecutados previamente en commit aislado para no contaminar diffs
+
+  > Nota (2026-04-21): black reemplazado por ruff-format tras investigacion Phase 7.
+  > El hook `ruff-format` es drop-in replacement de black y elimina la friccion de dual-format.
 - [ ] **DEVEX-02**: CI ampliado con matriz Python 3.11 y 3.12; cobertura mínima 60% en `api/` y `nexo/`; smoke test `docker compose up` + `curl /api/health`
 - [ ] **DEVEX-03**: Makefile añade targets `make test`, `make lint`, `make format`, `make migrate`, `make backup`
 - [ ] **DEVEX-04**: `docs/ARCHITECTURE.md` con diagrama de componentes (web ↔ engine_nexo ↔ Postgres, web ↔ engine_app ↔ ecs_mobility, web ↔ engine_mes ↔ dbizaro)
