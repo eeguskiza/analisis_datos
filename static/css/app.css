@@ -1,104 +1,331 @@
 @import url('./tokens.css');
-/* ── Nexo — Estilos custom ──────────────────────────────────────────────── */
+
+/* ──────────────────────────────────────────────────────────────
+   Nexo — app.css (Phase 8 / Plan 08-02)
+   Component classes on semantic tokens. Class names are
+   backwards-compatible with Phase 1-7 templates.
+   ────────────────────────────────────────────────────────────── */
 
 [x-cloak] { display: none !important; }
 
-/* Cards */
-.card {
-  @apply bg-white rounded-2xl border border-surface-200 shadow-sm;
-}
-.card-header {
-  @apply px-5 py-3 border-b border-surface-200 font-semibold text-sm text-brand-800;
-}
-.card-body {
-  @apply px-5 py-4;
+/* ── Typography anchors ──────────────────────────────────────── */
+body { font-family: var(--font-sans); }
+.text-display  { font-size: var(--text-display-size); line-height: var(--text-display-lh); letter-spacing: var(--text-display-ls); font-weight: 600; }
+.text-heading  { font-size: var(--text-heading-size); line-height: var(--text-heading-lh); letter-spacing: var(--text-heading-ls); font-weight: 600; }
+.text-subtitle { font-size: var(--text-subtitle-size); line-height: var(--text-subtitle-lh); font-weight: 600; }
+
+/* ── Focus ring ──────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgb(var(--color-focus-ring));
+  outline-offset: 2px;
+  border-radius: inherit;
 }
 
-/* Log console */
+/* ── Cards ───────────────────────────────────────────────────── */
+.card {
+  @apply bg-surface-base border border-subtle rounded-lg;
+  padding: 0;
+}
+.card-elevated {
+  @apply bg-surface-base rounded-lg shadow-card;
+}
+.card-accent {
+  @apply bg-primary-subtle border border-subtle rounded-lg;
+}
+.card-header {
+  @apply border-b border-subtle;
+  padding: 16px 24px;
+  font-size: var(--text-subtitle-size);
+  line-height: var(--text-subtitle-lh);
+  font-weight: 600;
+  color: rgb(var(--color-text-heading));
+}
+.card-body {
+  padding: 20px 24px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+  @apply inline-flex items-center gap-2 rounded-md transition-base ease-standard focus:outline-none;
+  height: 40px;
+  padding: 0 16px;
+  font-size: var(--text-body-size);
+  font-weight: 600;
+}
+.btn:disabled,
+.btn[disabled] {
+  @apply opacity-60 cursor-not-allowed;
+}
+.btn-primary {
+  background-color: rgb(var(--color-primary));
+  color: rgb(var(--color-text-on-accent));
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: rgb(var(--color-primary-hover));
+}
+.btn-secondary {
+  background-color: rgb(var(--color-surface-base));
+  color: rgb(var(--color-text-body));
+  border: 1px solid rgb(var(--color-border-strong));
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: rgb(var(--color-surface-subtle));
+}
+.btn-ghost {
+  background-color: transparent;
+  color: rgb(var(--color-text-muted));
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: rgb(var(--color-surface-subtle));
+  color: rgb(var(--color-text-body));
+}
+.btn-danger {
+  background-color: rgb(var(--color-error));
+  color: rgb(var(--color-text-on-accent));
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: rgb(var(--color-error) / 0.9);
+}
+.btn-link {
+  background-color: transparent;
+  color: rgb(var(--color-primary));
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.btn-link:hover {
+  color: rgb(var(--color-primary-hover));
+}
+.btn-icon {
+  @apply inline-flex items-center justify-center rounded-md transition-base ease-standard;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+.btn-sm {
+  height: 32px;
+  padding: 0 12px;
+}
+.btn-lg {
+  height: 48px;
+  padding: 0 24px;
+  font-size: var(--text-subtitle-size);
+  line-height: var(--text-subtitle-lh);
+}
+
+/* Backwards compat: old .btn-success still works (some templates use it). */
+.btn-success {
+  background-color: rgb(var(--color-success));
+  color: rgb(var(--color-text-on-accent));
+}
+.btn-success:hover:not(:disabled) {
+  background-color: rgb(var(--color-success) / 0.9);
+}
+
+/* ── Form inputs ─────────────────────────────────────────────── */
+.input-inline {
+  @apply w-full rounded-md;
+  height: 40px;
+  padding: 8px 12px;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-lh);
+  color: rgb(var(--color-text-body));
+  background-color: rgb(var(--color-surface-base));
+  border: 1px solid rgb(var(--color-border-strong));
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+.input-inline::placeholder {
+  color: rgb(var(--color-text-disabled));
+}
+.input-inline:hover {
+  border-color: rgb(var(--color-primary) / 0.5);
+}
+.input-inline:focus {
+  border-color: rgb(var(--color-primary));
+  box-shadow: 0 0 0 2px rgb(var(--color-primary) / 0.3);
+  outline: none;
+}
+.input-inline:disabled {
+  background-color: rgb(var(--color-surface-subtle));
+  color: rgb(var(--color-text-disabled));
+  cursor: not-allowed;
+}
+.input-inline[aria-invalid="true"] {
+  border-color: rgb(var(--color-error));
+}
+.input-inline[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 2px rgb(var(--color-error) / 0.3);
+}
+
+/* ── Tables ──────────────────────────────────────────────────── */
+.data-table {
+  @apply w-full;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-lh);
+}
+.data-table th {
+  @apply text-left uppercase;
+  background-color: rgb(var(--color-surface-subtle));
+  color: rgb(var(--color-text-muted));
+  border-bottom: 1px solid rgb(var(--color-border-subtle));
+  padding: 12px 16px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgb(var(--color-border-subtle));
+  color: rgb(var(--color-text-body));
+}
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+.data-table tr:hover td {
+  background-color: rgb(var(--color-surface-subtle));
+}
+.data-table td.numeric,
+.data-table th.numeric {
+  @apply text-right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ── Spinners ────────────────────────────────────────────────── */
+.spinner {
+  @apply inline-block rounded-full;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.6s linear infinite;
+}
+.spinner-panel {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 240px;
+}
+.spinner-panel .spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+  border-color: rgb(var(--color-surface-muted));
+  border-top-color: rgb(var(--color-primary));
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Loading hero (Tier 2 — full-page) ───────────────────────── */
+.loading-hero {
+  @apply flex flex-col items-center justify-center;
+  min-height: 60vh;
+}
+.loading-hero img {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-hero img[data-gif="true"] {
+    display: none;
+  }
+  .loading-hero img[data-png="true"] {
+    display: block;
+  }
+}
+.loading-hero img[data-png="true"] {
+  display: none;
+}
+
+/* ── Empty + Error states ────────────────────────────────────── */
+.empty-state {
+  @apply flex flex-col items-center text-center;
+  padding: 64px 24px;
+}
+.empty-state svg {
+  color: rgb(var(--color-text-muted));
+}
+.error-state {
+  @apply rounded-lg;
+  padding: 32px 24px;
+  background-color: rgb(var(--color-surface-base));
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+.error-state svg {
+  color: rgb(var(--color-error));
+}
+
+/* ── Stat card ───────────────────────────────────────────────── */
+.stat-card {
+  @apply card flex flex-col gap-1;
+  padding: 20px 24px;
+}
+.stat-card .stat-value {
+  font-size: var(--text-display-size);
+  line-height: var(--text-display-lh);
+  letter-spacing: var(--text-display-ls);
+  font-weight: 600;
+  color: rgb(var(--color-text-heading));
+  font-variant-numeric: tabular-nums;
+}
+.stat-card .stat-label {
+  font-size: var(--text-body-size);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: rgb(var(--color-text-muted));
+  font-weight: 600;
+}
+
+/* ── Log console (preserve — pipeline) ────────────────────────── */
 .log-console {
-  @apply bg-gray-900 text-green-300 font-mono text-xs rounded-xl p-4 overflow-y-auto;
+  @apply rounded-md overflow-y-auto;
+  background-color: rgb(15 23 42);   /* surface-900 intentional dark */
+  color: rgb(134 239 172);           /* green accent for terminal readability */
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 16px;
   min-height: 100px;
   max-height: 400px;
 }
 
-/* Badge de conexion */
-.conn-ok  { @apply bg-green-100 text-green-800; }
-.conn-err { @apply bg-red-100 text-red-800; }
-.conn-chk { @apply bg-yellow-100 text-yellow-800; }
+/* ── Badge / pill ────────────────────────────────────────────── */
+.badge {
+  @apply inline-flex items-center uppercase tracking-wide rounded-pill;
+  padding: 2px 8px;
+  font-size: var(--text-body-size);
+  font-weight: 600;
+}
+.badge-neutral { background-color: rgb(var(--color-surface-muted)); color: rgb(var(--color-text-muted)); }
+.badge-brand   { background-color: rgb(var(--color-primary-subtle)); color: rgb(var(--color-primary)); }
+.badge-success { background-color: rgb(var(--color-success-subtle)); color: rgb(var(--color-success)); }
+.badge-warn    { background-color: rgb(var(--color-warn-subtle));    color: rgb(var(--color-warn));    }
+.badge-error   { background-color: rgb(var(--color-error-subtle));   color: rgb(var(--color-error));  }
 
-/* Tables */
-.data-table {
-  @apply w-full text-sm;
+/* ── Breadcrumbs ─────────────────────────────────────────────── */
+.breadcrumbs {
+  @apply flex items-center gap-1 mb-4;
+  font-size: var(--text-body-size);
+  color: rgb(var(--color-text-muted));
 }
-.data-table th {
-  @apply px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-surface-50 border-b border-surface-200;
-}
-.data-table td {
-  @apply px-3 py-2 border-b border-surface-100;
-}
-.data-table tr:hover td {
-  @apply bg-surface-50;
-}
+.breadcrumbs a { color: rgb(var(--color-text-muted)); }
+.breadcrumbs a:hover { color: rgb(var(--color-text-body)); }
+.breadcrumbs .current { color: rgb(var(--color-text-body)); font-weight: 600; }
+.breadcrumbs .sep { color: rgb(var(--color-text-disabled)); }
 
-/* Inputs inline */
-.input-inline {
-  @apply w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent bg-surface-50 transition-colors;
-}
-.input-inline:focus {
-  @apply bg-white;
-}
+/* ── Connection badge (preserve — topbar HTMX) ───────────────── */
+.conn-ok  { background-color: rgb(var(--color-success-subtle)); color: rgb(var(--color-success)); }
+.conn-err { background-color: rgb(var(--color-error-subtle));   color: rgb(var(--color-error));   }
+.conn-chk { background-color: rgb(var(--color-warn-subtle));    color: rgb(var(--color-warn));    }
 
-/* Stat card */
-.stat-card {
-  @apply card p-5 flex flex-col gap-1;
-}
-.stat-card .stat-value {
-  @apply text-2xl font-bold text-brand-800;
-}
-.stat-card .stat-label {
-  @apply text-xs text-gray-500 uppercase tracking-wide;
-}
+/* ── Row highlights (preserve) ───────────────────────────────── */
+.row-warning td { background-color: rgb(var(--color-warn-subtle)); }
 
-/* Tree view */
-.tree-item {
-  @apply cursor-pointer select-none;
-}
-.tree-item:hover {
-  @apply bg-surface-50 rounded;
-}
+/* ── Tree view (preserve — bbdd, informes) ───────────────────── */
+.tree-item { cursor: pointer; user-select: none; }
+.tree-item:hover { background-color: rgb(var(--color-surface-subtle)); border-radius: var(--radius-sm); }
 
-/* PDF viewer */
+/* ── PDF viewer (preserve exact height — D-16) ───────────────── */
 .pdf-frame {
-  @apply w-full border-0 rounded-lg;
+  @apply w-full border-0;
+  border-radius: var(--radius-md);
   height: calc(100vh - 200px);
-}
-
-/* Buttons */
-.btn {
-  @apply inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2;
-}
-.btn-primary {
-  @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 shadow-sm hover:shadow;
-}
-.btn-success {
-  @apply btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-sm hover:shadow;
-}
-.btn-danger {
-  @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm hover:shadow;
-}
-.btn-ghost {
-  @apply btn bg-transparent text-gray-600 hover:bg-surface-100 focus:ring-surface-300;
-}
-.btn-sm {
-  @apply px-3 py-1.5 text-xs;
-}
-
-/* Spinner */
-.spinner {
-  @apply inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin;
-}
-
-/* Highlight row with zero cycle time */
-.row-warning {
-  @apply bg-amber-50;
 }
