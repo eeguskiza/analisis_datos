@@ -4,247 +4,276 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
+
+  <!-- Phase 8 / Plan 08-01: token layer MUST load before Tailwind CDN
+       so the @apply + rgb(var(--token)/<alpha-value>) pipeline resolves -->
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/print.css" media="print">
+
+  <!-- Phase 8 / Plan 08-01: Tailwind config extracted to /static/js -->
+  <script src="/static/js/tailwind.config.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Phase 8 / Plan 08-02: Alpine plugins MUST precede Alpine core
+       (Pitfall 4 — plugin ordering). Focus = x-trap for drawer.
+       Persist = $persist for localStorage drawer state. -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.14.8/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.14.8/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
   <script defer src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script defer src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="/static/css/app.css">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand:   { 50:'#eef5ff', 100:'#d9e8ff', 200:'#bcd5ff', 300:'#8ebbff', 400:'#5995ff', 500:'#336dff', 600:'#1a3a5c', 700:'#142d47', 800:'#0f2236', 900:'#0a1724' },
-            surface: { 50:'#f8fafc', 100:'#f1f5f9', 200:'#e2e8f0', 300:'#cbd5e1' },
-          }
-        }
-      }
-    }
-  </script>
 </head>
-<body class="h-full bg-surface-50 text-gray-800 font-sans">
 
-<div class="flex h-full" x-data="{ sidebarOpen: true }">
+<body class="h-full bg-surface-app text-body font-sans antialiased" x-data="nexoChrome()" @keydown.window="onKeydown($event)">
 
-  <!-- ── SIDEBAR ──────────────────────────────────────────────────────── -->
-  <aside class="flex flex-col shrink-0 bg-brand-800 text-white transition-all duration-200"
-         :class="sidebarOpen ? 'w-56' : 'w-16'">
+  {# ── TOP BAR (UIREDO-02 / D-10 / UI-SPEC §Global Chrome → Top bar) ── #}
+  <header id="nexo-topbar"
+          class="sticky top-0 z-topbar flex items-center gap-3 px-4 md:px-6 py-3 bg-surface-base border-b border-subtle"
+          style="height: var(--space-topbar-h);">
 
-    <!-- Logo producto + firma empresa -->
-    <div class="flex flex-col items-center gap-0 px-4 py-4 border-b border-brand-700">
-      <img src="{{ logo_path }}" alt="{{ app_name }}"
-           class="object-contain"
-           :class="sidebarOpen ? 'w-44 h-44 -mb-1' : 'w-12 h-12'"
-           onerror="this.outerHTML='<span class=&quot;font-bold text-white text-lg&quot;>NEXO</span>'">
-      <span class="text-[11px] font-normal tracking-wide text-brand-300 whitespace-nowrap leading-none"
-            x-show="sidebarOpen" x-cloak>
-        by {{ company_name|upper }}
-      </span>
+    {# Hamburger — left slot #}
+    <button type="button"
+            @click="toggleDrawer()"
+            :aria-expanded="drawerOpen.toString()"
+            aria-controls="nexo-drawer"
+            aria-label="Abrir menú"
+            class="btn-icon text-muted hover:text-body">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+
+    {# Page title slot #}
+    <h1 class="text-heading truncate">{% block page_title %}{{ app_name }}{% endblock %}</h1>
+
+    {# Right cluster — flex-1 push #}
+    <div class="ml-auto flex items-center gap-3">
+      <div id="conn-badge"
+           hx-get="/api/conexion/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
+           class="text-sm px-3 py-1 rounded-pill bg-surface-subtle text-muted">
+        Comprobando...
+      </div>
+
+      {% if current_user %}
+        {# User display name — BLOCKER fix (checker): use getattr so this renders
+           correctly BEFORE Plan 08-03 adds the `nombre` ORM attribute (D-03/08-03).
+           Between Wave 2 (this plan) and Wave 3 (08-03) the column does not exist on
+           NexoUser; `getattr(..., 'nombre', None)` returns None and the fallback
+           (email local-part, capitalized) renders. Once 08-03 lands, the attribute
+           exists and the happy path (user.nombre) takes over automatically. #}
+        {% set display_name = getattr(current_user, 'nombre', None) or current_user.email.split('@')[0]|capitalize %}
+        <span class="text-sm text-muted hidden sm:inline">{{ current_user.email }}</span>
+        <span class="text-sm font-semibold tracking-wide uppercase px-2 py-0.5 rounded-pill bg-primary-subtle text-primary">
+          {{ current_user.role }}
+        </span>
+
+        {# User menu popover #}
+        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+          <button type="button"
+                  @click="open = !open"
+                  :aria-expanded="open.toString()"
+                  aria-label="Menú de usuario"
+                  class="btn-icon bg-primary text-on-accent">
+            <span class="text-sm font-semibold">{{ display_name[0]|upper }}</span>
+          </button>
+          <div x-show="open" x-cloak
+               x-transition:enter="transition ease-standard duration-fast"
+               x-transition:enter-start="opacity-0 scale-95"
+               x-transition:enter-end="opacity-100 scale-100"
+               x-transition:leave="transition ease-accelerate duration-fast"
+               class="absolute right-0 mt-2 w-56 bg-surface-base border border-subtle rounded-lg shadow-popover z-popover">
+            <div class="px-4 py-3 border-b border-subtle">
+              <div class="text-sm font-semibold text-heading">{{ display_name }}</div>
+              <div class="text-sm text-muted truncate">{{ current_user.email }}</div>
+            </div>
+            <a href="/cambiar-password" class="block px-4 py-2 text-sm text-body hover:bg-surface-subtle">Cambiar contraseña</a>
+            <form method="post" action="/logout" class="block">
+              <button type="submit" class="w-full text-left px-4 py-2 text-sm text-body hover:bg-surface-subtle">Cerrar sesión</button>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+
+  {# ── DRAWER (UIREDO-02 / UI-SPEC §Drawer structure) ── #}
+  <div x-show="drawerOpen" x-cloak
+       x-transition:enter="transition ease-standard duration-base"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-accelerate duration-fast"
+       @click="closeDrawer()"
+       class="fixed inset-0 z-backdrop bg-surface-900/40 backdrop-blur-sm"
+       aria-hidden="true"></div>
+
+  <aside id="nexo-drawer"
+         role="dialog"
+         aria-modal="true"
+         aria-label="Menú principal"
+         x-show="drawerOpen" x-cloak
+         x-trap.noscroll="drawerOpen"
+         x-transition:enter="transition ease-standard duration-base"
+         x-transition:enter-start="-translate-x-full"
+         x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-accelerate duration-base"
+         x-transition:leave-start="translate-x-0"
+         x-transition:leave-end="-translate-x-full"
+         class="fixed top-0 left-0 h-full bg-surface-base shadow-drawer z-drawer flex flex-col"
+         style="width: var(--space-drawer-w); max-width: 85vw;">
+
+    {# Close button #}
+    <div class="flex items-center justify-end px-4 pt-3">
+      <button type="button" @click="closeDrawer()" aria-label="Cerrar menú" class="btn-icon text-muted hover:text-body">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
     </div>
 
-    <!-- Nav -->
-    <nav class="flex-1 px-2 py-4 space-y-1 text-sm">
-      {% set nav_items = [
-        ("dashboard", "/",          "Centro Mando", "M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5", None),
-        ("datos",     "/datos",     "Datos",       "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4", "datos:read"),
-        ("pipeline",  "/pipeline",  "Analisis",    "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", "pipeline:read"),
-        ("historial", "/historial", "Historial",   "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", "historial:read"),
-        ("capacidad", "/capacidad", "Capacidad",   "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3", "capacidad:read"),
-        ("_sep1",     "",           "",            "", None),
-        ("recursos",    "/recursos",    "Recursos",       "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", "recursos:read"),
-        ("ciclos_calc", "/ciclos-calc", "Calcular Ciclos", "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z", "ciclos:read"),
-        ("operarios",   "/operarios",  "Operarios",       "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z", "operarios:read"),
-        ("bbdd",        "/bbdd",       "BBDD",            "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4", "bbdd:read"),
-        ("ajustes",     "/ajustes",    "Ajustes",         "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z||M15 12a3 3 0 11-6 0 3 3 0 016 0z", "ajustes:manage"),
-      ] %}
-      {% for key, href, label, icon_paths, permission in nav_items %}
-        {% if permission is none or can(current_user, permission) %}
-          {% if key.startswith('_sep') %}
-            <div class="my-2 mx-3 h-px bg-brand-700"></div>
-          {% else %}
+    {# Logo + brand — centered #}
+    <div class="flex flex-col items-center gap-1 px-4 pb-4 border-b border-subtle">
+      <img src="{{ logo_path }}" alt="{{ app_name }}" class="w-36 h-36 object-contain"
+           onerror="this.outerHTML='<span class=&quot;text-heading text-xl font-semibold&quot;>NEXO</span>'">
+      <span class="text-sm text-muted tracking-wide">by {{ company_name|upper }}</span>
+    </div>
+
+    {# Nav — primary modules #}
+    <nav class="flex-1 overflow-y-auto py-3" aria-label="Navegación principal">
+
+      {# ── Main nav section ── #}
+      <div class="drawer-section">
+        {% set main_nav = [
+          ("dashboard",    "/",             "Centro Mando",     "centro_mando:read",
+            "M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0h6m-6 0v-6h6v6"),
+          ("pipeline",     "/pipeline",     "Análisis",         "pipeline:read",
+            "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"),
+          ("historial",    "/historial",    "Historial",        "historial:read",
+            "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
+          ("capacidad",    "/capacidad",    "Capacidad",        "capacidad:read",
+            "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"),
+          ("bbdd",         "/bbdd",         "BBDD",             "bbdd:read",
+            "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"),
+        ] %}
+        {% for key, href, label, perm, icon_d in main_nav %}
+          {% if perm is none or can(current_user, perm) %}
             {% set active = page == key %}
             <a href="{{ href }}"
-               class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
-                      {{ 'bg-brand-600 text-white' if active else 'text-brand-200 hover:bg-brand-700 hover:text-white' }}">
-              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                {% for d in icon_paths.split('||') %}
-                <path stroke-linecap="round" stroke-linejoin="round" d="{{ d }}"/>
-                {% endfor %}
+               class="flex items-center gap-3 px-4 py-2 transition-colors duration-fast
+                      {{ 'bg-primary-subtle text-primary font-semibold' if active else 'text-body hover:bg-surface-subtle' }}">
+              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_d }}"/>
               </svg>
-              <span class="whitespace-nowrap" x-show="sidebarOpen" x-cloak>{{ label }}</span>
+              <span>{{ label }}</span>
             </a>
           {% endif %}
-        {% endif %}
-      {% endfor %}
+        {% endfor %}
+      </div>
 
-      {# ── Solicitudes (Plan 04-03, D-13) — propietario-only badge HTMX ── #}
-      {% if can(current_user, "aprobaciones:manage") %}
-        {% set sol_active = page == 'solicitudes' %}
-        <a href="/ajustes/solicitudes"
-           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
-                  {{ 'bg-brand-600 text-white' if sol_active else 'text-brand-200 hover:bg-brand-700 hover:text-white' }}">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <span class="whitespace-nowrap flex-1" x-show="sidebarOpen" x-cloak>Solicitudes</span>
-          <span hx-get="/api/approvals/count" hx-trigger="load, every 30s" hx-swap="innerHTML"
-                x-show="sidebarOpen" x-cloak></span>
-        </a>
+      {# ── Operaciones section ── #}
+      <div class="my-2 mx-4 h-px bg-border-subtle"></div>
+      <div class="drawer-section">
+        {% set ops_nav = [
+          ("recursos",      "/recursos",       "Recursos",        "recursos:read",
+            "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"),
+          ("ciclos_calc",   "/ciclos-calc",    "Calcular ciclos", "ciclos:read",
+            "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"),
+          ("operarios",     "/operarios",      "Operarios",       "operarios:read",
+            "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"),
+          ("datos",         "/datos",          "Datos",           "datos:read",
+            "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"),
+        ] %}
+        {% for key, href, label, perm, icon_d in ops_nav %}
+          {% if perm is none or can(current_user, perm) %}
+            {% set active = page == key %}
+            <a href="{{ href }}"
+               class="flex items-center gap-3 px-4 py-2 transition-colors duration-fast
+                      {{ 'bg-primary-subtle text-primary font-semibold' if active else 'text-body hover:bg-surface-subtle' }}">
+              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_d }}"/>
+              </svg>
+              <span>{{ label }}</span>
+            </a>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      {# ── Configuración section (7 flat items, D-locked decision #3) ── #}
+      {% set config_items = [
+        ("ajustes",               "/ajustes",                 "Ajustes",      "ajustes:manage"),
+        ("ajustes_conexion",      "/ajustes/conexion",        "Conexión",     "conexion:config"),
+        ("ajustes_usuarios",      "/ajustes/usuarios",        "Usuarios",     "usuarios:manage"),
+        ("ajustes_auditoria",     "/ajustes/auditoria",       "Auditoría",    "auditoria:read"),
+        ("ajustes_limites",       "/ajustes/limites",         "Límites",      "limites:manage"),
+        ("ajustes_rendimiento",   "/ajustes/rendimiento",     "Rendimiento",  "rendimiento:read"),
+        ("solicitudes",           "/ajustes/solicitudes",     "Solicitudes",  "aprobaciones:manage"),
+      ] %}
+      {% set config_visible = namespace(any=false) %}
+      {% for key, href, label, perm in config_items %}
+        {% if can(current_user, perm) %}{% set config_visible.any = true %}{% endif %}
+      {% endfor %}
+      {% if config_visible.any %}
+        <div class="my-2 mx-4 h-px bg-border-subtle"></div>
+        <div class="drawer-section">
+          <div class="px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted">Configuración</div>
+          {% for key, href, label, perm in config_items %}
+            {% if can(current_user, perm) %}
+              {% set active = page == key %}
+              <a href="{{ href }}"
+                 class="flex items-center justify-between gap-3 px-4 py-2 transition-colors duration-fast
+                        {{ 'bg-primary-subtle text-primary font-semibold' if active else 'text-body hover:bg-surface-subtle' }}">
+                <span>{{ label }}</span>
+                {% if key == 'solicitudes' %}
+                  <span hx-get="/api/approvals/count" hx-trigger="load, every 30s" hx-swap="innerHTML" class="text-sm"></span>
+                {% endif %}
+              </a>
+            {% endif %}
+          {% endfor %}
+        </div>
       {% endif %}
     </nav>
 
-    <!-- Toggle -->
-    <button @click="sidebarOpen = !sidebarOpen"
-            class="p-3 text-brand-300 hover:text-white border-t border-brand-700">
-      <svg class="w-5 h-5 mx-auto transition-transform" :class="sidebarOpen || 'rotate-180'"
-           fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
-      </svg>
-    </button>
+    {# Footer #}
+    <div class="border-t border-subtle px-4 py-3 flex items-center gap-2">
+      <img src="{{ ecs_logo_path }}" alt="{{ company_name }}" class="h-4 opacity-70" onerror="this.style.display='none'">
+      <span class="text-sm text-muted">© {{ company_name }} · {{ app_name }} · v1.0.0</span>
+    </div>
   </aside>
 
-  <!-- ── MAIN CONTENT ─────────────────────────────────────────────────── -->
-  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+  {# ── MAIN ── #}
+  <main class="min-h-[calc(100vh-var(--space-topbar-h))] px-4 md:px-6 py-6">
+    {% block content %}{% endblock %}
+  </main>
 
-    <!-- Topbar -->
-    {% block topbar %}
-    <header class="flex items-center justify-between px-6 py-3 bg-white border-b border-surface-200 shrink-0">
-      <h1 class="text-lg font-semibold text-brand-800">{% block page_title %}Dashboard{% endblock %}</h1>
-      <div class="flex items-center gap-3">
-        <div id="conn-badge"
-             hx-get="/api/conexion/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
-             class="text-xs px-3 py-1 rounded-full bg-surface-100 text-gray-500">
-          Comprobando...
-        </div>
-        {% if current_user %}
-          <span class="text-xs text-gray-500 hidden sm:inline">{{ current_user.email }}</span>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 uppercase tracking-wide font-medium">
-            {{ current_user.role }}
-          </span>
-          <form method="post" action="/logout" class="inline">
-            <button type="submit"
-                    class="text-xs px-3 py-1 rounded-lg text-brand-700 hover:bg-brand-50 border border-surface-200 transition-colors">
-              Salir
-            </button>
-          </form>
-        {% endif %}
-      </div>
-    </header>
-    {% endblock %}
+  {# ── TOAST CONTAINER (UI-SPEC §Flash toast) ── #}
+  <div id="toast-root"
+       class="fixed z-toast pointer-events-none flex flex-col gap-2"
+       style="top: calc(var(--space-topbar-h) + 16px); right: 16px; max-width: min(400px, calc(100vw - 32px));"
+       role="region"
+       aria-live="polite"></div>
 
-    <!-- Content -->
-    <main class="flex-1 overflow-y-auto p-6">
-      {% block content %}{% endblock %}
-    </main>
+  {# ── Config global JS ── #}
+  <script>
+    window.NEXO_CONFIG = Object.freeze({
+      appName:     {{ app_name|tojson }},
+      companyName: {{ company_name|tojson }},
+      logoPath:    {{ logo_path|tojson }},
+      ecsLogoPath: {{ ecs_logo_path|tojson }}
+    });
+  </script>
 
-    <!-- Footer — marca corporativa -->
-    <footer class="flex items-center justify-center gap-2 px-6 py-2 text-[11px] text-gray-400 border-t border-surface-200 bg-white">
-      <img src="{{ ecs_logo_path }}" alt="{{ company_name }}" class="h-3 opacity-70"
-           onerror="this.style.display='none'">
-      <span>© {{ company_name }} — {{ app_name }}</span>
-    </footer>
-  </div>
-</div>
+  {# ── Flash toast consumer (3-arg contract, D-30) ── #}
+  {% if flash_message %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof window.showToast === 'function') {
+        window.showToast('info', 'Aviso', {{ flash_message|tojson }});
+      }
+    });
+  </script>
+  {% endif %}
 
-<!-- Config global para JS (marca + paths de assets) -->
-<script>
-  window.NEXO_CONFIG = Object.freeze({
-    appName: {{ app_name|tojson }},
-    companyName: {{ company_name|tojson }},
-    logoPath: {{ logo_path|tojson }},
-    ecsLogoPath: {{ ecs_logo_path|tojson }}
-  });
-</script>
-
-<!-- ── Toast notifications (centro pantalla) ──────────────────────── -->
-<div x-data="toastSystem()" x-ref="toastRoot"
-     class="fixed inset-0 z-[999] flex flex-col items-center justify-center gap-4 pointer-events-none">
-  <template x-for="t in toasts" :key="t.id">
-    <div x-show="t.visible"
-         x-transition:enter="transition ease-out duration-400"
-         x-transition:enter-start="opacity-0 scale-90"
-         x-transition:enter-end="opacity-100 scale-100"
-         x-transition:leave="transition ease-in duration-300"
-         x-transition:leave-start="opacity-100 scale-100"
-         x-transition:leave-end="opacity-0 scale-90"
-         class="pointer-events-auto px-10 py-6 rounded-3xl shadow-2xl border-2 flex items-center gap-5 min-w-[480px] max-w-2xl"
-         :class="t.cls">
-      <span class="text-5xl shrink-0" x-text="t.icon"></span>
-      <div class="min-w-0">
-        <div class="font-black text-2xl leading-tight" x-text="t.title"></div>
-        <div class="text-base opacity-80 mt-1 font-medium" x-text="t.msg" x-show="t.msg"></div>
-      </div>
-    </div>
-  </template>
-</div>
-
-<script>
-/* ── Toast global ─────────────────────────────────────────────────── */
-window._toasts = [];
-window._toastId = 0;
-window._toastRefresh = null;   // se enlaza desde Alpine
-
-window.showToast = function(type, title, msg) {
-  const styles = {
-    producing: 'bg-green-600 text-white border-green-700',
-    stopped:   'bg-gray-600 text-white border-gray-700',
-    incidence: 'bg-red-600 text-white border-red-700',
-    alarm:     'bg-red-600 text-white border-red-700',
-    turno:     'bg-blue-600 text-white border-blue-700',
-    info:      'bg-brand-700 text-white border-brand-800',
-  };
-  const icons = {
-    producing: '\u2705',
-    stopped:   '\u23F8\uFE0F',
-    incidence: '\u26A0\uFE0F',
-    alarm:     '\uD83D\uDEA8',
-    turno:     '\uD83D\uDD04',
-    info:      '\u2139\uFE0F',
-  };
-  const t = {
-    id: ++window._toastId,
-    title, msg: msg || '',
-    cls: styles[type] || styles.info,
-    icon: icons[type] || icons.info,
-    visible: true,
-  };
-  window._toasts.push(t);
-  if (window._toastRefresh) window._toastRefresh();
-  setTimeout(() => {
-    t.visible = false;
-    if (window._toastRefresh) window._toastRefresh();
-    setTimeout(() => {
-      const idx = window._toasts.indexOf(t);
-      if (idx >= 0) window._toasts.splice(idx, 1);
-      if (window._toastRefresh) window._toastRefresh();
-    }, 300);
-  }, 5000);
-};
-
-function toastSystem() {
-  return {
-    toasts: window._toasts,
-    init() {
-      window._toastRefresh = () => { this.toasts = [...window._toasts]; };
-    }
-  };
-}
-</script>
-
-{% if flash_message %}
-<script>
-  // Flash toast (D-07/D-08) — dispara el sistema existente. Debe esperar
-  // a DOMContentLoaded porque showToast() se define arriba pero el
-  // contenedor Alpine (toastSystem) puede no estar listo aun.
-  document.addEventListener('DOMContentLoaded', function () {
-    if (typeof showToast === 'function') {
-      showToast('info', 'Aviso', {{ flash_message|tojson }});
-    }
-  });
-</script>
-{% endif %}
-
-<script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js"></script>
 </body>
 </html>

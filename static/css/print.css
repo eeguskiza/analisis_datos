@@ -1,0 +1,41 @@
+/* ──────────────────────────────────────────────────────────────
+   Nexo — Print stylesheet (Phase 8 / D-31)
+   Minimal: hide chrome, keep content + tables legible for Ctrl+P.
+   Full print layouts live in matplotlib PDFs (OEE reports).
+   ────────────────────────────────────────────────────────────── */
+@media print {
+  #nexo-topbar,
+  #nexo-drawer,
+  #toast-root,
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-ghost,
+  .btn-icon,
+  .btn-link,
+  [hx-get],
+  [hx-post] {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .card,
+  .card-elevated {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    break-inside: avoid;
+  }
+  table {
+    break-inside: auto;
+  }
+  tr {
+    break-inside: avoid;
+    break-after: auto;
+  }
+}
