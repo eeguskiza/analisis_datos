@@ -81,6 +81,11 @@ class NexoUser(NexoBase):
 
     id = Column(Integer, primary_key=True)
     email = Column(String(200), nullable=False, unique=True, index=True)
+    # Plan 08-03 / UIREDO-02: nombre mostrado en topbar + bienvenida.
+    # Nullable para backfill progresivo; backfill via
+    # ``nexo/data/sql/nexo/migration_add_users_nombre.sql`` rellena con la
+    # parte local del email capitalizada (``e.eguskiza`` -> ``E.eguskiza``).
+    nombre = Column(String(120), nullable=True)
     password_hash = Column(String(200), nullable=False)
     role = Column(String(20), nullable=False)  # propietario | directivo | usuario
     active = Column(Boolean, nullable=False, default=True)
