@@ -98,23 +98,47 @@ Four sizes, two weights. Line-heights fixed per role.
 
 | Role | Size | Weight | Line Height | Letter Spacing | CSS var |
 |------|------|--------|-------------|----------------|---------|
-| Micro (badge, caption, table micro-label) | 12px | 500 (medium) | 1.4 | +0.02em | `--text-micro` |
-| Body (labels, inputs, table cells, nav items, paragraphs) | 14px | 400 (regular) | 1.5 | 0 | `--text-body` |
+| Body (labels, inputs, table cells, nav items, paragraphs, captions, badges, footnotes) | 14px | 400 (regular) | 1.5 | 0 | `--text-body` |
 | Subtitle (card headers, section titles, form legends) | 16px | 600 (semibold) | 1.4 | 0 | `--text-subtitle` |
 | Heading (page title in top bar, modal title, primary CTA in landing) | 20px | 600 (semibold) | 1.3 | -0.01em | `--text-heading` |
-| Display (landing greeting, large KPI digits) | 32px | 700 (bold) | 1.2 | -0.02em | `--text-display` |
+| Display (landing greeting, large KPI digits) | 32px | 600 (semibold) | 1.2 | -0.02em | `--text-display` |
 
-Weights in use: **400 (regular)**, **600 (semibold)**, **700 (bold)**. The
-700 weight is reserved for Display only (landing greeting, KPI digits in
-Centro de Mando). Body and Subtitle cover 99% of screens. 500 is allowed
-only inside the Micro role because caption text below 14px with 400 weight
-fails readability.
+Weights in use: **400 (regular)** and **600 (semibold)**. That is the full
+set — no other weights are allowed anywhere in the system. 400 carries body
+copy, table cells, inputs, paragraphs, captions and footnote text. 600
+carries Subtitle/Heading/Display, primary CTA labels, active nav items,
+badge labels, table header cells and any inline emphasis that used to be
+"medium". The Display role intentionally stops at 600: impact comes from
+the 32px size + `-0.02em` letter-spacing, not from a heavier weight.
 
 Line-height policy:
 
 - Body text (14px) uses 1.5 — WCAG 1.4.12 (Text Spacing) compliant.
-- Headings (16px+) use 1.3–1.4 — tight, modern.
+- Subtitle / Heading (16–20px) use 1.3–1.4 — tight, modern.
 - Display (32px) uses 1.2 — posters / hero.
+
+### Migration notes (from the pre-consolidation spec)
+
+The earlier draft declared 5 sizes × 4 weights (Micro 12 + 500, Display
+700). Dimension 4 caps the system at 4 sizes × 2 weights, so the extra
+size and extra weights are dropped and their roles migrated:
+
+| Former role | Former token | Migrates to |
+|-------------|--------------|-------------|
+| Micro / badge label (12px, 500, uppercase) | `--text-micro` | `--text-body` at weight 600, still uppercase + `tracking-wide` when in a badge context |
+| Micro / caption, footnote, `(opcional)` marker (12px, 400) | `--text-micro` | `--text-body` at weight 400 with `text-muted` (so the caption still reads as secondary without leaning on a smaller size) |
+| Table header cell (12px, 500, uppercase) | `--text-micro` | `--text-body` at weight 600, uppercase + `tracking-wide` |
+| Button default label (14px, 500) | Body at 500 | `--text-body` at weight 600 (CTAs deserve the emphasis anyway) |
+| Button small label (12px, 500) | `--text-micro` | `--text-body` at weight 600 (the button stays compact via 32px height + `px-3`, not via a smaller type size) |
+| Breadcrumb "current" segment (14px, 500) | Body at 500 | `--text-body` at weight 600 |
+| Form label (`font-medium`) | weight 500 | `font-semibold` (weight 600) |
+| Display (32px, 700) | `--text-display` at 700 | `--text-display` at 600 — size + letter-spacing carry impact |
+
+Wherever the rest of this document previously referred to "Micro 12/500",
+"Micro 12/400", "Body 14/500" or "Display 32/700", the text now reads
+"Body 14/600", "Body 14/400 text-muted", "Body 14/600" or "Display 32/600"
+respectively. The `--text-micro` CSS variable is **not** declared in
+`tokens.css` at all — it has been removed from the type scale.
 
 Font stack (`--font-sans`, D-06):
 
@@ -372,7 +396,7 @@ screen adaptations).
 | Padding | `px-6 py-3` desktop / `px-4 py-3` mobile |
 | Z-index | `--z-topbar` (30) |
 | Sticky | `position: sticky; top: 0;` |
-| Slots (left→right) | 1. Hamburger (drawer toggle). 2. `{{ page_title }}` (Heading 20/600). 3. Right cluster: conn-badge (HTMX 30s poll) · user email (Body 14/400, muted, `hidden sm:inline`) · role pill (`bg-primary-subtle text-primary`, Micro 12/500) · user menu trigger (avatar / initial circle, opens popover). |
+| Slots (left→right) | 1. Hamburger (drawer toggle). 2. `{{ page_title }}` (Heading 20/600). 3. Right cluster: conn-badge (HTMX 30s poll) · user email (Body 14/400, muted, `hidden sm:inline`) · role pill (`bg-primary-subtle text-primary`, Body 14/600 uppercase) · user menu trigger (avatar / initial circle, opens popover). |
 | User menu popover | Align right. Contains: `{{ user.email }}`, divider, `Cambiar contraseña` (→ `/cambiar-password`), `Cerrar sesión` (POST `/logout`). `shadow-popover`, `rounded-lg`, `z-popover`. |
 | Responsive | Below `md` (768px): hide user email text; keep role pill + avatar. Page title truncates with `text-overflow: ellipsis`. |
 
@@ -425,7 +449,7 @@ Hamburger-hidden on desktop by default (D-07). Mobile is always drawer
   · Ajustes            /ajustes      ajustes:manage
   · Solicitudes (+ HTMX badge)  /ajustes/solicitudes   aprobaciones:manage
 [Spacer · flex-1]
-[Footer: ECS logo + "© ECS Mobility · Nexo · v1.0.0" · Micro 12/500 text-muted]
+[Footer: ECS logo + "© ECS Mobility · Nexo · v1.0.0" · Body 14/400 text-muted]
 ```
 
 Each nav item is a Jinja `{% if can(current_user, permission) or permission is none %}` wrapper — Phase 5 D-01 preserved verbatim. Active state:
@@ -501,10 +525,10 @@ target instead of `/` (Plan 08-03 updates `api/routers/auth.py`).
 │ [≡]  Bienvenida                       conn-badge · user menu  │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
-│         [Saludo, {nombre}]            ← Display 32/700       │
+│         [Saludo, {nombre}]            ← Display 32/600       │
 │         [Es {día de la semana en castellano}, {fecha}]        │
 │                                      ← Body 14/400 text-muted│
-│         [HH:MM:SS, 24h]              ← Display 32/700 mono   │
+│         [HH:MM:SS, 24h]              ← Display 32/600 mono   │
 │                                                              │
 │         ┌──────────────────────────┐                          │
 │         │  Ir a Centro de Mando → │  ← Primary button, large │
@@ -536,7 +560,7 @@ empty → `Buenos días` (no trailing comma).
 ### Reloj en tiempo real
 
 - Format: `HH:MM:SS` (24-hour, zero-padded). Example: `14:07:32`.
-- Font: `--font-mono`, Display 32/700, `tabular-nums` (CSS
+- Font: `--font-mono`, Display 32/600, `tabular-nums` (CSS
   `font-variant-numeric: tabular-nums`) so digits don't jitter.
 - Tick via Alpine `setInterval(1000)` in the `bienvenidaPage()` component.
 - Cleared in the Alpine `destroy()` hook to avoid leaks on SPA-style
@@ -584,8 +608,8 @@ rewritten to consume semantic tokens.
 | Danger (`.btn-danger`) | `bg-error` | `text-on-accent` | none | `bg-error/90` (alpha) | `ring-2 ring-error ring-offset-2` | same | same |
 | Link (`.btn-link`, new) | `bg-transparent` | `text-primary underline-offset-2` | none | `text-primary-hover underline` | `ring-2 ring-primary ring-offset-2 rounded-sm` | same | — |
 
-Sizes: `.btn` (40px height, `px-4`, Body 14/500) default. `.btn-sm`
-(32px, `px-3`, Micro 12/500). `.btn-lg` new (48px, `px-6`, Subtitle
+Sizes: `.btn` (40px height, `px-4`, Body 14/600) default. `.btn-sm`
+(32px, `px-3`, Body 14/600). `.btn-lg` new (48px, `px-6`, Subtitle
 16/600) used for landing CTA and primary confirmation modal actions.
 
 Icon-only buttons use `.btn .btn-icon` (40x40 square, padding 0, icon
@@ -622,18 +646,18 @@ border-subtle`, `px-6 py-4`, Subtitle 16/600 text-heading. Card body
 Label pattern (D-24 — top-aligned / stacked):
 
 ```
-<label class="block text-sm font-medium text-body mb-1">
+<label class="block text-sm font-semibold text-body mb-1">
   Email <span class="text-muted font-normal">(opcional)</span>
 </label>
 <input ...>
-<p class="mt-1 text-xs text-error" role="alert">{{ errors.email }}</p>
+<p class="mt-1 text-sm text-error" role="alert">{{ errors.email }}</p>
 ```
 
-`(opcional)` marker (D-26) is Micro 12/400 in `text-muted`, placed
+`(opcional)` marker (D-26) is Body 14/400 in `text-muted`, placed
 inline after the label. **Required is default** — do not mark required
 fields with asterisks.
 
-Validation message slot: `<p class="mt-1 text-xs text-error"
+Validation message slot: `<p class="mt-1 text-sm text-error"
 role="alert">` — always present in DOM (empty when no error, populated
 by Jinja on re-render after server-side validation, D-25). Screen
 readers announce it via `role="alert"`.
@@ -652,7 +676,7 @@ Textarea: same as text input, `min-height: 96px`, resize-y only.
 | Region | Style |
 |--------|-------|
 | Container | `.card` wrapper, overflow-x auto on mobile |
-| Header cell (`th`) | `bg-surface-subtle`, `text-muted`, Micro 12/500 uppercase, `tracking-wide`, `border-b border-subtle`, `px-4 py-3`, sticky when inside a scroll container (`sticky top-0 z-sticky`) |
+| Header cell (`th`) | `bg-surface-subtle`, `text-muted`, Body 14/600 uppercase, `tracking-wide`, `border-b border-subtle`, `px-4 py-3`, sticky when inside a scroll container (`sticky top-0 z-sticky`) |
 | Row (`tr`) | `border-b border-subtle` |
 | Last row | no border-b |
 | Cell (`td`) | `px-4 py-3`, Body 14/400, `text-body` |
@@ -689,8 +713,8 @@ destructive action on the right (`.btn-danger`), `Cancelar` left
 
 | Variant | Background | Text | Radius | Padding | Typography |
 |---------|-----------|------|--------|---------|------------|
-| Neutral | `bg-surface-muted` | `text-muted` | `--radius-pill` | `px-2 py-0.5` | Micro 12/500 uppercase |
-| Brand | `bg-primary-subtle` | `text-primary` | `--radius-pill` | `px-2 py-0.5` | Micro 12/500 uppercase |
+| Neutral | `bg-surface-muted` | `text-muted` | `--radius-pill` | `px-2 py-0.5` | Body 14/600 uppercase |
+| Brand | `bg-primary-subtle` | `text-primary` | `--radius-pill` | `px-2 py-0.5` | Body 14/600 uppercase |
 | Success | `bg-success-subtle` | `text-success` | same | same | same |
 | Warn | `bg-warn-subtle` | `text-warn` | same | same | same |
 | Error | `bg-error-subtle` | `text-error` | same | same | same |
@@ -709,7 +733,7 @@ Ajustes  /  Usuarios
 
 - Separator: `/` with `px-2` padding, `text-disabled`.
 - Link color: `text-muted hover:text-body`.
-- Current: `text-body font-medium`, no link.
+- Current: `text-body font-semibold`, no link.
 - Typography: Body 14/400, placed above the page heading, `mb-4`.
 
 ### Skeleton / loading placeholders — NOT USED
@@ -913,6 +937,10 @@ Duration budget (hard-capped by UIREDO-05 and D-05):
 | Modal enter | `--duration-slow` (300ms, hard cap) | `--ease-emphasized` | Scale + fade |
 | Modal exit | `--duration-base` | `--ease-accelerate` | Reverse |
 
+(The "Micro" label in the first row is a motion-class name — duration of
+short micro-interactions — and is unrelated to the dropped typography
+role of the same name.)
+
 Animations that DO NOT exist in this system: parallax, Ken Burns,
 bounce, spring overshoot, continuous loops (except the spinner and the
 `gif-corona.gif` loading hero). Any contributor proposing an animation
@@ -985,6 +1013,9 @@ Inputs you MUST read first:
 Constraints (non-negotiable):
 - Apply ONLY tokens declared in 08-UI-SPEC.md. No hex values, no ad-hoc rgba.
 - Use semantic utilities (bg-surface, text-body, border-subtle, etc.).
+- Typography: 4 sizes only (Body 14, Subtitle 16, Heading 20, Display 32)
+  and 2 weights only (400 regular, 600 semibold). No other sizes or
+  weights anywhere in the sketch — this is the Dimension 4 contract.
 - Preserve Phase 5 RBAC gating: {% if can(current_user, "<perm>") %} wraps every sensitive button.
 - Chrome is provided by base.html (top bar + drawer) — do NOT re-invent.
 - No emojis. Spanish user-facing copy.
@@ -1092,12 +1123,10 @@ operator can accept-by-silence or override per-plan.
 - [ ] Dimension 3 Color: PASS when the 60/30/10 split is declared with
       hex values and the accent reserved-for list has at least 3
       entries and no "all interactive elements".
-- [ ] Dimension 4 Typography: PASS when exactly 3-4 sizes and 2 weights
-      (plus the explicit 700 Display exception) are declared with
-      line-heights.
+- [ ] Dimension 4 Typography: PASS when no more than 4 font sizes and no
+      more than 2 font weights are declared, each with an assigned
+      role and line-height.
 - [ ] Dimension 5 Spacing: PASS when the raw scale is multiples of 4
       and exceptions are listed individually.
 - [ ] Dimension 6 Registry Safety: PASS when registry section states
       not applicable with rationale (stack is not React).
-
-**Approval:** pending — awaiting `gsd-ui-checker` review.
