@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Any, Mapping, Optional
 from zoneinfo import ZoneInfo
 
@@ -29,6 +30,7 @@ templates = Jinja2Templates(directory=str(settings.project_root / "templates"))
 templates.env.globals.update(
     app_name=settings.app_name,
     company_name=settings.company_name,
+    app_version="v1.0.0",
     logo_path=settings.nexo_logo_path,
     ecs_logo_path=settings.nexo_ecs_logo_path,
     can=_can,
@@ -40,6 +42,43 @@ templates.env.globals.update(
     # Tras 08-03 el happy path (user.nombre) funciona automáticamente.
     getattr=getattr,
 )
+
+
+def user_display_name(user: Any | None, *, first_name_only: bool = False) -> str:
+    """Devuelve un nombre legible para UI a partir del usuario autenticado.
+
+    Prioridad:
+    1. ``user.nombre`` si existe y no está vacío.
+    2. Fallback al local-part del email, limpiando separadores comunes
+       (``.``, ``_``, ``-``) para que ``e.eguskiza@...`` no se vea literal.
+
+    ``first_name_only=True`` devuelve el primer token visible. Se usa en la
+    landing para un saludo más natural ("Buenas tardes, Erik").
+    """
+    if user is None:
+        return ""
+
+    nombre = (getattr(user, "nombre", None) or "").strip()
+    if nombre:
+        return nombre.split()[0] if first_name_only else nombre
+
+    email = (getattr(user, "email", None) or "").strip()
+    if not email:
+        return ""
+
+    local_part = email.split("@", 1)[0]
+    parts = [p for p in re.split(r"[._-]+", local_part) if p]
+    if not parts:
+        fallback = local_part.strip()
+        if not fallback:
+            return ""
+        return fallback[:1].upper() + fallback[1:]
+
+    words = [p[:1].upper() + p[1:] for p in parts]
+    return words[0] if first_name_only else " ".join(words)
+
+
+templates.env.globals.update(user_display_name=user_display_name)
 
 
 # ── Plan 08-04: hora_saludo filter (D-23 — saludo por franja) ───────────────

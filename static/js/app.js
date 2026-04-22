@@ -167,12 +167,23 @@ function bienvenidaPage() {
   return {
     clock: '',
     _timer: null,
+    _turnoTimer: null,
+    monthDaily: null,
+    monthDailyError: '',
+    _monthChart: null,
+    turnoDetail: null,
+    turnoDetailError: '',
     init() {
       this.tick();
       this._timer = setInterval(() => this.tick(), 1000);
+      this.loadMonthDaily();
+      this.loadTurnoDetail();
+      this._turnoTimer = setInterval(() => this.loadTurnoDetail(), 30000);
     },
     destroy() {
       if (this._timer) { clearInterval(this._timer); this._timer = null; }
+      if (this._turnoTimer) { clearInterval(this._turnoTimer); this._turnoTimer = null; }
+      if (this._monthChart) { this._monthChart.destroy(); this._monthChart = null; }
     },
     tick() {
       const d = new Date();
@@ -180,6 +191,79 @@ function bienvenidaPage() {
       const mm = String(d.getMinutes()).padStart(2, '0');
       const ss = String(d.getSeconds()).padStart(2, '0');
       this.clock = `${hh}:${mm}:${ss}`;
+    },
+    async loadMonthDaily() {
+      try {
+        const r = await fetch('/luk4/month-daily', { headers: { 'Accept': 'application/json' } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        this.monthDaily = await r.json();
+        this.monthDailyError = '';
+        this.$nextTick(() => this.renderMonthDailyChart());
+      } catch {
+        this.monthDailyError = 'No se pudo cargar la producción diaria de LUK4.';
+      }
+    },
+    async loadTurnoDetail() {
+      try {
+        const r = await fetch('/luk4/turno-detail', { headers: { 'Accept': 'application/json' } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        this.turnoDetail = await r.json();
+        this.turnoDetailError = '';
+      } catch {
+        this.turnoDetailError = 'No se pudo cargar el detalle en tiempo real de LUK4.';
+      }
+    },
+    renderMonthDailyChart() {
+      const canvas = this.$refs.monthDailyCanvas;
+      if (!canvas || !this.monthDaily || typeof Chart === 'undefined') return;
+      if (this._monthChart) this._monthChart.destroy();
+
+      this._monthChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: this.monthDaily.labels,
+          datasets: [{
+            label: 'Piezas',
+            data: this.monthDaily.values,
+            backgroundColor: 'rgba(26,58,92,0.78)',
+            borderColor: 'rgba(26,58,92,1)',
+            borderWidth: 1,
+            borderRadius: 6,
+            maxBarThickness: 22,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} piezas`,
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 10, family: 'monospace' } },
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(15,34,54,0.08)' },
+              ticks: {
+                font: { size: 10, family: 'monospace' },
+                callback: (v) => `${v}`,
+              },
+            },
+          },
+        },
+      });
+    },
+    turnoBadgeClass(turno) {
+      if (turno?.is_current) return 'badge badge-success';
+      if (turno?.is_future) return 'badge badge-neutral';
+      return 'badge badge-brand';
     },
   };
 }

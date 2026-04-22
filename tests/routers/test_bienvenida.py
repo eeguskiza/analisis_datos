@@ -19,6 +19,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Iterator
 from zoneinfo import ZoneInfo
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -89,6 +90,30 @@ def test_hora_saludo_converts_aware_datetime_to_madrid():
     dt = datetime(2026, 4, 22, 10, 0, 0, tzinfo=utc)
     # En abril Madrid es UTC+2 (DST); 10:00 UTC = 12:00 Madrid → tardes.
     assert hora_saludo(dt) == "Buenas tardes"
+
+
+def test_user_display_name_prefers_nombre_and_shortens_to_first_name():
+    from api.deps import user_display_name
+
+    user = SimpleNamespace(
+        nombre="Erik Eguskiza",
+        email="e.eguskiza@ecsmobility.com",
+    )
+
+    assert user_display_name(user) == "Erik Eguskiza"
+    assert user_display_name(user, first_name_only=True) == "Erik"
+
+
+def test_user_display_name_fallback_cleans_email_local_part():
+    from api.deps import user_display_name
+
+    user = SimpleNamespace(
+        nombre=None,
+        email="e.eguskiza@ecsmobility.com",
+    )
+
+    assert user_display_name(user) == "E Eguskiza"
+    assert user_display_name(user, first_name_only=True) == "E"
 
 
 # ── Integration tests (require Postgres) ──────────────────────────────────

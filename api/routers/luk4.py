@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from calendar import monthrange
 from datetime import datetime
 
 from typing import List
@@ -435,6 +436,78 @@ def turno_detail():
         "alarmas_turno": alarmas_turno,
         "alarmas_summary": alarmas_summary,
         "timestamp": now.strftime("%H:%M:%S"),
+    }
+
+
+@router.get("/month-daily")
+def month_daily():
+    """Serie diaria de piezas LUK4 del mes actual hasta hoy."""
+    now = datetime.now()
+    month_start = datetime(now.year, now.month, 1)
+    if now.month == 12:
+        month_end = datetime(now.year + 1, 1, 1)
+    else:
+        month_end = datetime(now.year, now.month + 1, 1)
+
+    pieces_by_day: dict[datetime.date, int] = {}
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text("""
+                WITH daily_counter AS (
+                    SELECT
+                        CAST([timestamp] AS date) AS d,
+                        contador_piezas_totales,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY CAST([timestamp] AS date)
+                            ORDER BY [timestamp] ASC, idtiempos_ciclo ASC
+                        ) AS rn_first,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY CAST([timestamp] AS date)
+                            ORDER BY [timestamp] DESC, idtiempos_ciclo DESC
+                        ) AS rn_last
+                    FROM luk4.tiempos_ciclo
+                    WHERE [timestamp] >= :month_start
+                      AND [timestamp] < :month_end
+                      AND contador_piezas_totales IS NOT NULL
+                )
+                SELECT
+                    d,
+                    MAX(CASE WHEN rn_first = 1 THEN contador_piezas_totales END) AS first_total,
+                    MAX(CASE WHEN rn_last = 1 THEN contador_piezas_totales END) AS last_total
+                FROM daily_counter
+                GROUP BY d
+                ORDER BY d ASC
+            """),
+                {"month_start": month_start, "month_end": month_end},
+            ).fetchall()
+
+            for row in rows:
+                day = row[0]
+                first_total = int(row[1] or 0)
+                last_total = int(row[2] or 0)
+                pieces_by_day[day] = max(last_total - first_total, 0)
+    except Exception as exc:
+        log.warning("LUK4 month-daily: %s", exc)
+
+    labels: list[str] = []
+    values: list[int] = []
+    total_month = 0
+    for day_num in range(1, now.day + 1):
+        day_date = month_start.date().replace(day=day_num)
+        day_value = int(pieces_by_day.get(day_date, 0))
+        labels.append(f"{day_num:02d}")
+        values.append(day_value)
+        total_month += day_value
+
+    return {
+        "month": now.month,
+        "year": now.year,
+        "days_in_month": monthrange(now.year, now.month)[1],
+        "labels": labels,
+        "values": values,
+        "total_month": total_month,
+        "avg_per_day": round(total_month / max(len(values), 1), 1),
     }
 
 

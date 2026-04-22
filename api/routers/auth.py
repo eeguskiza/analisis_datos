@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from api.config import settings
-from api.deps import templates
+from api.deps import render, templates
 from api.rate_limit import limiter
 from nexo.db.engine import SessionLocalNexo
 from nexo.services.auth import (
@@ -77,16 +77,19 @@ def _render_cambiar_password(
     must_change: bool = False,
     status_code: int = 200,
 ) -> HTMLResponse:
-    ctx = {
-        "request": request,
-        "error": error,
-        "page": "cambiar_password",
-        "must_change": must_change,
-    }
-    return templates.TemplateResponse(
-        name="cambiar_password.html",
-        context=ctx,
-        request=request,
+    # Plan 08-06: cambiar_password.html ahora extiende base.html (chrome de
+    # 08-02), que necesita `current_user` en contexto para las llamadas
+    # `can(current_user, ...)` del drawer. Usamos la helper central
+    # ``render()`` que inyecta current_user + flash_message desde
+    # request.state (05-RESEARCH §Pitfall 3).
+    return render(
+        "cambiar_password.html",
+        request,
+        {
+            "error": error,
+            "page": "cambiar_password",
+            "must_change": must_change,
+        },
         status_code=status_code,
     )
 

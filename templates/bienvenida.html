@@ -3,71 +3,42 @@
 {% block page_title %}Bienvenida{% endblock %}
 
 {% block content %}
-{# Plan 08-04 — UI-SPEC §Landing Screen.
-
-   Display name: use getattr() defensivamente — aunque Plan 08-03 ya
-   aterrizo la columna `nombre`, hay usuarios pre-existentes sin backfill
-   (nombre IS NULL). El fallback (email local-part, capitalizado) garantiza
-   que la landing siempre renderice algo legible.
-
-   Saludo: server-rendered via filtro Jinja `hora_saludo` (3 franjas, D-23).
-   Reloj: client-side (Alpine `bienvenidaPage()` con setInterval 1s +
-   destroy cleanup). No animaciones CSS — respeta prefers-reduced-motion.
-
-   Mobile swap: Display 32/600 desktop → Heading 20/600 mobile (UI-SPEC
-   role swap sobre <= 640px).
-#}
-{% set display_name = (getattr(current_user, 'nombre', None) or current_user.email.split('@')[0]|capitalize) if current_user else '' %}
-
-{% set dia_semana_nombres = [
-    "Lunes", "Martes", "Miércoles", "Jueves",
-    "Viernes", "Sábado", "Domingo"
-] %}
-{% set meses_nombres = [
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
-] %}
+{% set display_name = user_display_name(current_user, first_name_only=True) %}
 
 <section x-data="bienvenidaPage()"
-         class="max-w-[640px] mx-auto py-16 flex flex-col items-center text-center gap-6">
+         class="w-full min-h-[calc(100vh-var(--space-topbar-h)-48px)] md:min-h-[calc(100vh-var(--space-topbar-h)-56px)] rounded-[32px] flex items-center justify-center px-6 py-8 md:px-10 md:py-10"
+         style="background:
+           linear-gradient(135deg,
+             rgb(var(--color-surface-0)) 0%,
+             rgb(var(--color-brand-100)) 38%,
+             rgb(var(--color-brand-300)) 100%);">
 
-  {# Saludo — role swap via media query. Desktop = Display, mobile = Heading. #}
-  <h2 class="text-display text-heading hidden md:block">
-    {{ None|hora_saludo }}, {{ display_name }}
-  </h2>
-  <h2 class="text-heading md:hidden block">
-    {{ None|hora_saludo }}, {{ display_name }}
-  </h2>
+  <div class="w-full max-w-4xl mx-auto flex flex-col items-center text-center">
+    <h2 class="text-[42px] md:text-[72px] leading-[0.95] tracking-[-0.05em] font-semibold text-heading">
+      {{ None|hora_saludo }}, {{ display_name }}
+    </h2>
 
-  {# Día y fecha. Server-rendered en castellano (es_ES no está garantizado
-     en el container — render literal por arrays es deterministico). #}
-  <p class="text-body text-muted">
-    Es {{ dia_semana_nombres[now_madrid.weekday()] }},
-    {{ now_madrid.day }} de {{ meses_nombres[now_madrid.month - 1] }} de {{ now_madrid.year }}
-  </p>
+    <div class="mt-8 text-[36px] md:text-[50px] leading-none font-mono tabular-nums text-heading"
+         x-text="clock"
+         aria-label="Hora actual"
+         role="timer"
+         style="font-variant-numeric: tabular-nums;"></div>
 
-  {# Reloj — client-side tick via Alpine (bienvenidaPage). Tabular-nums evita
-     saltos de ancho entre dígitos. role="timer" comunica actualización
-     periódica a screen readers. #}
-  <div class="text-display text-heading font-mono tabular-nums hidden md:block"
-       x-text="clock"
-       aria-label="Hora actual"
-       role="timer"
-       style="font-variant-numeric: tabular-nums;"></div>
-  <div class="text-heading font-mono tabular-nums md:hidden block"
-       x-text="clock"
-       aria-label="Hora actual"
-       role="timer"
-       style="font-variant-numeric: tabular-nums;"></div>
+    <div class="mt-10 flex flex-col sm:flex-row gap-4 sm:items-center">
+      <a href="/" class="btn btn-primary btn-lg inline-flex items-center justify-center gap-2 min-w-[240px]" autofocus>
+        Ir a Centro de Mando
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+        </svg>
+      </a>
 
-  {# Primary CTA. autofocus permite pulsar Enter tras login. Link a "/". #}
-  <a href="/" class="btn btn-primary btn-lg inline-flex items-center gap-2" autofocus>
-    Ir a Centro de Mando
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-    </svg>
-  </a>
-
-  {# TODO Mark-IV: widgets configurables per-user (D-23 deferred). #}
+      <a href="/historial" class="btn btn-secondary btn-lg inline-flex items-center justify-center gap-2 min-w-[240px]">
+        Ver historial
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </a>
+    </div>
+  </div>
 </section>
 {% endblock %}

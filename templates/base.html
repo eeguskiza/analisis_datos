@@ -63,7 +63,7 @@
            NexoUser; `getattr(..., 'nombre', None)` returns None and the fallback
            (email local-part, capitalized) renders. Once 08-03 lands, the attribute
            exists and the happy path (user.nombre) takes over automatically. #}
-        {% set display_name = getattr(current_user, 'nombre', None) or current_user.email.split('@')[0]|capitalize %}
+        {% set display_name = user_display_name(current_user) %}
         <span class="text-sm text-muted hidden sm:inline">{{ current_user.email }}</span>
         <span class="text-sm font-semibold tracking-wide uppercase px-2 py-0.5 rounded-pill bg-primary-subtle text-primary">
           {{ current_user.role }}
@@ -237,7 +237,7 @@
     {# Footer #}
     <div class="border-t border-subtle px-4 py-3 flex items-center gap-2">
       <img src="{{ ecs_logo_path }}" alt="{{ company_name }}" class="h-4 opacity-70" onerror="this.style.display='none'">
-      <span class="text-sm text-muted">© {{ company_name }} · {{ app_name }} · v1.0.0</span>
+      <span class="text-sm text-muted">© {{ company_name }} · {{ app_name }} · {{ app_version }}</span>
     </div>
   </aside>
 
