@@ -46,7 +46,7 @@ Alcance Mark-III (milestone actual). Cada ítem mapea a una phase del ROADMAP.
 - [ ] Consultas pesadas: preflight + postflight + umbrales editables + aprobación asíncrona (Phase 4 / Sprint 3)
 - [ ] UI por roles: sidebar + páginas condicionadas al rol, split de `ajustes.html` (Phase 5 / Sprint 4)
 - [ ] Despliegue LAN con HTTPS válido (Let's Encrypt DNS-01 o cert autofirmado) en servidor Ubuntu Server 24.04 (Phase 6 / Sprint 5)
-- [ ] DevEx hardening: pre-commit, CI ampliado con cobertura, runbook, release checklist (Phase 7 / Sprint 6)
+- [x] DevEx hardening: pre-commit, CI ampliado con cobertura, runbook, release checklist (Phase 7 / Sprint 6) ✓ 2026-04-22
 
 ### Out of Scope
 
@@ -153,4 +153,4 @@ Si el plan cambia, se edita el doc fuente y se regenera `.planning/`.
 son runtime de GSD — éstos sí los mutan los comandos GSD durante la ejecución.
 
 ---
-*Last updated: 2026-04-18 after closing Mark-III open questions (MCP, cfg tables, timeline, regen policy)*
+*Last updated: 2026-04-22 — Phase 7 (DevEx hardening) complete, closing Mark-III.*
