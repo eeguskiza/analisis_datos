@@ -143,10 +143,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Foundation: baseline coverage + pyproject.toml + .pre-commit-config.yaml + requirements-dev.txt bump + backfill commit aislado (DEVEX-01)
-- [ ] 07-02-PLAN.md — CI matrix 3.11+3.12 + coverage gate + smoke job + Makefile targets test/lint/format/migrate (DEVEX-02, DEVEX-03)
-- [ ] 07-03-PLAN.md — Quartet docs: ARCHITECTURE.md + RUNBOOK.md (5 escenarios) + RELEASE.md + CHANGELOG.md (DEVEX-04, DEVEX-05, DEVEX-06)
-- [ ] 07-04-PLAN.md — CLAUDE.md update con convenciones Mark-III completas + test regresion (DEVEX-07)
+- [x] 07-01-PLAN.md — Foundation: baseline coverage + pyproject.toml + .pre-commit-config.yaml + requirements-dev.txt bump + backfill commit aislado (DEVEX-01)
+- [x] 07-02-PLAN.md — CI matrix 3.11+3.12 + coverage gate + smoke job + Makefile targets test/lint/format/migrate (DEVEX-02, DEVEX-03)
+- [x] 07-03-PLAN.md — Quartet docs: ARCHITECTURE.md + RUNBOOK.md (5 escenarios) + RELEASE.md + CHANGELOG.md (DEVEX-04, DEVEX-05, DEVEX-06)
+- [x] 07-04-PLAN.md — CLAUDE.md update con convenciones Mark-III completas + test regresion (DEVEX-07)
 
 ### Phase 8: Rediseño UI (modo claro moderno)
 **Goal**: Rediseño visual completo de la aplicación manteniendo el Centro de Mando como ancla. Look&feel moderno en tema claro, fácil de leer, no sobrecargado. Sidebar colapsable tipo drawer/popup en lugar de barra lateral siempre visible. Animaciones sutiles donde aporten. Discussion window-by-window con propuestas visuales antes de tocar código; propuestas de secciones nuevas que mejoren el flujo si se detectan gaps.
