@@ -140,6 +140,8 @@ Wherever the rest of this document previously referred to "Micro 12/500",
 respectively. The `--text-micro` CSS variable is **not** declared in
 `tokens.css` at all — it has been removed from the type scale.
 
+Mobile landing greeting uses Heading 20/600 (role swap on `max-width: 640px`) to avoid introducing a 5th size; desktop/tablet use Display 32/600.
+
 Font stack (`--font-sans`, D-06):
 
 ```
@@ -584,8 +586,7 @@ is static. Leave a `{# TODO Mark-IV: widgets configurables #}` comment in
 
 - Desktop ≥lg: center the greeting block in a max-width 640px column,
   vertically centered in viewport.
-- Mobile: same layout, padding reduced to 16px, Display typography
-  scales to 28px (override via `@media (max-width: 640px)`).
+- Mobile (`max-width: 640px`): same layout, padding reduced to 16px. The greeting role swaps from `Display 32/600` to `Heading 20/600` to keep the scale at four sizes. Reloj stays at `Heading 20/600`. Primary CTA stays full-width.
 
 ---
 
