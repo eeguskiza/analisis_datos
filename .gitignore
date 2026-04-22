@@ -18,7 +18,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-.claude
+# .claude root is NOT globally ignored; specific subdirs are ignored below
+# (line 44+). This allows committing durable artifacts under .claude/skills/.
 
 # NTFS/WSL alternate data streams (residuos al copiar desde Windows)
 *:Zone.Identifier
