@@ -76,6 +76,7 @@ class UserRepo:
             {
                 "id": orm.id,
                 "email": orm.email,
+                "nombre": orm.nombre,
                 "role": orm.role,
                 "active": orm.active,
                 "must_change_password": orm.must_change_password,
@@ -94,6 +95,7 @@ class UserRepo:
                 {
                     "id": u.id,
                     "email": u.email,
+                    "nombre": u.nombre,
                     "role": u.role,
                     "active": u.active,
                     "must_change_password": u.must_change_password,

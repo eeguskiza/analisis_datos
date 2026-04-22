@@ -17,6 +17,9 @@ class UserRow(BaseModel):
     model_config = ConfigDict(frozen=True, from_attributes=True)
     id: int
     email: str
+    # Plan 08-03 / UIREDO-02: nombre mostrado en topbar + bienvenida.
+    # Nullable; fallback a email.split('@')[0]|capitalize en plantillas.
+    nombre: Optional[str] = None
     role: str
     active: bool = True
     must_change_password: bool = True

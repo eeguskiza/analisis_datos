@@ -60,12 +60,29 @@ def _serialize_user(u: NexoUser) -> dict:
     return {
         "id": u.id,
         "email": u.email,
+        # Plan 08-03 / UIREDO-02: nombre opcional; template muestra
+        # "(sin nombre)" si es None. El openEdit() del Alpine reinyecta
+        # este valor en el modal de edicion.
+        "nombre": u.nombre,
         "role": u.role,
         "active": u.active,
         "must_change_password": u.must_change_password,
         "last_login": u.last_login,
         "departments": sorted(d.code for d in u.departments),
     }
+
+
+def _normalize_nombre(nombre: str | None) -> str | None:
+    """Normaliza el ``nombre`` del form: strip + empty -> None.
+
+    El campo es opcional (D-26 / UI-SPEC §Label pattern). Vacio o solo
+    whitespace se persiste como NULL para que el fallback del topbar
+    (email local-part) pueda kicker si el operario no rellena nada.
+    """
+    if nombre is None:
+        return None
+    stripped = nombre.strip()
+    return stripped if stripped else None
 
 
 def _render_list(
@@ -113,9 +130,11 @@ async def crear(
     password: str = Form(...),
     password_repetir: str = Form(...),
     role: str = Form(...),
+    nombre: str | None = Form(None),
     departments: list[str] = Form(default=[]),
 ):
     email_norm = email.strip().lower()
+    nombre_norm = _normalize_nombre(nombre)
 
     # Validaciones
     if role not in VALID_ROLES:
@@ -163,6 +182,7 @@ async def crear(
 
     new_user = NexoUser(
         email=email_norm,
+        nombre=nombre_norm,
         password_hash=hash_password(password),
         role=role,
         active=True,
@@ -172,7 +192,11 @@ async def crear(
     db.add(new_user)
     db.commit()
     logger.info(
-        "usuario creado: %s (rol=%s, depts=%s)", email_norm, role, sorted(departments)
+        "usuario creado: %s (rol=%s, depts=%s, nombre=%s)",
+        email_norm,
+        role,
+        sorted(departments),
+        "<set>" if nombre_norm else "<empty>",
     )
 
     return RedirectResponse(
@@ -186,6 +210,7 @@ async def editar(
     request: Request,
     db: DbNexo,
     role: str = Form(...),
+    nombre: str | None = Form(None),
     departments: list[str] = Form(default=[]),
     active: str = Form(default="off"),
 ):
@@ -234,6 +259,9 @@ async def editar(
     deactivated_now = user.active and not new_active
 
     user.role = role
+    # Plan 08-03: normaliza empty/whitespace a NULL (fallback a email
+    # local-part en topbar/bienvenida).
+    user.nombre = _normalize_nombre(nombre)
     user.departments = list(new_depts)
     user.active = new_active
     db.commit()

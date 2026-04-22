@@ -35,6 +35,7 @@
     <table class="w-full text-sm">
       <thead class="bg-surface-100 text-gray-600 text-xs uppercase tracking-wide">
         <tr>
+          <th class="text-left px-4 py-2 font-medium">Nombre</th>
           <th class="text-left px-4 py-2 font-medium">Email</th>
           <th class="text-left px-4 py-2 font-medium">Rol</th>
           <th class="text-left px-4 py-2 font-medium">Departamentos</th>
@@ -46,6 +47,13 @@
       <tbody>
         {% for u in users %}
         <tr class="border-t border-surface-200 hover:bg-surface-50">
+          <td class="px-4 py-3">
+            {% if u.nombre %}
+              <span class="text-gray-800">{{ u.nombre }}</span>
+            {% else %}
+              <span class="text-gray-400 text-xs italic">(sin nombre)</span>
+            {% endif %}
+          </td>
           <td class="px-4 py-3">
             <span class="font-medium text-gray-800">{{ u.email }}</span>
             {% if u.must_change_password %}
@@ -125,6 +133,27 @@
       </div>
 
       <form :action="formAction" method="post" class="space-y-4">
+        {# Plan 08-03 / UIREDO-02 / D-24+D-26 — campo opcional con marcador `(opcional)`.
+           Se renderiza ANTES del email para que el orden natural de lectura
+           coincida con el topbar/bienvenida (Nombre -> Email -> credenciales). #}
+        <div>
+          <label class="block text-sm font-semibold text-body mb-1" for="user-nombre">
+            Nombre <span class="text-muted font-normal">(opcional)</span>
+          </label>
+          <input type="text"
+                 id="user-nombre"
+                 name="nombre"
+                 x-model="form.nombre"
+                 maxlength="120"
+                 autocomplete="name"
+                 class="block w-full px-3 py-2 rounded-lg border border-surface-300
+                        focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm">
+          <p class="mt-1 text-xs text-gray-500">
+            Se muestra en la barra superior y en la pantalla de bienvenida.
+            Si se deja vacio, se usa la parte local del email.
+          </p>
+        </div>
+
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
           <input type="email" name="email" x-model="form.email" required
@@ -247,6 +276,7 @@ function usuariosPanel() {
     form: {
       id: null,
       email: '',
+      nombre: '',
       password: '',
       password_repetir: '',
       role: 'usuario',
@@ -266,7 +296,7 @@ function usuariosPanel() {
       this.mode = 'create';
       this.formAction = '/ajustes/usuarios/crear';
       this.form = {
-        id: null, email: '', password: '', password_repetir: '',
+        id: null, email: '', nombre: '', password: '', password_repetir: '',
         role: 'usuario', departments: [], active: true,
       };
       this.showForm = true;
@@ -277,6 +307,9 @@ function usuariosPanel() {
       this.form = {
         id: user.id,
         email: user.email,
+        // Plan 08-03: user.nombre puede ser null (columna nullable);
+        // en ese caso el input queda vacio y el backend persiste NULL.
+        nombre: user.nombre || '',
         password: '', password_repetir: '',
         role: user.role,
         departments: Array.isArray(user.departments) ? [...user.departments] : [],
