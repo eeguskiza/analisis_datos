@@ -157,6 +157,36 @@ function _isTyping(el) {
 window.nexoChrome = nexoChrome;
 
 
+// ── Landing: reloj (Plan 08-04 / UI-SPEC §Landing) ─────────────────────────
+// Alpine component que muestra HH:MM:SS con tick cada 1000ms. El interval
+// se limpia en destroy() — sin esto el timer sobrevive a navegaciones HTMX
+// (Pitfall 6 de 08-RESEARCH). Formato 24h sin animaciones (prefers-reduced-
+// motion respetado naturalmente: no hay CSS transition, solo texto).
+
+function bienvenidaPage() {
+  return {
+    clock: '',
+    _timer: null,
+    init() {
+      this.tick();
+      this._timer = setInterval(() => this.tick(), 1000);
+    },
+    destroy() {
+      if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    },
+    tick() {
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      this.clock = `${hh}:${mm}:${ss}`;
+    },
+  };
+}
+
+window.bienvenidaPage = bienvenidaPage;
+
+
 // ── Conexion badge (responde al hx-get /api/conexion/status) ────────────────
 document.addEventListener('htmx:afterRequest', (evt) => {
   if (!evt.detail.pathInfo?.requestPath?.includes('/api/conexion/status')) return;

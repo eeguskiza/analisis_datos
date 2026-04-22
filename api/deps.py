@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import Request
 from fastapi.responses import HTMLResponse
@@ -38,6 +40,46 @@ templates.env.globals.update(
     # Tras 08-03 el happy path (user.nombre) funciona automáticamente.
     getattr=getattr,
 )
+
+
+# ── Plan 08-04: hora_saludo filter (D-23 — saludo por franja) ───────────────
+# Franjas horarias (Europe/Madrid, servidor es autoritativo):
+#   06:00..11:59 → "Buenos días"
+#   12:00..20:59 → "Buenas tardes"
+#   21:00..05:59 → "Buenas noches"
+#
+# Se registra como filtro Jinja (`{{ None|hora_saludo }}`) para que la landing
+# renderice el saludo server-side sin depender del reloj cliente.
+
+_MADRID = ZoneInfo("Europe/Madrid")
+
+
+def hora_saludo(now: datetime | None = None) -> str:
+    """Return the time-banded Spanish greeting for the given instant.
+
+    Bands (D-23):
+      06:00..11:59 → 'Buenos días'
+      12:00..20:59 → 'Buenas tardes'
+      21:00..05:59 → 'Buenas noches'
+
+    Uses Europe/Madrid (server tz is authoritative — UI-SPEC §Landing).
+    Naive datetimes are assumed to already be in Madrid local time.
+    """
+    if now is None:
+        now = datetime.now(_MADRID)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=_MADRID)
+    else:
+        now = now.astimezone(_MADRID)
+    h = now.hour
+    if 6 <= h < 12:
+        return "Buenos días"
+    if 12 <= h < 21:
+        return "Buenas tardes"
+    return "Buenas noches"
+
+
+templates.env.filters["hora_saludo"] = hora_saludo
 
 
 def render(

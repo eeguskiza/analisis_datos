@@ -138,7 +138,10 @@ async def login_post(
 
     # must_change_password → cortocircuita a /cambiar-password. El middleware
     # lo volveria a hacer en la proxima request, pero asi ahorramos un hop.
-    target = "/cambiar-password" if user.must_change_password else "/"
+    # Plan 08-04: login OK redirige a /bienvenida (landing con saludo + reloj).
+    # El must_change_password branch queda intacto — el cambio forzado sigue
+    # siendo prioritario sobre la landing.
+    target = "/cambiar-password" if user.must_change_password else "/bienvenida"
     response: Response = RedirectResponse(target, status_code=303)
     response.set_cookie(
         key=settings.session_cookie_name,
