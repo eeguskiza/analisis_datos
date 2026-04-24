@@ -4,6 +4,8 @@
 
 {% block topbar_center %}
 <div class="flex items-center gap-2">
+
+  {# Pab tabs #}
   <div class="flex items-center gap-1" role="tablist" aria-label="Selector de pabellón">
     <template x-for="p in [{k:'p5',l:'P5'},{k:'p4',l:'P4'},{k:'p3',l:'P3'},{k:'p2',l:'P2'}]" :key="p.k">
       <button @click="$store.luk4.pabellon = p.k"
@@ -16,15 +18,60 @@
               x-text="p.l"></button>
     </template>
   </div>
+
+  {# Timestamp + turno #}
   <div x-show="$store.luk4.timestamp"
        class="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono tabular-nums"
        style="background:rgba(0,0,0,0.05); color:#64748b;">
     <span x-text="$store.luk4.timestamp"></span>
-    <span x-show="$store.luk4.turnoActual"
-          class="font-semibold"
-          style="color:#6366f1;"
+    <span x-show="$store.luk4.turnoActual" class="font-semibold" style="color:#6366f1;"
           x-text="'· ' + $store.luk4.turnoActual"></span>
   </div>
+
+  {# Divider #}
+  <div class="hidden sm:block w-px h-4" style="background:rgba(0,0,0,0.1);"></div>
+
+  {# Legend — only for pabs with telemetry (p5) #}
+  <div x-show="$store.luk4.pabellon === 'p5'"
+       class="hidden sm:flex items-center gap-2 text-[11px]" style="color:#94a3b8;">
+    <span class="flex items-center gap-1">
+      <span class="w-2 h-2 rounded-full shrink-0" style="background:#22c55e;"></span>Prod
+    </span>
+    <span class="flex items-center gap-1">
+      <span class="w-2 h-2 rounded-full shrink-0" style="background:#f59e0b;"></span>Incid
+    </span>
+    <span class="flex items-center gap-1">
+      <span class="w-2 h-2 rounded-full shrink-0" style="background:#94a3b8;"></span>Parada
+    </span>
+  </div>
+
+  {# Pencil (edit zones) #}
+  <button @click="window.dispatchEvent(new CustomEvent('luk4-edit-open'))"
+          title="Editar zonas"
+          x-show="!$store.luk4.editMode"
+          class="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+          style="color:#94a3b8;"
+          onmouseover="this.style.color='#6366f1';this.style.background='rgba(99,102,241,0.08)'"
+          onmouseout="this.style.color='#94a3b8';this.style.background='transparent'">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+    </svg>
+  </button>
+
+  {# Refresh + spinner — only p5 #}
+  <button x-show="$store.luk4.pabellon === 'p5' && !$store.luk4.editMode"
+          @click="window.dispatchEvent(new CustomEvent('luk4-refresh'))"
+          title="Recargar datos"
+          class="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+          style="color:#94a3b8;"
+          onmouseover="this.style.color='#6366f1';this.style.background='rgba(99,102,241,0.08)'"
+          onmouseout="this.style.color='#94a3b8';this.style.background='transparent'">
+    <svg class="w-3.5 h-3.5" :class="$store.luk4.loading ? 'animate-spin' : ''"
+         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+    </svg>
+  </button>
+
 </div>
 {% endblock %}
 
@@ -33,7 +80,7 @@
 <script>document.querySelector('main')?.classList.add('centro-mando-main')</script>
 <script>
 document.addEventListener('alpine:init', () => {
-  Alpine.store('luk4', { pabellon: 'p5', timestamp: '', turnoActual: '' });
+  Alpine.store('luk4', { pabellon: 'p5', timestamp: '', turnoActual: '', loading: false, editMode: false });
 });
 </script>
 <div x-data x-cloak class="flex flex-col" style="height:calc(100vh - 3.5rem)">
@@ -41,28 +88,37 @@ document.addEventListener('alpine:init', () => {
   <!-- ══════════════ PABELLON 5 ══════════════════════════════════════ -->
   <div x-show="$store.luk4.pabellon === 'p5'"
        x-data="pabPage({pab:'p5', img:'/static/img/luk4_plano.jpg', hasTelemetry:true})"
-       x-init="init()" class="flex flex-col flex-1 min-h-0">
+       x-init="init()"
+       @luk4-refresh.window="if ($store.luk4.pabellon === 'p5') refresh()"
+       @luk4-edit-open.window="if ($store.luk4.pabellon === 'p5') openEditor()"
+       class="flex flex-col flex-1 min-h-0">
     {% include '_partials/mapa_pabellon.html' %}
   </div>
 
   <!-- ══════════════ PABELLON 4 ══════════════════════════════════════ -->
   <div x-show="$store.luk4.pabellon === 'p4'"
        x-data="pabPage({pab:'p4', img:'/static/img/pab4_plano.jpg', hasTelemetry:false})"
-       x-init="init()" class="flex flex-col flex-1 min-h-0">
+       x-init="init()"
+       @luk4-edit-open.window="if ($store.luk4.pabellon === 'p4') openEditor()"
+       class="flex flex-col flex-1 min-h-0">
     {% include '_partials/mapa_pabellon.html' %}
   </div>
 
   <!-- ══════════════ PABELLON 3 ══════════════════════════════════════ -->
   <div x-show="$store.luk4.pabellon === 'p3'"
        x-data="pabPage({pab:'p3', img:'/static/img/pab3_plano.jpg', hasTelemetry:false})"
-       x-init="init()" class="flex flex-col flex-1 min-h-0">
+       x-init="init()"
+       @luk4-edit-open.window="if ($store.luk4.pabellon === 'p3') openEditor()"
+       class="flex flex-col flex-1 min-h-0">
     {% include '_partials/mapa_pabellon.html' %}
   </div>
 
   <!-- ══════════════ PABELLON 2 ══════════════════════════════════════ -->
   <div x-show="$store.luk4.pabellon === 'p2'"
        x-data="pabPage({pab:'p2', img:'/static/img/pab2_plano.jpg', hasTelemetry:false})"
-       x-init="init()" class="flex flex-col flex-1 min-h-0">
+       x-init="init()"
+       @luk4-edit-open.window="if ($store.luk4.pabellon === 'p2') openEditor()"
+       class="flex flex-col flex-1 min-h-0">
     {% include '_partials/mapa_pabellon.html' %}
   </div>
 
@@ -250,7 +306,7 @@ function pabPage(cfg) {
 
     // ── Editor ─────────────────────────────────────────────────────
     openEditor() {
-      // Copiar hotspots al editor (formato diferente: w/h en vez de width/height)
+      Alpine.store('luk4').editMode = true;
       this.editorZones = this.hotspots.map(h => ({
         id: h.id, label: h.label,
         left: h.left, top: h.top,
@@ -290,10 +346,12 @@ function pabPage(cfg) {
       } catch {}
       this.hotspots = data;
       this.editMode = false;
+      Alpine.store('luk4').editMode = false;
       this.$nextTick(() => this.calcImg());
     },
     editorCancel() {
       this.editMode = false;
+      Alpine.store('luk4').editMode = false;
     },
 
     // ── Init + refresh ─────────────────────────────────────────────
@@ -319,6 +377,7 @@ function pabPage(cfg) {
     },
     async refresh() {
       this.loading = true;
+      if (Alpine.store('luk4').pabellon === this.pab) Alpine.store('luk4').loading = true;
       try {
         const r=await fetch('/api/luk4/status'); if(!r.ok)throw 0; const d=await r.json();
         const newStatus = d.luk4_status || 'stopped';
@@ -361,6 +420,7 @@ function pabPage(cfg) {
         Alpine.store('luk4').turnoActual = this.turnoActual;
       } catch{}
       this.loading = false;
+      if (Alpine.store('luk4').pabellon === this.pab) Alpine.store('luk4').loading = false;
     },
   };
 }

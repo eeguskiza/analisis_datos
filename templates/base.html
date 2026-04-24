@@ -108,8 +108,8 @@
        x-transition:leave="transition ease-in duration-[120ms]"
        x-transition:leave-start="opacity-100 scale-100"
        x-transition:leave-end="opacity-0 scale-[0.97]"
-       class="fixed inset-0 z-drawer overflow-y-auto"
-       style="background: rgba(8,14,28,0.96); backdrop-filter: blur(24px);"
+       class="fixed inset-0 overflow-y-auto"
+       style="background: rgba(8,14,28,0.96); backdrop-filter: blur(24px); z-index: 9000;"
        @click.self="closeDrawer()">
 
     <div class="min-h-full flex flex-col max-w-lg w-full mx-auto px-5 sm:px-10 py-4">
