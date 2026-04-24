@@ -50,6 +50,22 @@
 
     {# Right cluster — flex-1 push #}
     <div class="ml-auto flex items-center gap-3">
+
+      {# Service LEDs #}
+      <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-surface-subtle"
+           x-data="serviceHealth()"
+           x-init="init()"
+           title="Estado de servicios">
+        <template x-for="s in svcs" :key="s.key">
+          <span class="relative flex items-center justify-center w-2 h-2" :title="s.label">
+            <span class="w-2 h-2 rounded-full block transition-colors duration-300"
+                  :class="s.ok === null ? 'bg-muted/40' : s.ok ? 'bg-success' : 'bg-error'"></span>
+            <span x-show="s.ok === true"
+                  class="absolute w-2 h-2 rounded-full bg-success opacity-50 animate-ping"></span>
+          </span>
+        </template>
+      </div>
+
       <div id="conn-badge"
            hx-get="/api/conexion/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
            class="text-sm px-3 py-1 rounded-pill bg-surface-subtle text-muted">

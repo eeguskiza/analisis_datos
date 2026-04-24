@@ -21,7 +21,7 @@
 
     {# ── Card principal ── #}
     <div class="rounded-[32px] border border-white/20 shadow-[0_32px_80px_-24px_rgba(15,34,54,0.22),inset_0_1px_0_rgba(255,255,255,0.35)]"
-         style="background: rgba(var(--color-surface-base-raw, 255,255,255), 0.55); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);">
+         style="background: rgba(255,255,255, 0.55); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);">
       <div class="px-8 py-10 md:px-10 md:py-12 flex flex-col items-center text-center gap-6">
 
         {# Saludo #}
@@ -34,16 +34,12 @@
           </h1>
         </div>
 
-        {# Separador ── #}
-        <div class="w-12 h-px" style="background: rgba(var(--color-border-raw, 0,0,0), 0.12);"></div>
+        <div class="w-12 h-px bg-border-subtle"></div>
 
-        {# Reloj #}
+        {# Reloj + fecha #}
         <div class="flex flex-col items-center gap-1">
           <div class="text-[52px] md:text-[64px] leading-none font-mono tabular-nums font-semibold text-heading tracking-[-0.03em]"
-               x-text="clock"
-               aria-label="Hora actual"
-               role="timer"
-               style="font-variant-numeric: tabular-nums;"></div>
+               x-text="clock" aria-label="Hora actual" role="timer"></div>
           <div class="text-sm text-muted capitalize" x-text="dateStr"></div>
         </div>
 
@@ -58,11 +54,39 @@
       </div>
     </div>
 
+    {# ── Card de servicios (LEDs) ── #}
+    <div class="rounded-[24px] border border-white/20 shadow-[0_8px_32px_-8px_rgba(15,34,54,0.12),inset_0_1px_0_rgba(255,255,255,0.3)]"
+         style="background: rgba(255,255,255, 0.42); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);">
+      <div class="px-6 py-5">
+        <p class="text-[10px] uppercase tracking-[0.18em] text-muted font-semibold mb-4">Estado de servicios</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+          <template x-for="svc in services" :key="svc.key">
+            <div class="flex flex-col items-center gap-2 py-3 px-2 rounded-2xl transition-colors"
+                 :class="svc.ok === null ? 'bg-surface-subtle/40' : svc.ok ? 'bg-success-subtle/60' : 'bg-error-subtle/60'">
+              {# LED #}
+              <div class="relative flex items-center justify-center">
+                <span class="w-3 h-3 rounded-full block transition-colors"
+                      :class="svc.ok === null ? 'bg-muted/40' : svc.ok ? 'bg-success' : 'bg-error'"></span>
+                <span x-show="svc.ok === true"
+                      class="absolute w-3 h-3 rounded-full bg-success opacity-60 animate-ping"></span>
+              </div>
+              {# Label #}
+              <span class="text-[11px] font-semibold text-center leading-tight"
+                    :class="svc.ok === null ? 'text-muted' : svc.ok ? 'text-success' : 'text-error'"
+                    x-text="svc.label"></span>
+            </div>
+          </template>
+
+        </div>
+      </div>
+    </div>
+
     {# ── Píldora de rol ── #}
     {% if current_user %}
     <div class="flex justify-center">
       <div class="inline-flex items-center gap-2 px-4 py-2 rounded-pill border border-white/25 text-xs text-muted font-medium"
-           style="background: rgba(var(--color-surface-base-raw, 255,255,255), 0.45); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
+           style="background: rgba(255,255,255, 0.45); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
         <span class="w-1.5 h-1.5 rounded-full bg-success inline-block"></span>
         {{ current_user.email }} · {{ current_user.role | capitalize }}
       </div>
@@ -77,14 +101,34 @@ function bienvenidaPage() {
   return {
     clock: '',
     dateStr: '',
+    services: [
+      { key: 'web',      label: 'Web',        ok: null },
+      { key: 'db_local', label: 'DB Local',   ok: null },
+      { key: 'db_ecs',   label: 'DB ECS',     ok: null },
+      { key: 'db_izaro', label: 'DB Izaro',   ok: null },
+    ],
     init() {
       this._tick();
       setInterval(() => this._tick(), 1000);
+      this._fetchHealth();
+      setInterval(() => this._fetchHealth(), 30000);
     },
     _tick() {
       const now = new Date();
-      this.clock = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      this.clock   = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
       this.dateStr = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    },
+    async _fetchHealth() {
+      try {
+        const r = await fetch('/api/health');
+        const data = await r.json();
+        this.services = this.services.map(s => ({
+          ...s,
+          ok: data.services[s.key]?.ok ?? null
+        }));
+      } catch {
+        this.services = this.services.map(s => ({ ...s, ok: false }));
+      }
     }
   }
 }

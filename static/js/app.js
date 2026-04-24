@@ -156,6 +156,35 @@ function _isTyping(el) {
 // Expose for Alpine.data() auto-pickup
 window.nexoChrome = nexoChrome;
 
+// ── serviceHealth() — LEDs de estado en topbar ───────────────────────────────
+function serviceHealth() {
+  return {
+    svcs: [
+      { key: 'db_local', label: 'DB Local',  ok: null },
+      { key: 'db_ecs',   label: 'DB ECS',    ok: null },
+      { key: 'db_izaro', label: 'DB Izaro',  ok: null },
+    ],
+    _timer: null,
+    init() {
+      this._fetch();
+      this._timer = setInterval(() => this._fetch(), 30000);
+    },
+    destroy() {
+      if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    },
+    async _fetch() {
+      try {
+        const r = await fetch('/api/health');
+        const data = await r.json();
+        this.svcs = this.svcs.map(s => ({ ...s, ok: data.services[s.key]?.ok ?? null }));
+      } catch {
+        this.svcs = this.svcs.map(s => ({ ...s, ok: false }));
+      }
+    }
+  };
+}
+window.serviceHealth = serviceHealth;
+
 
 // ── Landing: reloj (Plan 08-04 / UI-SPEC §Landing) ─────────────────────────
 // Alpine component que muestra HH:MM:SS con tick cada 1000ms. El interval
