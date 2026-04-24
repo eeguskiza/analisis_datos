@@ -33,16 +33,14 @@
           class="sticky top-0 z-topbar flex items-center gap-3 px-4 md:px-6 py-3 bg-surface-base border-b border-subtle"
           style="height: var(--space-topbar-h);">
 
-    {# Hamburger — left slot #}
+    {# Corona — left slot #}
     <button type="button"
             @click="toggleDrawer()"
             :aria-expanded="drawerOpen.toString()"
             aria-controls="nexo-drawer"
             aria-label="Abrir menú"
-            class="btn-icon text-muted hover:text-body">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-      </svg>
+            class="w-9 h-9 rounded-full overflow-hidden shrink-0 ring-2 ring-transparent hover:ring-primary/30 transition-all duration-fast focus-visible:outline-none focus-visible:ring-primary/50">
+      <img src="/static/img/gif-corona.png" alt="Menú" class="w-full h-full object-cover">
     </button>
 
     {# Page title slot #}
