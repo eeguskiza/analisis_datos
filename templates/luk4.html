@@ -3,7 +3,7 @@
 {% block page_title %}{% endblock %}
 
 {% block topbar_center %}
-<div class="flex items-center gap-2">
+<div class="flex items-center gap-3">
 
   {# Pab tabs #}
   <div class="flex items-center gap-1" role="tablist" aria-label="Selector de pabellón">
@@ -29,11 +29,11 @@
   </div>
 
   {# Divider #}
-  <div class="hidden sm:block w-px h-4" style="background:rgba(0,0,0,0.1);"></div>
+  <div class="hidden sm:block w-px h-5" style="background:rgba(0,0,0,0.12);"></div>
 
   {# Legend — only for pabs with telemetry (p5) #}
   <div x-show="$store.luk4.pabellon === 'p5'"
-       class="hidden sm:flex items-center gap-2 text-[11px]" style="color:#94a3b8;">
+       class="hidden sm:flex items-center gap-3 text-[11px]" style="color:#94a3b8;">
     <span class="flex items-center gap-1">
       <span class="w-2 h-2 rounded-full shrink-0" style="background:#22c55e;"></span>Prod
     </span>
