@@ -48,6 +48,7 @@ services:
     env_file:
       - .env
     environment:
+      - TZ=Europe/Madrid
       - NEXO_DATA_DIR=/app/data
       - NEXO_INFORMES_DIR=/app/informes
       - NEXO_DATABASE_URL=postgresql://${NEXO_PG_USER:-${OEE_PG_USER:-oee}}:${NEXO_PG_PASSWORD:-${OEE_PG_PASSWORD:-oee}}@db:5432/${NEXO_PG_DB:-${OEE_PG_DB:-oee_planta}}
