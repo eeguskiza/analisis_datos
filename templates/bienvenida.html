@@ -1,72 +1,65 @@
 {% extends "base.html" %}
-{% block title %}Bienvenida · {{ app_name }}{% endblock %}
-{% block page_title %}Bienvenida{% endblock %}
+{% block page_title %}{% endblock %}
 
 {% block content %}
 {% set display_name = user_display_name(current_user) %}
 
 <section x-data="bienvenidaPage()"
-         class="w-full min-h-[calc(100vh-var(--space-topbar-h)-48px)] flex items-center justify-center px-4 py-8"
-         style="background: radial-gradient(ellipse at 60% 20%, rgb(var(--color-brand-200)) 0%, rgb(var(--color-brand-100)) 35%, rgb(var(--color-surface-0)) 80%);">
+         class="relative w-full min-h-[calc(100vh-var(--space-topbar-h))] flex flex-col overflow-hidden"
+         style="background: linear-gradient(160deg, #f8fafc 0%, #e8f0fe 40%, #dbeafe 100%);">
 
-  {# ── Orbs decorativos ── #}
-  <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-    <div class="absolute -top-32 -right-32 w-[480px] h-[480px] rounded-full opacity-20"
-         style="background: radial-gradient(circle, rgb(var(--color-brand-400)) 0%, transparent 70%); filter: blur(48px);"></div>
-    <div class="absolute bottom-0 -left-24 w-[360px] h-[360px] rounded-full opacity-15"
-         style="background: radial-gradient(circle, rgb(var(--color-brand-300)) 0%, transparent 70%); filter: blur(40px);"></div>
+  {# Orbs #}
+  <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+    <div class="absolute top-[-80px] right-[-60px] w-[500px] h-[500px] rounded-full"
+         style="background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%); filter: blur(60px);"></div>
+    <div class="absolute bottom-[-40px] left-[-40px] w-[400px] h-[400px] rounded-full"
+         style="background: radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%); filter: blur(50px);"></div>
   </div>
 
-  <div class="relative w-full max-w-lg mx-auto flex flex-col gap-4">
+  {# Layout principal #}
+  <div class="relative flex-1 flex flex-col justify-between px-8 py-10 md:px-16 md:py-14 max-w-5xl w-full mx-auto">
 
-    {# ── Card principal ── #}
-    <div class="rounded-[32px] border border-white/20 shadow-[0_32px_80px_-24px_rgba(15,34,54,0.22),inset_0_1px_0_rgba(255,255,255,0.35)]"
-         style="background: rgba(255,255,255, 0.55); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);">
-      <div class="px-8 py-10 md:px-10 md:py-12 flex flex-col items-center text-center gap-6">
-
-        {# Saludo #}
-        <div>
-          <p class="text-xs uppercase tracking-[0.18em] text-muted font-semibold mb-2">
-            {{ now_madrid | hora_saludo if now_madrid else "Bienvenido" }}
-          </p>
-          <h1 class="text-[36px] md:text-[48px] leading-[1] tracking-[-0.04em] font-semibold text-heading">
-            {{ display_name }}
-          </h1>
-        </div>
-
-        <div class="w-12 h-px bg-border-subtle"></div>
-
-        {# Reloj + fecha #}
-        <div class="flex flex-col items-center gap-1">
-          <div class="text-[52px] md:text-[64px] leading-none font-mono tabular-nums font-semibold text-heading tracking-[-0.03em]"
-               x-text="clock" aria-label="Hora actual" role="timer"></div>
-          <div class="text-sm text-muted capitalize" x-text="dateStr"></div>
-        </div>
-
-        {# CTA #}
-        <a href="/" class="btn btn-primary btn-lg inline-flex items-center justify-center gap-2 w-full mt-2" autofocus>
-          Ir a Centro de Mando
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-          </svg>
-        </a>
-
-      </div>
+    {# Top: saludo + nombre #}
+    <div>
+      <p class="text-sm font-medium tracking-wide" style="color: rgba(99,102,241,0.8);">
+        {{ now_madrid | hora_saludo if now_madrid else "Hola" }}
+      </p>
+      <h1 class="mt-1 font-semibold leading-[0.95] tracking-[-0.04em]"
+          style="font-size: clamp(48px, 8vw, 96px); color: #1e293b;">
+        {{ display_name }}
+      </h1>
     </div>
 
+    {# Centro: reloj #}
+    <div class="flex flex-col items-start">
+      <div class="font-semibold tabular-nums leading-none tracking-[-0.05em]"
+           style="font-size: clamp(72px, 16vw, 160px); color: #1e293b; font-variant-numeric: tabular-nums;"
+           x-text="clock"
+           aria-label="Hora actual" role="timer"></div>
+      <div class="mt-2 text-base font-medium capitalize" style="color: #64748b;" x-text="dateStr"></div>
+    </div>
 
-    {# ── Píldora de rol ── #}
-    {% if current_user %}
-    <div class="flex justify-center">
-      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-pill border border-white/25 text-xs text-muted font-medium"
-           style="background: rgba(255,255,255, 0.45); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
-        <span class="w-1.5 h-1.5 rounded-full bg-success inline-block"></span>
+    {# Bottom: CTA + rol #}
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <a href="/"
+         class="inline-flex items-center gap-3 px-6 py-3 rounded-2xl font-semibold text-white text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+         style="background: linear-gradient(135deg, #6366f1, #3b82f6); box-shadow: 0 8px 24px -6px rgba(99,102,241,0.45);"
+         autofocus>
+        Centro de Mando
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+        </svg>
+      </a>
+
+      {% if current_user %}
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-pill text-xs font-medium"
+           style="background: rgba(255,255,255,0.6); backdrop-filter: blur(12px); color: #64748b; border: 1px solid rgba(255,255,255,0.8);">
+        <span class="w-1.5 h-1.5 rounded-full inline-block" style="background: #22c55e;"></span>
         {{ current_user.email }} · {{ current_user.role | capitalize }}
       </div>
+      {% endif %}
     </div>
-    {% endif %}
 
   </div>
 </section>
-
 {% endblock %}
