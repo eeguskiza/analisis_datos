@@ -1,12 +1,14 @@
 """API del panel Pabellon 5 — datos LUK4 + fmesmic."""
 from __future__ import annotations
 
+import io
 import logging
-from datetime import datetime
+from datetime import datetime, date as date_type
 
 from typing import List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -57,8 +59,13 @@ def luk4_status():
                 telemetria["pct_error"] = round(float(est[5]) / 100, 1) if est[5] else None
                 telemetria["estado_ts"] = est[0].strftime("%H:%M:%S") if est[0] else None
 
-                # Color de LUK4 basado en estado_global (codigo_error es sticky, no indica error activo)
-                if estado_global == 3:
+                # Si el último registro tiene más de 15 min → sin señal → parada
+                stale = est[0] is None or (now - est[0]).total_seconds() > 15 * 60
+                telemetria["data_stale"] = stale
+
+                if stale:
+                    luk4_status_str = "stopped"
+                elif estado_global == 3:
                     luk4_status_str = "incidence"
                     comp = est[6] or "SISTEMA"
                     msg = est[7] or f"Error activo (codigo {codigo_error})"
@@ -70,7 +77,7 @@ def luk4_status():
                 else:
                     luk4_status_str = "stopped"
 
-            # ── LUK4 tiempos de ciclo ───────────────────────────────────
+            # ── LUK4 tiempos de ciclo (velocidad teórica por proceso) ─────
             tc = conn.execute(text("""
                 SELECT TOP 1 timestamp, tiempo_ciclo_total, tiempo_ciclo_temple,
                        tiempo_ciclo_revenido, tiempo_ciclo_torno
@@ -82,10 +89,25 @@ def luk4_status():
                 telemetria["ciclo_temple"] = round(tc[2] / 1000, 1) if tc[2] else None
                 telemetria["ciclo_revenido"] = round(tc[3] / 1000, 1) if tc[3] else None
                 telemetria["ciclo_torno"] = round(tc[4] / 1000, 1) if tc[4] else None
-                telemetria["pph_total"] = round(3600 / ct) if ct > 0 else None
                 telemetria["pph_temple"] = round(3600 / (tc[2] / 1000)) if tc[2] and tc[2] > 0 else None
                 telemetria["pph_revenido"] = round(3600 / (tc[3] / 1000)) if tc[3] and tc[3] > 0 else None
                 telemetria["pph_torno"] = round(3600 / (tc[4] / 1000)) if tc[4] and tc[4] > 0 else None
+
+            # ── pph real: delta de contador en ventana 5 min y 1 hora ────
+            for _label, _min in (("pph_5m", 5), ("pph_total", 60)):
+                _r = conn.execute(text("""
+                    SELECT
+                        CASE WHEN MAX(contador_piezas_totales) >= MIN(contador_piezas_totales)
+                             THEN MAX(contador_piezas_totales) - MIN(contador_piezas_totales)
+                             ELSE NULL END,
+                        NULLIF(DATEDIFF(SECOND, MIN(timestamp), MAX(timestamp)), 0)
+                    FROM luk4.tiempos_ciclo
+                    WHERE timestamp >= DATEADD(MINUTE, :neg_min, GETDATE())
+                      AND contador_piezas_totales IS NOT NULL
+                """), {"neg_min": -_min}).fetchone()
+                telemetria[_label] = (
+                    round(_r[0] * 3600.0 / _r[1]) if _r and _r[0] and _r[1] else None
+                )
 
             # ── LUK4 piezas del dia (delta contadores) ──────────────────
             piezas = conn.execute(text("""
@@ -116,6 +138,11 @@ def luk4_status():
     except Exception as exc:
         log.warning("LUK4: error: %s", exc)
 
+    _b = telemetria.get("piezas_buenas_hoy") or 0
+    _m = telemetria.get("piezas_malas_hoy") or 0
+    _tot = _b + _m
+    telemetria["calidad_pct_hoy"] = round(_b * 100.0 / _tot, 1) if _tot > 0 else None
+
     # ── Timeline pz/h por proceso (cada 5 min) ────────────────────
     timeline = []
     top_alarmas = []
@@ -124,10 +151,13 @@ def luk4_status():
             rows = conn.execute(text("""
                 SELECT DATEPART(HOUR, timestamp) as h,
                        (DATEPART(MINUTE, timestamp) / 5) * 5 as m5,
-                       AVG(tiempo_ciclo_total) as tc_total,
                        AVG(tiempo_ciclo_temple) as tc_temple,
                        AVG(tiempo_ciclo_revenido) as tc_rev,
-                       AVG(tiempo_ciclo_torno) as tc_torno
+                       AVG(tiempo_ciclo_torno) as tc_torno,
+                       CASE WHEN MAX(contador_piezas_totales) >= MIN(contador_piezas_totales)
+                            THEN MAX(contador_piezas_totales) - MIN(contador_piezas_totales)
+                            ELSE NULL END AS delta_totales,
+                       NULLIF(DATEDIFF(SECOND, MIN(timestamp), MAX(timestamp)), 0) AS seg_bucket
                 FROM luk4.tiempos_ciclo
                 WHERE timestamp >= :shift_start
                   AND tiempo_ciclo_total IS NOT NULL
@@ -138,12 +168,13 @@ def luk4_status():
                 def pph(ms): return round(3600 / (ms / 1000), 0) if ms and ms > 0 else 0
                 h = int(r[0])
                 turno = turno_from_hour(h)
+                delta, seg = r[5], r[6]
                 timeline.append({
                     "t": f"{h:02d}:{int(r[1]):02d}",
-                    "total": pph(r[2]),
-                    "temple": pph(r[3]),
-                    "revenido": pph(r[4]),
-                    "torno": pph(r[5]),
+                    "total": round(delta * 3600.0 / seg) if delta and seg and delta > 0 else 0,
+                    "temple": pph(r[2]),
+                    "revenido": pph(r[3]),
+                    "torno": pph(r[4]),
                     "turno": turno,
                 })
 
@@ -220,6 +251,7 @@ def turno_detail():
                         "producing": 0, "incidence": 0, "off": 0, "other": 0,
                         "availability_pct": 0,
                         "pz_buenas": 0, "pz_malas": 0, "pz_totales": 0,
+                        "timeline": [],
                     })
                     continue
 
@@ -254,7 +286,8 @@ def turno_detail():
                 off = counts.get(0, 0)
                 other = sum(v for k, v in counts.items() if k not in (0, 1, 3))
                 total = producing + incidence + off + other
-                avail = round(100 * producing / total, 1) if total > 0 else 0
+                # estado=3 es "en marcha con alarma" — cuenta como disponible
+                avail = round(100 * (producing + incidence) / total, 1) if total > 0 else 0
 
                 # Baseline = ultima lectura ANTES del turno para cerrar la cadena
                 # sin perder piezas en el hueco de muestreo de la frontera.
@@ -287,6 +320,45 @@ def turno_detail():
                 pz_buenas = int(pz[1] - pz[0]) if pz and pz[0] is not None and pz[1] is not None else 0
                 pz_malas = int(pz[3] - pz[2]) if pz and pz[2] is not None and pz[3] is not None else 0
 
+                # Timeline de estado en buckets de 5 min (para barra temporal)
+                tl_rows = conn.execute(text("""
+                    SELECT bucket, estado_global, COUNT(*) AS n
+                    FROM (
+                        SELECT DATEDIFF(SECOND, :t_start, timestamp) / 300 AS bucket,
+                               estado_global
+                        FROM luk4.estado
+                        WHERE timestamp >= :t_start AND timestamp < :t_end
+                    ) sub
+                    GROUP BY bucket, estado_global
+                """), params).fetchall()
+
+                # estado dominante por bucket
+                dom = {}
+                cnt = {}
+                for r in tl_rows:
+                    b, st, n = int(r[0]), int(r[1]), int(r[2])
+                    if b not in cnt or n > cnt[b]:
+                        cnt[b] = n; dom[b] = st
+
+                elapsed_s = min((now - t_start).total_seconds(), 8 * 3600)
+                n_bk = max(1, int(elapsed_s / 300))
+
+                def _s(st):
+                    if st == 1: return "p"   # produciendo
+                    if st == 3: return "i"   # incidencia
+                    return "s"               # stopped
+
+                segs, cur, run = [], None, 0
+                for i in range(n_bk):
+                    s = _s(dom.get(i, 0))
+                    if s != cur:
+                        if cur: segs.append({"st": cur, "w": round(run / n_bk * 100, 2)})
+                        cur, run = s, 1
+                    else:
+                        run += 1
+                if cur:
+                    segs.append({"st": cur, "w": round(run / n_bk * 100, 2)})
+
                 turnos_breakdown.append({
                     "turno": name,
                     "start": t_start.strftime("%H:%M"),
@@ -303,6 +375,7 @@ def turno_detail():
                     "pz_buenas": max(pz_buenas, 0),
                     "pz_malas": max(pz_malas, 0),
                     "pz_totales": max(pz_buenas + pz_malas, 0),
+                    "timeline": segs,
                 })
 
                 # Alarmas solo del turno actual
@@ -353,6 +426,37 @@ def turno_detail():
         "alarmas_summary": alarmas_summary,
         "timestamp": now.strftime("%H:%M:%S"),
     }
+
+
+# ── Informe OEE en PDF ──────────────────────────────────────────────────
+
+@router.get("/informe-oee")
+def informe_oee_pdf(
+    fecha_ini: str = Query(..., description="Fecha inicio YYYY-MM-DD"),
+    fecha_fin: str = Query(..., description="Fecha fin YYYY-MM-DD"),
+    modo: str = Query("rango", description="'dia' (con turnos) o 'rango'"),
+):
+    """Genera y descarga un informe OEE de LUK4 en PDF."""
+    from api.services.oee_luk4_pdf import generar_pdf_luk4_oee
+
+    try:
+        d_ini = date_type.fromisoformat(fecha_ini)
+        d_fin = date_type.fromisoformat(fecha_fin)
+    except ValueError:
+        return {"error": "Formato de fecha invalido. Usar YYYY-MM-DD"}
+
+    if d_fin < d_ini:
+        d_ini, d_fin = d_fin, d_ini
+
+    pdf_bytes = generar_pdf_luk4_oee(d_ini, d_fin, modo)
+    fname = (f"LUK4_OEE_{fecha_ini}.pdf" if modo == "dia"
+             else f"LUK4_OEE_{fecha_ini}_{fecha_fin}.pdf")
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 # ── Zonas del plano (persistidas en BBDD) ───────────────────────────────

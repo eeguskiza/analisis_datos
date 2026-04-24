@@ -69,6 +69,8 @@ function pabPage(cfg) {
     _prevStatus: null, _prevAlarmaCode: null, _prevTurno: null, _firstLoad: true,
     // Detalle por turno (panel modal)
     turnoBreakdown: [], alarmasTurno: [], alarmasTurnoSummary: {}, _detailInterval: null,
+    // Informe OEE
+    oeeModal: false, oeeIni: '', oeeFin: '', oeeLoading: false, oeeModo: 'dia',
     // Hotspots (modo normal) — se cargan del servidor en init()
     hotspots: [],
     imgNatW: 0, imgNatH: 0, imgW: 0, imgH: 0,
@@ -208,6 +210,20 @@ function pabPage(cfg) {
         },
       });
     },
+    // Genera el CSS background para la barra temporal de disponibilidad
+    segStyle(segs) {
+      if (!segs || !segs.length) return 'background:#9ca3af';
+      const c = { p: '#22c55e', i: '#ef4444', s: '#9ca3af' };
+      let pos = 0, parts = [];
+      for (const seg of segs) {
+        const col = c[seg.st] || '#9ca3af';
+        parts.push(`${col} ${pos.toFixed(1)}%`);
+        pos += seg.w;
+        parts.push(`${col} ${pos.toFixed(1)}%`);
+      }
+      return `background:linear-gradient(to right,${parts.join(',')})`;
+    },
+
     // Estado de una zona segun su source
     zoneStatus(hs) {
       const src = hs.source || 'none';
@@ -304,6 +320,29 @@ function pabPage(cfg) {
         this.calcImg();
       });
     },
+    async exportOEE() {
+      if (!this.oeeIni || !this.oeeFin) return;
+      this.oeeLoading = true;
+      try {
+        const url = `/api/luk4/informe-oee?fecha_ini=${this.oeeIni}&fecha_fin=${this.oeeFin}&modo=${this.oeeModo}`;
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('Error ' + r.status);
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const fname = this.oeeIni === this.oeeFin
+          ? `LUK4_OEE_${this.oeeIni}.pdf`
+          : `LUK4_OEE_${this.oeeIni}_${this.oeeFin}.pdf`;
+        a.download = fname;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        this.oeeModal = false;
+      } catch(e) {
+        alert('Error al generar el informe: ' + e.message);
+      }
+      this.oeeLoading = false;
+    },
+
     async refresh() {
       this.loading = true;
       try {
