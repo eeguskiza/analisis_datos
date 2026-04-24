@@ -96,41 +96,4 @@
   </div>
 </section>
 
-<script>
-function bienvenidaPage() {
-  return {
-    clock: '',
-    dateStr: '',
-    services: [
-      { key: 'web',      label: 'Web',        ok: null },
-      { key: 'db_local', label: 'DB Local',   ok: null },
-      { key: 'db_ecs',   label: 'DB ECS',     ok: null },
-      { key: 'db_izaro', label: 'DB Izaro',   ok: null },
-    ],
-    init() {
-      this._tick();
-      setInterval(() => this._tick(), 1000);
-      this._fetchHealth();
-      setInterval(() => this._fetchHealth(), 30000);
-    },
-    _tick() {
-      const now = new Date();
-      this.clock   = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-      this.dateStr = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-    },
-    async _fetchHealth() {
-      try {
-        const r = await fetch('/api/health');
-        const data = await r.json();
-        this.services = this.services.map(s => ({
-          ...s,
-          ok: data.services[s.key]?.ok ?? null
-        }));
-      } catch {
-        this.services = this.services.map(s => ({ ...s, ok: false }));
-      }
-    }
-  }
-}
-</script>
 {% endblock %}
