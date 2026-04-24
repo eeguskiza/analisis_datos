@@ -54,33 +54,6 @@
       </div>
     </div>
 
-    {# ── Card de servicios (LEDs) ── #}
-    <div class="rounded-[24px] border border-white/20 shadow-[0_8px_32px_-8px_rgba(15,34,54,0.12),inset_0_1px_0_rgba(255,255,255,0.3)]"
-         style="background: rgba(255,255,255, 0.42); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);">
-      <div class="px-6 py-5">
-        <p class="text-[10px] uppercase tracking-[0.18em] text-muted font-semibold mb-4">Estado de servicios</p>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-
-          <template x-for="svc in services" :key="svc.key">
-            <div class="flex flex-col items-center gap-2 py-3 px-2 rounded-2xl transition-colors"
-                 :class="svc.ok === null ? 'bg-surface-subtle/40' : svc.ok ? 'bg-success-subtle/60' : 'bg-error-subtle/60'">
-              {# LED #}
-              <div class="relative flex items-center justify-center">
-                <span class="w-3 h-3 rounded-full block transition-colors"
-                      :class="svc.ok === null ? 'bg-muted/40' : svc.ok ? 'bg-success' : 'bg-error'"></span>
-                <span x-show="svc.ok === true"
-                      class="absolute w-3 h-3 rounded-full bg-success opacity-60 animate-ping"></span>
-              </div>
-              {# Label #}
-              <span class="text-[11px] font-semibold text-center leading-tight"
-                    :class="svc.ok === null ? 'text-muted' : svc.ok ? 'text-success' : 'text-error'"
-                    x-text="svc.label"></span>
-            </div>
-          </template>
-
-        </div>
-      </div>
-    </div>
 
     {# ── Píldora de rol ── #}
     {% if current_user %}

@@ -75,11 +75,6 @@
         </template>
       </div>
 
-      <div id="conn-badge"
-           hx-get="/api/conexion/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
-           class="text-sm px-3 py-1 rounded-pill bg-surface-subtle text-muted">
-        Comprobando...
-      </div>
 
       {% if current_user %}
         {# User display name — BLOCKER fix (checker): use getattr so this renders
