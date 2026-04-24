@@ -1,56 +1,54 @@
 {% extends "base.html" %}
 {% block title %}Centro de Mando — ECS Mobility{% endblock %}
-{% block topbar %}
-<header class="flex items-center justify-end px-6 py-1.5 bg-surface-base border-b border-subtle shrink-0">
-  <div id="conn-badge"
-       hx-get="/api/conexion/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
-       class="text-xs px-3 py-1 rounded-pill bg-surface-subtle text-muted">
-    Comprobando...
-  </div>
-</header>
+{% block page_title %}Centro de Mando{% endblock %}
+
+{% block topbar_center %}
+<div class="flex items-center gap-0.5 p-0.5 bg-surface-subtle rounded-lg ml-1 shrink-0"
+     role="tablist" aria-label="Selector de pabellón">
+  <template x-for="p in [{k:'p5',l:'Pab 5'},{k:'p4',l:'Pab 4'},{k:'p3',l:'Pab 3'},{k:'p2',l:'Pab 2'}]" :key="p.k">
+    <button @click="$store.luk4.pabellon = p.k"
+            role="tab"
+            :aria-selected="($store.luk4.pabellon === p.k).toString()"
+            class="px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-fast"
+            :class="$store.luk4.pabellon === p.k ? 'bg-surface-base shadow-card text-primary font-semibold' : 'text-muted hover:text-body'"
+            x-text="p.l"></button>
+  </template>
+</div>
 {% endblock %}
 
 {% block content %}
 <style>[x-cloak]{display:none!important} .centro-mando-main { padding: 0.5rem !important; }</style>
 <script>document.querySelector('main')?.classList.add('centro-mando-main')</script>
-<div x-data="{ pabellon: 'p5' }" x-cloak class="flex flex-col" style="height:calc(100vh - 3.5rem)">
-
-  <!-- ── Selector de pabellon (siempre visible) ────────────────────── -->
-  <div class="shrink-0 flex items-center gap-1 p-0.5 sm:p-1 bg-surface-subtle rounded-lg sm:rounded-lg w-fit mb-1 sm:mb-2"
-       role="tablist" aria-label="Selector de pabellón">
-    <template x-for="p in [{k:'p5',l:'Pab 5'},{k:'p4',l:'Pab 4'},{k:'p3',l:'Pab 3'},{k:'p2',l:'Pab 2'}]" :key="p.k">
-      <button @click="pabellon = p.k"
-              role="tab"
-              :aria-selected="pabellon === p.k"
-              class="px-2 py-1 sm:px-3 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-base ease-standard"
-              :class="pabellon === p.k ? 'bg-surface-base shadow-card text-primary font-semibold' : 'text-muted hover:text-body'"
-              x-text="p.l"></button>
-    </template>
-  </div>
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.store('luk4', { pabellon: 'p5' });
+});
+</script>
+<div x-data x-cloak class="flex flex-col" style="height:calc(100vh - 3.5rem)">
 
   <!-- ══════════════ PABELLON 5 ══════════════════════════════════════ -->
-  <div x-show="pabellon === 'p5'"
+  <div x-show="$store.luk4.pabellon === 'p5'"
        x-data="pabPage({pab:'p5', img:'/static/img/luk4_plano.jpg', hasTelemetry:true})"
        x-init="init()" class="flex flex-col flex-1 min-h-0">
     {% include '_partials/mapa_pabellon.html' %}
   </div>
 
   <!-- ══════════════ PABELLON 4 ══════════════════════════════════════ -->
-  <div x-show="pabellon === 'p4'"
+  <div x-show="$store.luk4.pabellon === 'p4'"
        x-data="pabPage({pab:'p4', img:'/static/img/pab4_plano.jpg', hasTelemetry:false})"
        x-init="init()" class="flex flex-col flex-1 min-h-0">
     {% include '_partials/mapa_pabellon.html' %}
   </div>
 
   <!-- ══════════════ PABELLON 3 ══════════════════════════════════════ -->
-  <div x-show="pabellon === 'p3'"
+  <div x-show="$store.luk4.pabellon === 'p3'"
        x-data="pabPage({pab:'p3', img:'/static/img/pab3_plano.jpg', hasTelemetry:false})"
        x-init="init()" class="flex flex-col flex-1 min-h-0">
     {% include '_partials/mapa_pabellon.html' %}
   </div>
 
   <!-- ══════════════ PABELLON 2 ══════════════════════════════════════ -->
-  <div x-show="pabellon === 'p2'"
+  <div x-show="$store.luk4.pabellon === 'p2'"
        x-data="pabPage({pab:'p2', img:'/static/img/pab2_plano.jpg', hasTelemetry:false})"
        x-init="init()" class="flex flex-col flex-1 min-h-0">
     {% include '_partials/mapa_pabellon.html' %}
@@ -334,7 +332,7 @@ function pabPage(cfg) {
           }
           // Cambio de turno
           if (this._prevTurno && newTurno && newTurno !== this._prevTurno) {
-            showToast('turno', 'Cambio de turno', this._prevTurno + ' \u2192 ' + newTurno);
+            showToast('turno', 'Cambio de turno', this._prevTurno + ' → ' + newTurno);
           }
         }
 

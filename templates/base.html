@@ -39,14 +39,23 @@
             :aria-expanded="drawerOpen.toString()"
             aria-controls="nexo-drawer"
             aria-label="Abrir menú"
-            class="flex items-center gap-2 pl-1 pr-3 py-1 rounded-pill shrink-0 transition-all duration-fast hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-xl shrink-0 transition-all duration-fast hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             style="border: 1px solid rgba(0,0,0,0.08);">
-      <img src="/static/img/gif-corona.png" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
+      {# Grid 2×2 icon #}
+      <svg class="w-4 h-4 text-heading shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <rect x="1" y="1" width="6" height="6" rx="1.5"/>
+        <rect x="9" y="1" width="6" height="6" rx="1.5"/>
+        <rect x="1" y="9" width="6" height="6" rx="1.5"/>
+        <rect x="9" y="9" width="6" height="6" rx="1.5"/>
+      </svg>
       <span class="text-sm font-semibold text-heading">Menú</span>
     </button>
 
     {# Page title slot #}
     <h1 class="text-heading truncate">{% block page_title %}{{ app_name }}{% endblock %}</h1>
+
+    {# Center slot — pages can inject topbar widgets (e.g. pavilion tabs) #}
+    {% block topbar_center %}{% endblock %}
 
     {# Right cluster — flex-1 push #}
     <div class="ml-auto flex items-center gap-3">
@@ -251,7 +260,7 @@
     {# Footer #}
     <div class="border-t border-subtle px-4 py-3 flex items-center gap-2">
       <img src="{{ ecs_logo_path }}" alt="{{ company_name }}" class="h-4 opacity-70" onerror="this.style.display='none'">
-      <span class="text-sm text-muted">© {{ company_name }} · {{ app_name }} · {{ app_version }}</span>
+      <span class="text-sm text-muted">{{ app_name }} · v{{ app_version.split('.')[0] }}</span>
     </div>
   </aside>
 
