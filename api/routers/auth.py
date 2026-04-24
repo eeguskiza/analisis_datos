@@ -150,7 +150,7 @@ async def login_post(
         key=settings.session_cookie_name,
         value=signed_cookie,
         httponly=True,
-        secure=True,
+        secure=settings.session_cookie_secure,
         samesite="lax",
         max_age=settings.session_ttl_hours * 3600,
         path="/",

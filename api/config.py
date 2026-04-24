@@ -158,6 +158,10 @@ class Settings(BaseSettings):
         12,
         validation_alias=AliasChoices("NEXO_SESSION_TTL_HOURS"),
     )
+    session_cookie_secure: bool = Field(
+        True,
+        validation_alias=AliasChoices("NEXO_SESSION_COOKIE_SECURE"),
+    )
 
     # ── Branding (Sprint 0 introduce los campos; Sprint 0 commit 7 los cablea en templates) ──
     app_name: str = Field("Nexo", validation_alias=AliasChoices("NEXO_APP_NAME"))
