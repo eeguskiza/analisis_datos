@@ -3,42 +3,90 @@
 {% block page_title %}Bienvenida{% endblock %}
 
 {% block content %}
-{% set display_name = user_display_name(current_user, first_name_only=True) %}
+{% set display_name = user_display_name(current_user) %}
 
 <section x-data="bienvenidaPage()"
-         class="w-full min-h-[calc(100vh-var(--space-topbar-h)-48px)] md:min-h-[calc(100vh-var(--space-topbar-h)-56px)] rounded-[32px] flex items-center justify-center px-6 py-8 md:px-10 md:py-10"
-         style="background:
-           linear-gradient(135deg,
-             rgb(var(--color-surface-0)) 0%,
-             rgb(var(--color-brand-100)) 38%,
-             rgb(var(--color-brand-300)) 100%);">
+         class="w-full min-h-[calc(100vh-var(--space-topbar-h)-48px)] flex items-center justify-center px-4 py-8"
+         style="background: radial-gradient(ellipse at 60% 20%, rgb(var(--color-brand-200)) 0%, rgb(var(--color-brand-100)) 35%, rgb(var(--color-surface-0)) 80%);">
 
-  <div class="w-full max-w-4xl mx-auto flex flex-col items-center text-center">
-    <h2 class="text-[42px] md:text-[72px] leading-[0.95] tracking-[-0.05em] font-semibold text-heading">
-      {{ None|hora_saludo }}, {{ display_name }}
-    </h2>
+  {# ── Orbs decorativos ── #}
+  <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+    <div class="absolute -top-32 -right-32 w-[480px] h-[480px] rounded-full opacity-20"
+         style="background: radial-gradient(circle, rgb(var(--color-brand-400)) 0%, transparent 70%); filter: blur(48px);"></div>
+    <div class="absolute bottom-0 -left-24 w-[360px] h-[360px] rounded-full opacity-15"
+         style="background: radial-gradient(circle, rgb(var(--color-brand-300)) 0%, transparent 70%); filter: blur(40px);"></div>
+  </div>
 
-    <div class="mt-8 text-[36px] md:text-[50px] leading-none font-mono tabular-nums text-heading"
-         x-text="clock"
-         aria-label="Hora actual"
-         role="timer"
-         style="font-variant-numeric: tabular-nums;"></div>
+  <div class="relative w-full max-w-lg mx-auto flex flex-col gap-4">
 
-    <div class="mt-10 flex flex-col sm:flex-row gap-4 sm:items-center">
-      <a href="/" class="btn btn-primary btn-lg inline-flex items-center justify-center gap-2 min-w-[240px]" autofocus>
-        Ir a Centro de Mando
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-        </svg>
-      </a>
+    {# ── Card principal ── #}
+    <div class="rounded-[32px] border border-white/20 shadow-[0_32px_80px_-24px_rgba(15,34,54,0.22),inset_0_1px_0_rgba(255,255,255,0.35)]"
+         style="background: rgba(var(--color-surface-base-raw, 255,255,255), 0.55); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);">
+      <div class="px-8 py-10 md:px-10 md:py-12 flex flex-col items-center text-center gap-6">
 
-      <a href="/historial" class="btn btn-secondary btn-lg inline-flex items-center justify-center gap-2 min-w-[240px]">
-        Ver historial
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-      </a>
+        {# Saludo #}
+        <div>
+          <p class="text-xs uppercase tracking-[0.18em] text-muted font-semibold mb-2">
+            {{ now_madrid | hora_saludo if now_madrid else "Bienvenido" }}
+          </p>
+          <h1 class="text-[36px] md:text-[48px] leading-[1] tracking-[-0.04em] font-semibold text-heading">
+            {{ display_name }}
+          </h1>
+        </div>
+
+        {# Separador ── #}
+        <div class="w-12 h-px" style="background: rgba(var(--color-border-raw, 0,0,0), 0.12);"></div>
+
+        {# Reloj #}
+        <div class="flex flex-col items-center gap-1">
+          <div class="text-[52px] md:text-[64px] leading-none font-mono tabular-nums font-semibold text-heading tracking-[-0.03em]"
+               x-text="clock"
+               aria-label="Hora actual"
+               role="timer"
+               style="font-variant-numeric: tabular-nums;"></div>
+          <div class="text-sm text-muted capitalize" x-text="dateStr"></div>
+        </div>
+
+        {# CTA #}
+        <a href="/" class="btn btn-primary btn-lg inline-flex items-center justify-center gap-2 w-full mt-2" autofocus>
+          Ir a Centro de Mando
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </a>
+
+      </div>
     </div>
+
+    {# ── Píldora de rol ── #}
+    {% if current_user %}
+    <div class="flex justify-center">
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-pill border border-white/25 text-xs text-muted font-medium"
+           style="background: rgba(var(--color-surface-base-raw, 255,255,255), 0.45); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
+        <span class="w-1.5 h-1.5 rounded-full bg-success inline-block"></span>
+        {{ current_user.email }} · {{ current_user.role | capitalize }}
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </section>
+
+<script>
+function bienvenidaPage() {
+  return {
+    clock: '',
+    dateStr: '',
+    init() {
+      this._tick();
+      setInterval(() => this._tick(), 1000);
+    },
+    _tick() {
+      const now = new Date();
+      this.clock = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      this.dateStr = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    }
+  }
+}
+</script>
 {% endblock %}
