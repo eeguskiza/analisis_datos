@@ -160,6 +160,7 @@ window.nexoChrome = nexoChrome;
 function serviceHealth() {
   return {
     svcs: [
+      { key: 'web',      label: 'Web',       ok: null },
       { key: 'db_local', label: 'DB Local',  ok: null },
       { key: 'db_ecs',   label: 'DB ECS',    ok: null },
       { key: 'db_izaro', label: 'DB Izaro',  ok: null },
