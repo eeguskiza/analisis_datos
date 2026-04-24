@@ -24,8 +24,7 @@
       <h2 class="text-lg font-semibold text-brand-800">Gestion de usuarios</h2>
       <p class="text-sm text-gray-500">Solo visible para el rol propietario. {{ users|length }} usuario{{ 's' if users|length != 1 else '' }} registrado{{ 's' if users|length != 1 else '' }}.</p>
     </div>
-    <button type="button" @click="openCreate()"
-            class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium">
+    <button type="button" @click="openCreate()" class="btn btn-primary btn-sm">
       + Crear usuario
     </button>
   </div>
@@ -222,12 +221,10 @@
         </template>
 
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" @click="closeModal()"
-                  class="px-4 py-2 rounded-lg border border-surface-300 text-gray-700 hover:bg-surface-50 text-sm">
+          <button type="button" @click="closeModal()" class="btn btn-secondary btn-sm">
             Cancelar
           </button>
-          <button type="submit"
-                  class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium">
+          <button type="submit" class="btn btn-primary btn-sm">
             <span x-text="mode === 'create' ? 'Crear' : 'Guardar cambios'"></span>
           </button>
         </div>
@@ -254,13 +251,11 @@
           <p class="mt-1 text-xs text-gray-500">Minimo 12 caracteres.</p>
         </div>
         <div class="flex justify-end gap-2 pt-1">
-          <button type="button" @click="closeModal()"
-                  class="px-4 py-2 rounded-lg border border-surface-300 text-gray-700 hover:bg-surface-50 text-sm">
+          <button type="button" @click="closeModal()" class="btn btn-secondary btn-sm">
             Cancelar
           </button>
-          <button type="submit"
-                  class="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium">
-            Resetear
+          <button type="submit" class="btn btn-sm" style="background:#d97706; color:#fff;">
+            <span>Resetear</span>
           </button>
         </div>
       </form>
