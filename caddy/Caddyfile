@@ -1,11 +1,14 @@
 {
-	# Certificado auto-firmado para LAN (sin dominio real)
 	auto_https disable_redirects
+}
+
+nexo.ecsmobility.local {
+	tls internal
+	reverse_proxy web:8000
 }
 
 :443 {
 	tls internal
-
 	reverse_proxy web:8000
 }
 
