@@ -115,8 +115,11 @@ dev: ## Arranca uvicorn en host (Postgres en localhost:5433 via container db)
 		PORT=$$((PORT + 1)); \
 		if [ $$PORT -gt 8100 ]; then echo "  No se encontro puerto libre entre 8000-8100"; exit 1; fi; \
 	 done; \
-	 echo "  Arrancando en http://127.0.0.1:$$PORT (Postgres=localhost:5433)"; \
-	 NEXO_PG_HOST=localhost NEXO_PG_PORT=$${NEXO_PG_HOST_PORT:-5433} NEXO_DEBUG=true OEE_DEBUG=true python3 -m uvicorn api.main:app --reload --host 127.0.0.1 --port $$PORT
+	 LAN_IP=$$(hostname -I 2>/dev/null | awk '{print $$1}'); \
+	 echo "  Arrancando..."; \
+	 echo "    Local: http://localhost:$$PORT"; \
+	 if [ -n "$$LAN_IP" ]; then echo "    LAN:   http://$$LAN_IP:$$PORT"; fi; \
+	 NEXO_PG_HOST=localhost NEXO_PG_PORT=$${NEXO_PG_HOST_PORT:-5433} NEXO_DEBUG=true OEE_DEBUG=true python3 -m uvicorn api.main:app --reload --host 0.0.0.0 --port $$PORT
 
 install: ## Instala dependencias Python
 	pip install -r requirements.txt
