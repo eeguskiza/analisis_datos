@@ -216,18 +216,16 @@
                   <!-- Rango horario -->
                   <div class="text-[9px] text-gray-400 font-mono mb-2" x-text="tb.start + '–' + tb.end"></div>
 
-                  <!-- Barra disponibilidad -->
+                  <!-- Barra temporal: segmentos cronológicos RLE del backend -->
                   <div class="h-2.5 bg-surface-100 rounded-full overflow-hidden">
-                    <div class="h-full flex rounded-full overflow-hidden transition-all duration-700"
+                    <div class="h-full flex rounded-full overflow-hidden"
                          :style="'width:' + (tb.elapsed_pct || 0) + '%'">
-                      <div class="h-full bg-green-500 transition-all duration-500"
-                           :style="'width:' + (tb.total_records > 0 ? (tb.producing/tb.total_records*100) : 0) + '%'"></div>
-                      <div class="h-full bg-red-500 transition-all duration-500"
-                           :style="'width:' + (tb.total_records > 0 ? (tb.incidence/tb.total_records*100) : 0) + '%'"></div>
-                      <div class="h-full bg-amber-400 transition-all duration-500"
-                           :style="'width:' + (tb.total_records > 0 ? (tb.other/tb.total_records*100) : 0) + '%'"></div>
-                      <div class="h-full bg-gray-300 transition-all duration-500"
-                           :style="'width:' + (tb.total_records > 0 ? (tb.off/tb.total_records*100) : 0) + '%'"></div>
+                      <template x-for="(seg, si) in (tb.segments || [])" :key="si">
+                        <div class="h-full shrink-0"
+                             :style="'width:' + seg.pct + '%'"
+                             :class="seg.state === 1 ? 'bg-green-500' : seg.state === 3 ? 'bg-red-500' : seg.state === 0 ? 'bg-gray-300' : 'bg-amber-400'">
+                        </div>
+                      </template>
                     </div>
                   </div>
 

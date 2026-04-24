@@ -273,6 +273,7 @@ def turno_detail():
                             "pz_buenas": 0,
                             "pz_malas": 0,
                             "pz_totales": 0,
+                            "segments": [],
                         }
                     )
                     continue
@@ -308,6 +309,7 @@ def turno_detail():
                             "pz_buenas": 0,
                             "pz_malas": 0,
                             "pz_totales": 0,
+                            "segments": [],
                         }
                     )
                     continue
@@ -319,6 +321,29 @@ def turno_detail():
                 other = sum(v for k, v in counts.items() if k not in (0, 1, 3))
                 total = producing + incidence + off + other
                 avail = round(100 * producing / total, 1) if total > 0 else 0
+
+                # Secuencia temporal: RLE sobre estado_global ordenado por timestamp
+                seg_rows = conn.execute(
+                    text("""
+                        SELECT estado_global
+                        FROM luk4.estado
+                        WHERE timestamp >= :t_start AND timestamp < :t_end
+                        ORDER BY timestamp ASC
+                    """),
+                    params,
+                ).fetchall()
+                segments: list[dict] = []
+                if seg_rows:
+                    states = [int(r[0]) for r in seg_rows]
+                    n = len(states)
+                    cur_s, run = states[0], 1
+                    for s in states[1:]:
+                        if s == cur_s:
+                            run += 1
+                        else:
+                            segments.append({"state": cur_s, "pct": round(run / n * 100, 2)})
+                            cur_s, run = s, 1
+                    segments.append({"state": cur_s, "pct": round(run / n * 100, 2)})
 
                 # Baseline = ultima lectura ANTES del turno para cerrar la cadena
                 # sin perder piezas en el hueco de muestreo de la frontera.
@@ -379,6 +404,7 @@ def turno_detail():
                         "pz_buenas": max(pz_buenas, 0),
                         "pz_malas": max(pz_malas, 0),
                         "pz_totales": max(pz_buenas + pz_malas, 0),
+                        "segments": segments,
                     }
                 )
 
