@@ -200,24 +200,24 @@
                          ? 'bg-surface-50/40 border-dashed border-surface-200 opacity-55'
                          : 'bg-white border-surface-100'">
 
-                  <!-- Cabecera: turno + % disponibilidad -->
-                  <div class="flex items-center justify-between mb-1">
+                  <!-- Cabecera: turno badge + % grande -->
+                  <div class="flex items-center justify-between mb-1.5">
                     <div class="flex items-center gap-1.5">
-                      <span class="text-[10px] font-black font-mono px-1.5 py-0.5 rounded"
+                      <span class="text-xs font-black font-mono px-2 py-0.5 rounded-md"
                             :class="tb.is_current ? 'bg-indigo-100 text-indigo-700' : tb.is_future ? 'bg-surface-100 text-gray-300' : 'bg-surface-100 text-gray-500'"
                             x-text="tb.turno"></span>
                       <span x-show="tb.is_current" class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
                     </div>
-                    <span class="text-xs font-black font-mono"
+                    <span class="text-xl font-black font-mono tabular-nums leading-none"
                           :class="tb.is_future ? 'text-gray-200' : tb.availability_pct >= 70 ? 'text-green-600' : tb.availability_pct >= 40 ? 'text-amber-600' : 'text-red-600'"
                           x-text="tb.total_records > 0 ? tb.availability_pct.toFixed(0) + '%' : '—'"></span>
                   </div>
 
                   <!-- Rango horario -->
-                  <div class="text-[9px] text-gray-400 font-mono mb-2" x-text="tb.start + '–' + tb.end"></div>
+                  <div class="text-[11px] text-gray-400 font-mono mb-2 tabular-nums" x-text="tb.start + '–' + tb.end"></div>
 
                   <!-- Barra temporal: segmentos cronológicos RLE del backend -->
-                  <div class="h-2.5 bg-surface-100 rounded-full overflow-hidden">
+                  <div class="h-3 bg-surface-100 rounded-full overflow-hidden">
                     <div class="h-full flex rounded-full overflow-hidden"
                          :style="'width:' + (tb.elapsed_pct || 0) + '%'">
                       <template x-for="(seg, si) in (tb.segments || [])" :key="si">
@@ -230,12 +230,12 @@
                   </div>
 
                   <!-- Piezas (solo turnos pasados / en curso) -->
-                  <div class="mt-1.5 text-[9px] font-mono leading-tight" x-show="!tb.is_future && tb.total_records > 0">
-                    <span class="font-bold text-gray-600" x-text="tb.pz_totales || 0"></span>
-                    <span class="text-green-600 ml-1" x-text="'↑' + (tb.pz_buenas || 0)"></span>
-                    <span class="text-red-500 ml-0.5" x-text="'↓' + (tb.pz_malas || 0)"></span>
+                  <div class="mt-2 font-mono leading-tight" x-show="!tb.is_future && tb.total_records > 0">
+                    <span class="text-sm font-black text-gray-700 tabular-nums" x-text="tb.pz_totales || 0"></span>
+                    <span class="text-xs text-green-600 ml-1.5 tabular-nums" x-text="'↑' + (tb.pz_buenas || 0)"></span>
+                    <span class="text-xs text-red-500 ml-0.5 tabular-nums" x-text="'↓' + (tb.pz_malas || 0)"></span>
                   </div>
-                  <div class="mt-1.5 text-[9px] text-gray-300" x-show="tb.is_future">—</div>
+                  <div class="mt-2 text-xs text-gray-300" x-show="tb.is_future">—</div>
 
                 </div>
               </template>
