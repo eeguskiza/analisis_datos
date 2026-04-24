@@ -193,12 +193,15 @@
             <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Disponibilidad por turno</div>
             <div class="flex gap-1.5">
               <template x-for="tb in turnoBreakdown" :key="tb.turno">
-                <div class="flex-1 rounded-xl px-3 py-2.5 transition-all border"
-                     :class="tb.is_current
-                       ? 'bg-white border-indigo-200 shadow-sm'
-                       : tb.is_future
-                         ? 'bg-surface-50/40 border-dashed border-surface-200 opacity-55'
-                         : 'bg-white border-surface-100'">
+                <div class="flex-1 rounded-xl px-3 py-2.5 transition-all border cursor-pointer select-none"
+                     @click="expandedTurno = (expandedTurno === tb.turno ? null : tb.turno)"
+                     :class="expandedTurno === tb.turno
+                       ? 'bg-white border-indigo-300 shadow-md ring-1 ring-indigo-200'
+                       : tb.is_current
+                         ? 'bg-white border-indigo-200 shadow-sm hover:border-indigo-300'
+                         : tb.is_future
+                           ? 'bg-surface-50/40 border-dashed border-surface-200 opacity-55'
+                           : 'bg-white border-surface-100 hover:border-surface-300'">
 
                   <!-- Cabecera: turno badge + % grande -->
                   <div class="flex items-center justify-between mb-1.5">
@@ -246,6 +249,79 @@
               <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-amber-400"></span>Otros</span>
               <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-gray-300"></span>Apagada</span>
             </div>
+
+            <!-- Panel expandido al pulsar un bloque de turno -->
+            <template x-for="tb in turnoBreakdown.filter(t => t.turno === expandedTurno)" :key="'exp-' + tb.turno">
+              <div x-transition:enter="transition ease-out duration-150"
+                   x-transition:enter-start="opacity-0 -translate-y-1"
+                   x-transition:enter-end="opacity-100 translate-y-0"
+                   class="mt-2 rounded-xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
+                <div class="px-4 pt-4 pb-3">
+
+                  <!-- Cabecera -->
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-black font-mono px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700" x-text="tb.turno"></span>
+                      <span class="text-sm font-mono text-gray-500 tabular-nums" x-text="tb.start + '–' + tb.end"></span>
+                      <span x-show="tb.is_current" class="flex items-center gap-1 text-[9px] font-bold text-indigo-500">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>EN CURSO
+                      </span>
+                    </div>
+                    <button @click.stop="expandedTurno = null"
+                            class="text-gray-300 hover:text-gray-500 p-1 rounded-lg hover:bg-surface-100 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <!-- Barra temporal expandida -->
+                  <div class="h-8 bg-surface-100 rounded-xl overflow-hidden mb-1">
+                    <div class="h-full flex rounded-xl overflow-hidden"
+                         :style="'width:' + (tb.elapsed_pct || 0) + '%'">
+                      <template x-for="(seg, si) in (tb.segments || [])" :key="si">
+                        <div class="h-full shrink-0"
+                             :style="'width:' + seg.pct + '%'"
+                             :class="seg.state === 1 ? 'bg-green-500' : seg.state === 3 ? 'bg-red-500' : seg.state === 0 ? 'bg-gray-300' : 'bg-amber-400'">
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- Etiquetas de tiempo bajo la barra -->
+                  <div class="flex justify-between text-[9px] font-mono text-gray-300 mb-4">
+                    <span x-text="tb.start"></span>
+                    <span x-text="tb.end"></span>
+                  </div>
+
+                  <!-- KPIs -->
+                  <div class="grid grid-cols-4 gap-2 text-center" x-show="!tb.is_future">
+                    <div class="rounded-xl py-2.5 px-2"
+                         :class="tb.availability_pct >= 70 ? 'bg-green-50' : tb.availability_pct >= 40 ? 'bg-amber-50' : 'bg-red-50'">
+                      <div class="text-2xl font-black tabular-nums leading-none"
+                           :class="tb.availability_pct >= 70 ? 'text-green-600' : tb.availability_pct >= 40 ? 'text-amber-600' : 'text-red-600'"
+                           x-text="tb.total_records > 0 ? tb.availability_pct.toFixed(0) + '%' : '—'"></div>
+                      <div class="text-[9px] text-gray-400 uppercase font-bold mt-1">Disp.</div>
+                    </div>
+                    <div class="bg-surface-50 rounded-xl py-2.5 px-2">
+                      <div class="text-2xl font-black text-gray-700 tabular-nums font-mono leading-none" x-text="tb.pz_totales || '—'"></div>
+                      <div class="text-[9px] text-gray-400 uppercase font-bold mt-1">Total</div>
+                    </div>
+                    <div class="bg-green-50 rounded-xl py-2.5 px-2">
+                      <div class="text-2xl font-black text-green-600 tabular-nums font-mono leading-none" x-text="tb.pz_buenas || '—'"></div>
+                      <div class="text-[9px] text-gray-400 uppercase font-bold mt-1">Buenas</div>
+                    </div>
+                    <div class="bg-red-50 rounded-xl py-2.5 px-2">
+                      <div class="text-2xl font-black text-red-600 tabular-nums font-mono leading-none" x-text="tb.pz_malas || '—'"></div>
+                      <div class="text-[9px] text-gray-400 uppercase font-bold mt-1">Malas</div>
+                    </div>
+                  </div>
+                  <div x-show="tb.is_future" class="text-center py-3 text-sm text-gray-300">Turno no iniciado</div>
+
+                </div>
+              </div>
+            </template>
+
           </div>
 
           <!-- Grafico evolucion -->

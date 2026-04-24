@@ -334,16 +334,17 @@ def turno_detail():
                 ).fetchall()
                 segments: list[dict] = []
                 if seg_rows:
-                    states = [int(r[0]) for r in seg_rows]
+                    states = [int(r[0]) for r in seg_rows if r[0] is not None]
                     n = len(states)
-                    cur_s, run = states[0], 1
-                    for s in states[1:]:
-                        if s == cur_s:
-                            run += 1
-                        else:
-                            segments.append({"state": cur_s, "pct": round(run / n * 100, 2)})
-                            cur_s, run = s, 1
-                    segments.append({"state": cur_s, "pct": round(run / n * 100, 2)})
+                    if n:
+                        cur_s, run = states[0], 1
+                        for s in states[1:]:
+                            if s == cur_s:
+                                run += 1
+                            else:
+                                segments.append({"state": cur_s, "pct": round(run / n * 100, 2)})
+                                cur_s, run = s, 1
+                        segments.append({"state": cur_s, "pct": round(run / n * 100, 2)})
 
                 # Baseline = ultima lectura ANTES del turno para cerrar la cadena
                 # sin perder piezas en el hueco de muestreo de la frontera.
