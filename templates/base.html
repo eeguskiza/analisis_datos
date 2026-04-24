@@ -28,7 +28,7 @@
 
 <body class="h-full bg-surface-app text-body font-sans antialiased" x-data="nexoChrome()" @keydown.window="onKeydown($event)">
 
-  {# ── TOP BAR (UIREDO-02 / D-10 / UI-SPEC §Global Chrome → Top bar) ── #}
+  {# ── TOP BAR ── #}
   <header id="nexo-topbar"
           class="sticky top-0 z-topbar flex items-center gap-3 px-4 md:px-6 py-3 bg-surface-base border-b border-subtle"
           style="height: var(--space-topbar-h);">
@@ -41,7 +41,6 @@
             aria-label="Abrir menú"
             class="flex items-center gap-2 px-3 py-1.5 rounded-xl shrink-0 transition-all duration-fast hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             style="border: 1px solid rgba(0,0,0,0.08);">
-      {# Grid 2×2 icon #}
       <svg class="w-4 h-4 text-heading shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
         <rect x="1" y="1" width="6" height="6" rx="1.5"/>
         <rect x="9" y="1" width="6" height="6" rx="1.5"/>
@@ -51,16 +50,16 @@
       <span class="text-sm font-semibold text-heading">Menú</span>
     </button>
 
-    {# Page title slot #}
-    <h1 class="text-heading truncate">{% block page_title %}{{ app_name }}{% endblock %}</h1>
+    {# Page title + center widgets — absolute overlay, doesn't shift right cluster #}
+    <div class="absolute inset-y-0 left-0 right-0 flex items-center justify-center pointer-events-none">
+      <div class="flex items-center gap-2 pointer-events-auto">
+        <h1 class="text-sm font-semibold text-heading truncate">{% block page_title %}{{ app_name }}{% endblock %}</h1>
+        {% block topbar_center %}{% endblock %}
+      </div>
+    </div>
 
-    {# Center slot — pages can inject topbar widgets (e.g. pavilion tabs) #}
-    {% block topbar_center %}{% endblock %}
-
-    {# Right cluster — flex-1 push #}
+    {# Right cluster — service LEDs only (user actions move to drawer) #}
     <div class="ml-auto flex items-center gap-3">
-
-      {# Service LEDs #}
       <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-pill bg-surface-subtle"
            x-data="serviceHealth()"
            title="Estado de servicios">
@@ -77,47 +76,6 @@
           </div>
         </template>
       </div>
-
-
-      {% if current_user %}
-        {# User display name — BLOCKER fix (checker): use getattr so this renders
-           correctly BEFORE Plan 08-03 adds the `nombre` ORM attribute (D-03/08-03).
-           Between Wave 2 (this plan) and Wave 3 (08-03) the column does not exist on
-           NexoUser; `getattr(..., 'nombre', None)` returns None and the fallback
-           (email local-part, capitalized) renders. Once 08-03 lands, the attribute
-           exists and the happy path (user.nombre) takes over automatically. #}
-        {% set display_name = user_display_name(current_user) %}
-        <span class="text-sm text-muted hidden sm:inline">{{ current_user.email }}</span>
-        <span class="text-sm font-semibold tracking-wide uppercase px-2 py-0.5 rounded-pill bg-primary-subtle text-primary">
-          {{ current_user.role }}
-        </span>
-
-        {# User menu popover #}
-        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-          <button type="button"
-                  @click="open = !open"
-                  :aria-expanded="open.toString()"
-                  aria-label="Menú de usuario"
-                  class="btn-icon bg-primary text-on-accent">
-            <span class="text-sm font-semibold">{{ display_name[0]|upper }}</span>
-          </button>
-          <div x-show="open" x-cloak
-               x-transition:enter="transition ease-standard duration-fast"
-               x-transition:enter-start="opacity-0 scale-95"
-               x-transition:enter-end="opacity-100 scale-100"
-               x-transition:leave="transition ease-accelerate duration-fast"
-               class="absolute right-0 mt-2 w-56 bg-surface-base border border-subtle rounded-lg shadow-popover z-popover">
-            <div class="px-4 py-3 border-b border-subtle">
-              <div class="text-sm font-semibold text-heading">{{ display_name }}</div>
-              <div class="text-sm text-muted truncate">{{ current_user.email }}</div>
-            </div>
-            <a href="/cambiar-password" class="block px-4 py-2 text-sm text-body hover:bg-surface-subtle">Cambiar contraseña</a>
-            <form method="post" action="/logout" class="block">
-              <button type="submit" class="w-full text-left px-4 py-2 text-sm text-body hover:bg-surface-subtle">Cerrar sesión</button>
-            </form>
-          </div>
-        </div>
-      {% endif %}
     </div>
   </header>
 

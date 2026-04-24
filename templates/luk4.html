@@ -1,16 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Centro de Mando — ECS Mobility{% endblock %}
-{% block page_title %}Centro de Mando{% endblock %}
+{% block page_title %}{% endblock %}
 
 {% block topbar_center %}
-<div class="flex items-center gap-0.5 p-0.5 bg-surface-subtle rounded-lg ml-1 shrink-0"
-     role="tablist" aria-label="Selector de pabellón">
-  <template x-for="p in [{k:'p5',l:'Pab 5'},{k:'p4',l:'Pab 4'},{k:'p3',l:'Pab 3'},{k:'p2',l:'Pab 2'}]" :key="p.k">
+<div class="flex items-center gap-1" role="tablist" aria-label="Selector de pabellón">
+  <template x-for="p in [{k:'p5',l:'P5'},{k:'p4',l:'P4'},{k:'p3',l:'P3'},{k:'p2',l:'P2'}]" :key="p.k">
     <button @click="$store.luk4.pabellon = p.k"
             role="tab"
             :aria-selected="($store.luk4.pabellon === p.k).toString()"
-            class="px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-fast"
-            :class="$store.luk4.pabellon === p.k ? 'bg-surface-base shadow-card text-primary font-semibold' : 'text-muted hover:text-body'"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-fast"
+            :style="$store.luk4.pabellon === p.k
+              ? 'background:#6366f1; color:#fff; border:1.5px solid #6366f1; box-shadow:0 2px 8px rgba(99,102,241,0.35);'
+              : 'background:transparent; color:#64748b; border:1.5px solid rgba(0,0,0,0.12);'"
             x-text="p.l"></button>
   </template>
 </div>
