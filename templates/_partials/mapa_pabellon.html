@@ -5,8 +5,6 @@
 <!-- ── Controles ─────────────────────────────────────────────── -->
 <div class="shrink-0 flex items-center justify-between pb-0.5 sm:pb-1">
   <div class="flex items-center gap-3">
-    <span x-show="!editMode && hasTelemetry" class="text-[10px] text-gray-400"
-          x-text="timestamp ? 'IZARO ' + timestamp + (turnoActual ? ' · ' + turnoActual : '') : ''"></span>
     <span x-show="!editMode && !hasTelemetry" class="text-[10px] text-gray-400"
           x-text="'Pabellon ' + pab.slice(1).toUpperCase() + ' — solo edicion de zonas (sin telemetria)'"></span>
     <span x-show="editMode" class="text-[10px] text-violet-500">Editor de zonas — mueve y redimensiona</span>

@@ -79,148 +79,187 @@
     </div>
   </header>
 
-  {# ── DRAWER (UIREDO-02 / UI-SPEC §Drawer structure) ── #}
-  <div x-show="drawerOpen" x-cloak
-       x-transition:enter="transition ease-standard duration-base"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-accelerate duration-fast"
-       @click="closeDrawer()"
-       class="fixed inset-0 z-backdrop bg-surface-900/40 backdrop-blur-sm"
-       aria-hidden="true"></div>
+  {# ── FULL-SCREEN MENU OVERLAY ── #}
+  <style>
+    #nexo-drawer .dn-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px; border-radius: 12px;
+      color: rgba(255,255,255,0.62); font-size: 0.9375rem;
+      text-decoration: none;
+      transition: background 0.1s ease, color 0.1s ease;
+    }
+    #nexo-drawer .dn-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    #nexo-drawer .dn-item.active { background: rgba(99,102,241,0.22); color: #c7d2fe; font-weight: 600; }
+    #nexo-drawer .dn-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 6px 0; }
+    #nexo-drawer .dn-label {
+      font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: rgba(255,255,255,0.28);
+      padding: 6px 14px 2px;
+    }
+  </style>
 
-  <aside id="nexo-drawer"
-         role="dialog"
-         aria-modal="true"
-         aria-label="Menú principal"
-         x-show="drawerOpen" x-cloak
-         x-trap.noscroll="drawerOpen"
-         x-transition:enter="transition ease-standard duration-base"
-         x-transition:enter-start="-translate-x-full"
-         x-transition:enter-end="translate-x-0"
-         x-transition:leave="transition ease-accelerate duration-base"
-         x-transition:leave-start="translate-x-0"
-         x-transition:leave-end="-translate-x-full"
-         class="fixed top-0 left-0 h-full bg-surface-base shadow-drawer z-drawer flex flex-col"
-         style="width: var(--space-drawer-w); max-width: 85vw;">
+  <div id="nexo-drawer"
+       role="dialog" aria-modal="true" aria-label="Menú principal"
+       x-show="drawerOpen" x-cloak
+       x-trap.noscroll="drawerOpen"
+       x-transition:enter="transition ease-out duration-[160ms]"
+       x-transition:enter-start="opacity-0 scale-[0.97]"
+       x-transition:enter-end="opacity-100 scale-100"
+       x-transition:leave="transition ease-in duration-[120ms]"
+       x-transition:leave-start="opacity-100 scale-100"
+       x-transition:leave-end="opacity-0 scale-[0.97]"
+       class="fixed inset-0 z-drawer overflow-y-auto"
+       style="background: rgba(8,14,28,0.96); backdrop-filter: blur(24px);"
+       @click.self="closeDrawer()">
 
-    {# Close button #}
-    <div class="flex items-center justify-end px-4 pt-3">
-      <button type="button" @click="closeDrawer()" aria-label="Cerrar menú" class="btn-icon text-muted hover:text-body">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
+    <div class="min-h-full flex flex-col max-w-lg w-full mx-auto px-5 sm:px-10 py-4">
 
-    {# Logo + brand — centered #}
-    <div class="flex flex-col items-center gap-1 px-4 pb-4 border-b border-subtle">
-      <img src="{{ logo_path }}" alt="{{ app_name }}" class="w-36 h-36 object-contain"
-           onerror="this.outerHTML='<span class=&quot;text-heading text-xl font-semibold&quot;>NEXO</span>'">
-      <span class="text-sm text-muted tracking-wide">by {{ company_name|upper }}</span>
-    </div>
+      {# Top: logo + close #}
+      <div class="flex items-center justify-between py-2 mb-5">
+        <div class="flex items-center gap-3">
+          <img src="{{ logo_path }}" alt="{{ app_name }}" class="w-10 h-10 object-contain"
+               onerror="this.style.display='none'">
+          <div>
+            <div class="text-[15px] font-semibold" style="color:#fff;">{{ app_name }}</div>
+            <div class="text-[11px]" style="color:rgba(255,255,255,0.32);">by {{ company_name }}</div>
+          </div>
+        </div>
+        <button type="button" @click="closeDrawer()" aria-label="Cerrar menú"
+                class="w-9 h-9 flex items-center justify-center rounded-xl"
+                style="color:rgba(255,255,255,0.45); transition:background 0.1s ease;"
+                onmouseover="this.style.background='rgba(255,255,255,0.09)'"
+                onmouseout="this.style.background='transparent'">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
 
-    {# Nav — primary modules #}
-    <nav class="flex-1 overflow-y-auto py-3" aria-label="Navegación principal">
+      {# Nav #}
+      <nav class="flex-1 flex flex-col" aria-label="Navegación principal">
 
-      {# ── Main nav section ── #}
-      <div class="drawer-section">
+        {# ── Fabricación ── #}
+        <div class="dn-label">Fabricación</div>
         {% set main_nav = [
-          ("dashboard",    "/",             "Centro Mando",     None,
+          ("dashboard",  "/",          "Centro de Mando", None,
             "M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0h6m-6 0v-6h6v6"),
-          ("pipeline",     "/pipeline",     "Análisis",         "pipeline:read",
+          ("pipeline",   "/pipeline",  "Análisis",        "pipeline:read",
             "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"),
-          ("historial",    "/historial",    "Historial",        "historial:read",
+          ("historial",  "/historial", "Historial",       "historial:read",
             "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
-          ("capacidad",    "/capacidad",    "Capacidad",        "capacidad:read",
+          ("capacidad",  "/capacidad", "Capacidad",       "capacidad:read",
             "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"),
-          ("bbdd",         "/bbdd",         "BBDD",             "bbdd:read",
+          ("bbdd",       "/bbdd",      "BBDD",            "bbdd:read",
             "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"),
         ] %}
         {% for key, href, label, perm, icon_d in main_nav %}
           {% if perm is none or can(current_user, perm) %}
-            {% set active = page == key %}
-            <a href="{{ href }}"
-               class="flex items-center gap-3 px-4 py-2 transition-colors duration-fast
-                      {{ 'bg-primary-subtle text-primary font-semibold' if active else 'text-body hover:bg-surface-subtle' }}">
-              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+            <a href="{{ href }}" @click="closeDrawer()" class="dn-item {{ 'active' if page == key else '' }}">
+              <svg class="w-5 h-5 shrink-0" style="opacity:0.65;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_d }}"/>
               </svg>
               <span>{{ label }}</span>
             </a>
           {% endif %}
         {% endfor %}
-      </div>
 
-      {# ── Operaciones section ── #}
-      <div class="my-2 mx-4 h-px bg-border-subtle"></div>
-      <div class="drawer-section">
+        {# ── Operaciones ── #}
+        <div class="dn-sep mt-1"></div>
+        <div class="dn-label">Operaciones</div>
         {% set ops_nav = [
-          ("recursos",      "/recursos",       "Recursos",        "recursos:read",
+          ("recursos",    "/recursos",    "Recursos",        "recursos:read",
             "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"),
-          ("ciclos_calc",   "/ciclos-calc",    "Calcular ciclos", "ciclos:read",
+          ("ciclos_calc", "/ciclos-calc", "Calcular ciclos", "ciclos:read",
             "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"),
-          ("operarios",     "/operarios",      "Operarios",       "operarios:read",
+          ("operarios",   "/operarios",   "Operarios",       "operarios:read",
             "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"),
-          ("datos",         "/datos",          "Datos",           "datos:read",
+          ("datos",       "/datos",       "Datos",           "datos:read",
             "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"),
         ] %}
         {% for key, href, label, perm, icon_d in ops_nav %}
           {% if perm is none or can(current_user, perm) %}
-            {% set active = page == key %}
-            <a href="{{ href }}"
-               class="flex items-center gap-3 px-4 py-2 transition-colors duration-fast
-                      {{ 'bg-primary-subtle text-primary font-semibold' if active else 'text-body hover:bg-surface-subtle' }}">
-              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+            <a href="{{ href }}" @click="closeDrawer()" class="dn-item {{ 'active' if page == key else '' }}">
+              <svg class="w-5 h-5 shrink-0" style="opacity:0.65;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_d }}"/>
               </svg>
               <span>{{ label }}</span>
             </a>
           {% endif %}
         {% endfor %}
-      </div>
 
-      {# ── Configuración section (7 flat items, D-locked decision #3) ── #}
-      {% set config_items = [
-        ("ajustes",               "/ajustes",                 "Ajustes",      "ajustes:manage"),
-        ("ajustes_conexion",      "/ajustes/conexion",        "Conexión",     "conexion:config"),
-        ("ajustes_usuarios",      "/ajustes/usuarios",        "Usuarios",     "usuarios:manage"),
-        ("ajustes_auditoria",     "/ajustes/auditoria",       "Auditoría",    "auditoria:read"),
-        ("ajustes_limites",       "/ajustes/limites",         "Límites",      "limites:manage"),
-        ("ajustes_rendimiento",   "/ajustes/rendimiento",     "Rendimiento",  "rendimiento:read"),
-        ("solicitudes",           "/ajustes/solicitudes",     "Solicitudes",  "aprobaciones:manage"),
-      ] %}
-      {% set config_visible = namespace(any=false) %}
-      {% for key, href, label, perm in config_items %}
-        {% if can(current_user, perm) %}{% set config_visible.any = true %}{% endif %}
-      {% endfor %}
-      {% if config_visible.any %}
-        <div class="my-2 mx-4 h-px bg-border-subtle"></div>
-        <div class="drawer-section">
-          <div class="px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted">Configuración</div>
+        {# ── Configuración ── #}
+        {% set config_items = [
+          ("ajustes",             "/ajustes",             "Ajustes",     "ajustes:manage"),
+          ("ajustes_conexion",    "/ajustes/conexion",    "Conexión",    "conexion:config"),
+          ("ajustes_usuarios",    "/ajustes/usuarios",    "Usuarios",    "usuarios:manage"),
+          ("ajustes_auditoria",   "/ajustes/auditoria",   "Auditoría",   "auditoria:read"),
+          ("ajustes_limites",     "/ajustes/limites",     "Límites",     "limites:manage"),
+          ("ajustes_rendimiento", "/ajustes/rendimiento", "Rendimiento", "rendimiento:read"),
+          ("solicitudes",         "/ajustes/solicitudes", "Solicitudes", "aprobaciones:manage"),
+        ] %}
+        {% set config_visible = namespace(any=false) %}
+        {% for key, href, label, perm in config_items %}
+          {% if can(current_user, perm) %}{% set config_visible.any = true %}{% endif %}
+        {% endfor %}
+        {% if config_visible.any %}
+          <div class="dn-sep mt-1"></div>
+          <div class="dn-label">Configuración</div>
           {% for key, href, label, perm in config_items %}
             {% if can(current_user, perm) %}
-              {% set active = page == key %}
-              <a href="{{ href }}"
-                 class="flex items-center justify-between gap-3 px-4 py-2 transition-colors duration-fast
-                        {{ 'bg-primary-subtle text-primary font-semibold' if active else 'text-body hover:bg-surface-subtle' }}">
+              <a href="{{ href }}" @click="closeDrawer()" class="dn-item {{ 'active' if page == key else '' }}">
                 <span>{{ label }}</span>
                 {% if key == 'solicitudes' %}
-                  <span hx-get="/api/approvals/count" hx-trigger="load, every 30s" hx-swap="innerHTML" class="text-sm"></span>
+                  <span hx-get="/api/approvals/count" hx-trigger="load, every 30s" hx-swap="innerHTML"
+                        class="ml-auto text-sm" style="color:rgba(255,255,255,0.35);"></span>
                 {% endif %}
               </a>
             {% endif %}
           {% endfor %}
+        {% endif %}
+
+      </nav>
+
+      {# ── User section ── #}
+      {% if current_user %}
+        {% set display_name = user_display_name(current_user) %}
+        <div class="mt-6 pt-5" style="border-top:1px solid rgba(255,255,255,0.08);">
+          <div class="flex items-center gap-3 px-1 mb-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold shrink-0"
+                 style="background:rgba(99,102,241,0.28); color:#c7d2fe;">
+              {{ display_name[0]|upper }}
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm font-semibold" style="color:#fff;">{{ display_name }}</div>
+              <div class="text-xs truncate" style="color:rgba(255,255,255,0.38);">{{ current_user.email }} · {{ current_user.role }}</div>
+            </div>
+          </div>
+          <div class="flex gap-2 px-1">
+            <a href="/cambiar-password" @click="closeDrawer()"
+               class="flex-1 text-center text-xs py-2 rounded-xl"
+               style="color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.1); transition:background 0.1s ease;"
+               onmouseover="this.style.background='rgba(255,255,255,0.07)'"
+               onmouseout="this.style.background='transparent'">
+              Cambiar contraseña
+            </a>
+            <form method="post" action="/logout">
+              <button type="submit"
+                      class="text-xs py-2 px-4 rounded-xl"
+                      style="color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.1); transition:background 0.1s ease;"
+                      onmouseover="this.style.background='rgba(255,255,255,0.07)'"
+                      onmouseout="this.style.background='transparent'">
+                Cerrar sesión
+              </button>
+            </form>
+          </div>
         </div>
       {% endif %}
-    </nav>
 
-    {# Footer #}
-    <div class="border-t border-subtle px-4 py-3 flex items-center gap-2">
-      <img src="{{ ecs_logo_path }}" alt="{{ company_name }}" class="h-4 opacity-70" onerror="this.style.display='none'">
-      <span class="text-sm text-muted">{{ app_name }} · v{{ app_version.split('.')[0] }}</span>
+      <div class="mt-5 pb-2 text-center text-[11px]" style="color:rgba(255,255,255,0.18);">
+        Nexo · v{{ app_version.split('.')[0] }}
+      </div>
+
     </div>
-  </aside>
+  </div>
 
   {# ── MAIN ── #}
   <main class="min-h-[calc(100vh-var(--space-topbar-h))] px-4 md:px-6 py-6">

@@ -3,17 +3,28 @@
 {% block page_title %}{% endblock %}
 
 {% block topbar_center %}
-<div class="flex items-center gap-1" role="tablist" aria-label="Selector de pabellón">
-  <template x-for="p in [{k:'p5',l:'P5'},{k:'p4',l:'P4'},{k:'p3',l:'P3'},{k:'p2',l:'P2'}]" :key="p.k">
-    <button @click="$store.luk4.pabellon = p.k"
-            role="tab"
-            :aria-selected="($store.luk4.pabellon === p.k).toString()"
-            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-fast"
-            :style="$store.luk4.pabellon === p.k
-              ? 'background:#6366f1; color:#fff; border:1.5px solid #6366f1; box-shadow:0 2px 8px rgba(99,102,241,0.35);'
-              : 'background:transparent; color:#64748b; border:1.5px solid rgba(0,0,0,0.12);'"
-            x-text="p.l"></button>
-  </template>
+<div class="flex items-center gap-2">
+  <div class="flex items-center gap-1" role="tablist" aria-label="Selector de pabellón">
+    <template x-for="p in [{k:'p5',l:'P5'},{k:'p4',l:'P4'},{k:'p3',l:'P3'},{k:'p2',l:'P2'}]" :key="p.k">
+      <button @click="$store.luk4.pabellon = p.k"
+              role="tab"
+              :aria-selected="($store.luk4.pabellon === p.k).toString()"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-fast"
+              :style="$store.luk4.pabellon === p.k
+                ? 'background:#6366f1; color:#fff; border:1.5px solid #6366f1; box-shadow:0 2px 8px rgba(99,102,241,0.35);'
+                : 'background:transparent; color:#64748b; border:1.5px solid rgba(0,0,0,0.12);'"
+              x-text="p.l"></button>
+    </template>
+  </div>
+  <div x-show="$store.luk4.timestamp"
+       class="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono tabular-nums"
+       style="background:rgba(0,0,0,0.05); color:#64748b;">
+    <span x-text="$store.luk4.timestamp"></span>
+    <span x-show="$store.luk4.turnoActual"
+          class="font-semibold"
+          style="color:#6366f1;"
+          x-text="'· ' + $store.luk4.turnoActual"></span>
+  </div>
 </div>
 {% endblock %}
 
@@ -22,7 +33,7 @@
 <script>document.querySelector('main')?.classList.add('centro-mando-main')</script>
 <script>
 document.addEventListener('alpine:init', () => {
-  Alpine.store('luk4', { pabellon: 'p5' });
+  Alpine.store('luk4', { pabellon: 'p5', timestamp: '', turnoActual: '' });
 });
 </script>
 <div x-data x-cloak class="flex flex-col" style="height:calc(100vh - 3.5rem)">
@@ -346,6 +357,8 @@ function pabPage(cfg) {
         this.luk4Status=newStatus; this.alarma=newAlarma;
         this.telemetria=d.telemetria||{}; this.timestamp=d.timestamp||'';
         this.timeline=d.timeline||[]; this.topAlarmas=d.top_alarmas||[]; this.turnoActual=newTurno;
+        Alpine.store('luk4').timestamp = this.timestamp;
+        Alpine.store('luk4').turnoActual = this.turnoActual;
       } catch{}
       this.loading = false;
     },
