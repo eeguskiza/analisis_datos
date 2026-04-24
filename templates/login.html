@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Entrar · {{ app_name }}</title>
 
-  {# Phase 8 / Plan 08-06: public route does NOT extend base.html, but
-     uses the same stylesheet + Tailwind config so semantic tokens
-     resolve identically. Token CSS is imported from app.css. #}
   <link rel="stylesheet" href="/static/css/app.css">
   <link rel="stylesheet" href="/static/css/print.css" media="print">
 
@@ -21,119 +18,79 @@
   <div class="w-full max-w-7xl mx-auto min-h-[calc(100vh-40px)] md:min-h-[calc(100vh-64px)] flex flex-col">
 
     <header class="pt-1">
-      <div class="flex items-center justify-between gap-8 md:gap-12">
-        <img src="{{ logo_path }}" alt="{{ app_name }}" class="w-36 h-36 md:w-52 md:h-52 object-contain shrink-0"
+      <div class="flex items-center justify-between gap-8">
+        <img src="{{ logo_path }}" alt="{{ app_name }}" class="w-28 h-28 md:w-40 md:h-40 object-contain shrink-0"
              onerror="this.style.display='none'">
-        <img src="{{ ecs_logo_path }}" alt="{{ company_name }}" class="h-10 md:h-14 object-contain shrink-0"
+        <img src="{{ ecs_logo_path }}" alt="{{ company_name }}" class="h-9 md:h-12 object-contain shrink-0"
              onerror="this.style.display='none'">
       </div>
     </header>
 
-    <main class="flex-1 flex items-center">
-      <div class="w-full grid lg:grid-cols-[minmax(0,1.2fr)_460px] gap-10 lg:gap-14 items-center">
-        <section class="hidden lg:block">
-          <div class="max-w-2xl">
-            <div class="inline-flex items-center gap-3 px-5 py-3 rounded-pill bg-surface-base/78 text-primary border border-surface-0/60 text-sm font-semibold shadow-[0_14px_32px_-18px_rgba(15,34,54,0.35)] backdrop-blur-md">
-              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-subtle border border-primary/15 shrink-0">
-                <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5M12 3.75v16.5M7.5 7.5l9 9M16.5 7.5l-9 9"/>
-                </svg>
-              </span>
-              <span>Versión {{ app_version }}</span>
+    <main class="flex-1 flex items-center justify-center">
+      <div class="w-full max-w-[420px]">
+
+        <div class="rounded-[28px] border border-surface-0/50 bg-surface-base/88 shadow-[0_24px_60px_-24px_rgba(15,34,54,0.28)] backdrop-blur-xl">
+          <div class="px-7 py-8 md:px-8 md:py-9">
+            <div class="mb-7 text-center">
+              <h2 class="text-[28px] leading-[1.05] tracking-[-0.03em] font-semibold text-heading">
+                Inicio de sesión
+              </h2>
+              <p class="mt-2 text-sm text-muted">Acceso privado</p>
             </div>
 
-            <p class="mt-8 text-[36px] md:text-[58px] leading-[0.96] tracking-[-0.05em] font-semibold text-heading max-w-[13ch]">
-              El punto donde los datos convergen para trabajar con una sola visión.
-            </p>
-
-            <p class="mt-6 text-lg leading-8 text-body max-w-[56ch]">
-              Nexo conecta producción, análisis y seguimiento en un único entorno.
-              La información llega desde distintos sistemas y se presenta de forma clara para que cada operario,
-              técnico o responsable pueda entrar y continuar rápido.
-            </p>
-
-            <div class="mt-10 grid sm:grid-cols-3 gap-4">
-              <div class="welcome-mini-card bg-surface-base/72">
-                <div class="welcome-mini-label">Convergencia</div>
-                <div class="welcome-mini-value">Datos reunidos en un solo punto</div>
-              </div>
-              <div class="welcome-mini-card bg-surface-base/72">
-                <div class="welcome-mini-label">Operación</div>
-                <div class="welcome-mini-value">Acceso directo a planta y análisis</div>
-              </div>
-              <div class="welcome-mini-card bg-surface-base/72">
-                <div class="welcome-mini-label">Uso diario</div>
-                <div class="welcome-mini-value">Simple para trabajar sin vueltas</div>
-              </div>
+            {% if request.query_params.get('ok') == 'password-cambiado' %}
+            <div class="rounded-xl bg-success-subtle text-success border border-subtle p-4 mb-4 text-sm" role="status">
+              Contrasena actualizada. Vuelve a iniciar sesion.
             </div>
-          </div>
-        </section>
+            {% endif %}
 
-        <section class="w-full max-w-[460px] mx-auto">
-          <div class="rounded-[28px] border border-surface-0/50 bg-surface-base/88 shadow-[0_24px_60px_-24px_rgba(15,34,54,0.28)] backdrop-blur-xl">
-            <div class="px-7 py-8 md:px-8 md:py-9">
-              <div class="mb-7 text-center">
-                <p class="text-xs uppercase tracking-[0.18em] text-muted font-semibold">Inicio de sesión</p>
-                <h2 class="mt-3 text-[32px] leading-[1.02] tracking-[-0.03em] font-semibold text-heading">
-                  Entrar
-                </h2>
-                <p class="mt-3 text-sm leading-6 text-muted max-w-[28ch] mx-auto">
-                  Introduce tus credenciales para acceder al entorno de trabajo.
-                </p>
-              </div>
+            {% if error %}
+            <div class="rounded-xl bg-error-subtle text-error border border-subtle p-4 mb-4 text-sm" role="alert">
+              {{ error }}
+            </div>
+            {% endif %}
 
-              {% if request.query_params.get('ok') == 'password-cambiado' %}
-              <div class="rounded-xl bg-success-subtle text-success border border-subtle p-4 mb-4 text-sm" role="status">
-                Contrasena actualizada. Vuelve a iniciar sesion.
-              </div>
-              {% endif %}
-
-              {% if error %}
-              <div class="rounded-xl bg-error-subtle text-error border border-subtle p-4 mb-4 text-sm" role="alert">
-                {{ error }}
-              </div>
-              {% endif %}
-
-              <form method="post" action="/login" class="flex flex-col gap-6" autocomplete="on">
-                <div class="auth-field">
-                  <label for="login-email" class="block text-sm font-semibold text-body">Email</label>
-                  <div class="auth-input-wrap">
-                    <svg class="auth-input-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25H4.5a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5H4.5A2.25 2.25 0 002.25 6.75m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0l-7.5-4.615A2.25 2.25 0 012.25 6.993V6.75"/>
-                    </svg>
-                    <input type="email" id="login-email" name="email"
-                           required autofocus autocomplete="username"
-                           class="input-inline auth-input w-full block"
-                           placeholder="tu.usuario@empresa.com">
-                  </div>
+            <form method="post" action="/login" class="flex flex-col gap-6" autocomplete="on">
+              <div class="auth-field">
+                <label for="login-email" class="block text-sm font-semibold text-body">Email</label>
+                <div class="auth-input-wrap">
+                  <svg class="auth-input-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25H4.5a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5H4.5A2.25 2.25 0 002.25 6.75m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0l-7.5-4.615A2.25 2.25 0 012.25 6.993V6.75"/>
+                  </svg>
+                  <input type="email" id="login-email" name="email"
+                         required autofocus autocomplete="username"
+                         class="input-inline auth-input w-full block"
+                         placeholder="tu.usuario@empresa.com">
                 </div>
-
-                <div class="auth-field">
-                  <label for="login-password" class="block text-sm font-semibold text-body">Contrasena</label>
-                  <div class="auth-input-wrap">
-                    <svg class="auth-input-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7.875a4.125 4.125 0 10-8.25 0V10.5m-.75 0h9.75A2.25 2.25 0 0119.5 12.75v6A2.25 2.25 0 0117.25 21h-10.5A2.25 2.25 0 014.5 18.75v-6A2.25 2.25 0 016.75 10.5z"/>
-                    </svg>
-                    <input type="password" id="login-password" name="password"
-                           required autocomplete="current-password"
-                           class="input-inline auth-input w-full block"
-                           placeholder="Introduce tu contrasena">
-                  </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-lg justify-center w-full">Entrar</button>
-              </form>
-
-              <div class="auth-divider my-6"></div>
-
-              <div class="text-center text-sm text-muted">
-                Acceso privado para personal autorizado.
               </div>
-            </div>
+
+              <div class="auth-field">
+                <label for="login-password" class="block text-sm font-semibold text-body">Contrasena</label>
+                <div class="auth-input-wrap">
+                  <svg class="auth-input-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7.875a4.125 4.125 0 10-8.25 0V10.5m-.75 0h9.75A2.25 2.25 0 0119.5 12.75v6A2.25 2.25 0 0117.25 21h-10.5A2.25 2.25 0 014.5 18.75v-6A2.25 2.25 0 016.75 10.5z"/>
+                  </svg>
+                  <input type="password" id="login-password" name="password"
+                         required autocomplete="current-password"
+                         class="input-inline auth-input w-full block"
+                         placeholder="Introduce tu contrasena">
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-lg justify-center w-full">Entrar</button>
+            </form>
           </div>
-        </section>
+        </div>
+
+        <div class="mt-4 flex justify-center">
+          <span class="inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-surface-base/72 text-muted border border-surface-0/50 text-xs font-medium backdrop-blur-md">
+            Versión {{ app_version }}
+          </span>
+        </div>
+
       </div>
     </main>
+
   </div>
 </body>
 </html>
