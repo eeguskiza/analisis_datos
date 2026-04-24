@@ -33,21 +33,25 @@
           class="sticky top-0 z-topbar flex items-center gap-3 px-4 md:px-6 py-3 bg-surface-base border-b border-subtle"
           style="height: var(--space-topbar-h);">
 
-    {# Botón Menú — left slot #}
+    {# Botón Menú — waffle icon, no label #}
     <button type="button"
             @click="toggleDrawer()"
             :aria-expanded="drawerOpen.toString()"
             aria-controls="nexo-drawer"
             aria-label="Abrir menú"
-            class="flex items-center gap-2 px-3 py-1.5 rounded-xl shrink-0 transition-all duration-fast hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            style="border: 1px solid rgba(0,0,0,0.08);">
-      <svg class="w-4 h-4 text-heading shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-        <rect x="1" y="1" width="6" height="6" rx="1.5"/>
-        <rect x="9" y="1" width="6" height="6" rx="1.5"/>
-        <rect x="1" y="9" width="6" height="6" rx="1.5"/>
-        <rect x="9" y="9" width="6" height="6" rx="1.5"/>
+            class="w-9 h-9 flex items-center justify-center rounded-xl shrink-0 transition-all duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            :class="drawerOpen ? 'bg-primary/10 text-primary' : 'text-heading hover:bg-surface-subtle'">
+      <svg class="w-[18px] h-[18px]" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
+        <circle cx="3"  cy="3"  r="1.6"/>
+        <circle cx="9"  cy="3"  r="1.6"/>
+        <circle cx="15" cy="3"  r="1.6"/>
+        <circle cx="3"  cy="9"  r="1.6"/>
+        <circle cx="9"  cy="9"  r="1.6"/>
+        <circle cx="15" cy="9"  r="1.6"/>
+        <circle cx="3"  cy="15" r="1.6"/>
+        <circle cx="9"  cy="15" r="1.6"/>
+        <circle cx="15" cy="15" r="1.6"/>
       </svg>
-      <span class="text-sm font-semibold text-heading">Menú</span>
     </button>
 
     {# Page title + center widgets — absolute overlay, doesn't shift right cluster #}
@@ -124,24 +128,22 @@
         <div>
           <div class="dd-label">Fabricación</div>
           {% set main_nav = [
-            ("dashboard", "/",          "Centro de Mando", None,
-              "M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0h6m-6 0v-6h6v6"),
-            ("pipeline",  "/pipeline",  "Análisis",        "pipeline:read",
-              "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"),
-            ("historial", "/historial", "Historial",       "historial:read",
-              "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
-            ("capacidad", "/capacidad", "Capacidad",       "capacidad:read",
-              "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"),
-            ("bbdd",      "/bbdd",      "BBDD",            "bbdd:read",
-              "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"),
+            ("dashboard", "/",          "Centro de Mando", None,            "M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0h6m-6 0v-6h6v6",           true),
+            ("pipeline",  "/pipeline",  "Análisis",        "pipeline:read", "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", false),
+            ("historial", "/historial", "Historial",       "historial:read","M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",                                               false),
+            ("capacidad", "/capacidad", "Capacidad",       "capacidad:read","M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3", false),
+            ("bbdd",      "/bbdd",      "BBDD",            "bbdd:read",     "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4", false),
           ] %}
-          {% for key, href, label, perm, icon_d in main_nav %}
-            {% if perm is none or can(current_user, perm) %}
-              <a href="{{ href }}" @click="closeDrawer()" class="dd-item {{ 'active' if page == key else '' }}">
+          {% set is_owner = current_user and current_user.role == 'propietario' %}
+          {% for key, href, label, perm, icon_d, ready in main_nav %}
+            {% if (perm is none or can(current_user, perm)) and (ready or is_owner) %}
+              <a href="{{ href }}" @click="{{ 'closeDrawer()' if ready else '' }}"
+                 class="dd-item {{ 'active' if page == key else '' }}{{ ' opacity-40 pointer-events-none cursor-default' if not ready else '' }}">
                 <svg class="w-4 h-4 shrink-0 opacity-55" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_d }}"/>
                 </svg>
                 {{ label }}
+                {% if not ready %}<span class="ml-auto" style="font-size:0.6rem; font-weight:700; letter-spacing:0.06em; color:#94a3b8;">PRÓX</span>{% endif %}
               </a>
             {% endif %}
           {% endfor %}
@@ -151,22 +153,20 @@
         <div>
           <div class="dd-label">Operaciones</div>
           {% set ops_nav = [
-            ("recursos",    "/recursos",    "Recursos",        "recursos:read",
-              "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"),
-            ("ciclos_calc", "/ciclos-calc", "Calcular ciclos", "ciclos:read",
-              "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"),
-            ("operarios",   "/operarios",   "Operarios",       "operarios:read",
-              "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"),
-            ("datos",       "/datos",       "Datos",           "datos:read",
-              "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"),
+            ("recursos",    "/recursos",    "Recursos",        "recursos:read",  "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4",                                                                                                                                                                                  false),
+            ("ciclos_calc", "/ciclos-calc", "Calcular ciclos", "ciclos:read",    "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z",                                                                                              false),
+            ("operarios",   "/operarios",   "Operarios",       "operarios:read", "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z", false),
+            ("datos",       "/datos",       "Datos",           "datos:read",     "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",                                                                                                                                                                                    false),
           ] %}
-          {% for key, href, label, perm, icon_d in ops_nav %}
-            {% if perm is none or can(current_user, perm) %}
-              <a href="{{ href }}" @click="closeDrawer()" class="dd-item {{ 'active' if page == key else '' }}">
+          {% for key, href, label, perm, icon_d, ready in ops_nav %}
+            {% if (perm is none or can(current_user, perm)) and (ready or is_owner) %}
+              <a href="{{ href }}" @click="{{ 'closeDrawer()' if ready else '' }}"
+                 class="dd-item {{ 'active' if page == key else '' }}{{ ' opacity-40 pointer-events-none cursor-default' if not ready else '' }}">
                 <svg class="w-4 h-4 shrink-0 opacity-55" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_d }}"/>
                 </svg>
                 {{ label }}
+                {% if not ready %}<span class="ml-auto" style="font-size:0.6rem; font-weight:700; letter-spacing:0.06em; color:#94a3b8;">PRÓX</span>{% endif %}
               </a>
             {% endif %}
           {% endfor %}
@@ -174,23 +174,18 @@
 
         {# ── Col 3: Configuración ── #}
         {% set config_items = [
-          ("ajustes",             "/ajustes",             "Ajustes",     "ajustes:manage"),
-          ("ajustes_conexion",    "/ajustes/conexion",    "Conexión",    "conexion:config"),
-          ("ajustes_usuarios",    "/ajustes/usuarios",    "Usuarios",    "usuarios:manage"),
-          ("ajustes_auditoria",   "/ajustes/auditoria",   "Auditoría",   "auditoria:read"),
-          ("ajustes_limites",     "/ajustes/limites",     "Límites",     "limites:manage"),
-          ("ajustes_rendimiento", "/ajustes/rendimiento", "Rendimiento", "rendimiento:read"),
-          ("solicitudes",         "/ajustes/solicitudes", "Solicitudes", "aprobaciones:manage"),
+          ("ajustes",     "/ajustes",             "Ajustes",     "ajustes:manage"),
+          ("solicitudes", "/ajustes/solicitudes", "Solicitudes", "aprobaciones:manage"),
         ] %}
         {% set config_visible = namespace(any=false) %}
         {% for key, href, label, perm in config_items %}
-          {% if can(current_user, perm) %}{% set config_visible.any = true %}{% endif %}
+          {% if can(current_user, perm) or is_owner %}{% set config_visible.any = true %}{% endif %}
         {% endfor %}
         {% if config_visible.any %}
         <div>
           <div class="dd-label">Configuración</div>
           {% for key, href, label, perm in config_items %}
-            {% if can(current_user, perm) %}
+            {% if can(current_user, perm) or is_owner %}
               <a href="{{ href }}" @click="closeDrawer()" class="dd-item {{ 'active' if page == key else '' }}">
                 {{ label }}
                 {% if key == 'solicitudes' %}
@@ -228,7 +223,7 @@
       </div>
 
       <div class="mt-4 pt-3 text-[11px] text-muted" style="border-top:1px solid rgba(0,0,0,0.06);">
-        Nexo · v{{ app_version.split('.')[0] }}
+        Nexo · v{{ app_version }}
       </div>
     </div>
   </div>
