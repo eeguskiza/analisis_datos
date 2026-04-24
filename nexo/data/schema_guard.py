@@ -28,7 +28,7 @@ import logging
 import os
 from pathlib import Path
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 # Durante 03-01 los modelos siguen en ``nexo/db/models.py``; en 03-03 se
@@ -169,6 +169,8 @@ def verify(
             len(missing_tables),
             missing_tables,
         )
+        with engine.begin() as conn:
+            conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{NEXO_SCHEMA}"'))
         NexoBase.metadata.create_all(bind=engine)
         log.warning("auto-migracion completada. NO usar en produccion.")
 
