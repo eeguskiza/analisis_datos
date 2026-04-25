@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Bootstrap del primer usuario ``propietario`` de Nexo.
 
-Interactivo: pide email y password (doble prompt, sin echo).
+Interactivo: pide username, nombre, apellidos, email y password (doble
+prompt, sin echo).
 Idempotente: si ya existe un ``propietario``, sale con exit 0 sin crear
 otro.
 
@@ -28,6 +29,7 @@ Notas
 from __future__ import annotations
 
 import getpass
+import re
 import sys
 from pathlib import Path
 
@@ -55,6 +57,23 @@ def _prompt_email() -> str:
     return email
 
 
+def _prompt_username(email: str) -> str:
+    default = email.split("@", 1)[0]
+    raw = input(f"Username del propietario [{default}]: ").strip().lower()
+    username = raw or default
+    username = re.sub(r"\s+", ".", username)
+    if not username:
+        raise SystemExit("Username invalido — no puede estar vacio.")
+    return username
+
+
+def _prompt_text(label: str) -> str:
+    value = input(f"{label}: ").strip()
+    if not value:
+        raise SystemExit(f"{label} no puede estar vacio.")
+    return value
+
+
 def _prompt_password() -> str:
     pw1 = getpass.getpass(f"Password (min {MIN_PASSWORD_LENGTH} chars): ")
     if len(pw1) < MIN_PASSWORD_LENGTH:
@@ -79,6 +98,9 @@ def main() -> int:
             return 0
 
         email = _prompt_email()
+        username = _prompt_username(email)
+        name = _prompt_text("Nombre")
+        surname = _prompt_text("Apellidos")
         # Comprueba unicidad de email (un usuario con otro rol podria tenerlo).
         dup = db.execute(
             select(NexoUser).where(NexoUser.email == email)
@@ -89,11 +111,24 @@ def main() -> int:
                 "Promociona a propietario manualmente via SQL o borra y reintenta."
             )
             return 1
+        username_dup = db.execute(
+            select(NexoUser).where(NexoUser.username == username)
+        ).scalars().first()
+        if username_dup is not None:
+            _log(
+                f"Ya existe un usuario con username {username} "
+                f"(email={username_dup.email}). Elige otro username."
+            )
+            return 1
 
         password = _prompt_password()
 
         user = NexoUser(
+            username=username,
+            name=name,
+            surname=surname,
             email=email,
+            nombre=f"{name} {surname}",
             password_hash=hash_password(password),
             role=PROPIETARIO_ROLE,
             active=True,

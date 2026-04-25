@@ -133,6 +133,23 @@ Centro de Mando se mantiene en estructura; todo lo demás se reinterpreta.
 - [x] **UIREDO-08
 **: Accesibilidad mínima: contraste AA (WCAG 2.1) verificado por herramienta automática en CI; focus visible en todos los elementos interactivos; navegación completa por teclado (Tab + Enter + Esc cierra drawers/modales); `aria-label` en icon-only buttons.
 
+### CLOUD — Phase 9 / Sprint 8 (Cloudflare Tunnel + Public Access)
+
+Override consciente de la decisión cerrada en CLAUDE.md "no internet exposure". ADR-001 documenta el cambio. Servidor sigue sin puertos abiertos: el túnel saliente `cloudflared` inicia conexión hacia el edge de Cloudflare. Cloudflare Access gatea con email allowlist + OTP antes de que la request llegue a Nexo. Auth interna de Nexo (argon2id + lockout + audit) se preserva como segunda barrera. LAN fallback (`tls internal` Phase 6) se mantiene durante incidentes Cloudflare.
+
+- [ ] **CLOUD-01**: Dominio `nexo.app` (o fallback `nexo-app.com` / `usenexo.com` / `getnexo.com` / `nexoecs.com` si está cogido) comprado en Cloudflare Registrar; nameservers Cloudflare; DNS público resolviendo al edge CF
+- [ ] **CLOUD-02**: Cuenta Cloudflare creada por Erik Eguskiza (ownership personal por imposibilidad de gestión vía dominio corporativo `ecsmobility.com`); 2FA activo; recovery codes guardados en gestor de contraseñas + impresos; segundo administrador a designar dentro de 30 días post-deploy (mitigación bus factor 1)
+- [ ] **CLOUD-03**: `caddy/Caddyfile.prod` con 5 headers de seguridad: `Strict-Transport-Security` (max-age 31536000 + includeSubDomains + preload), `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`, `Referrer-Policy strict-origin-when-cross-origin`, `Permissions-Policy` (geolocation/microphone/camera disabled). Aplicados a ambas ramas (LAN + Cloudflare). Mozilla Observatory ≥ B+
+- [ ] **CLOUD-04**: Servicio `cloudflared` en `docker-compose.prod.yml` (imagen `cloudflare/cloudflared:latest`); modo token-based remote-managed (config en dashboard CF, no en YAML); env var del container = `TUNNEL_TOKEN` (mapeada desde `${CLOUDFLARE_TUNNEL_TOKEN}` del `.env` del proyecto); target `https://caddy:443` con `noTLSVerify: true` documentado (cert interno Caddy no válido para cloudflared, túnel ya cifrado E2E al edge); `depends_on: caddy`; `restart: unless-stopped`
+- [ ] **CLOUD-05**: Variable `CLOUDFLARE_TUNNEL_TOKEN` añadida a `.env.example` con comentario de procedencia ("Get from Cloudflare Zero Trust → Networks → Tunnels → nexo-prod → Install connector → token"); permisos `600` en `/opt/nexo/.env` real; rotación documentada en RUNBOOK
+- [ ] **CLOUD-06**: Cloudflare Access App `nexo` cubriendo `nexo.app/*` (todo o nada, sin segmentación por path); policy con email allowlist explícita mantenida manualmente; Identity Provider = One-Time Passcode por email (sin SSO Workspace); cookie de sesión Access = 24h
+- [ ] **CLOUD-07**: Denial page = HTML estático en `static/cloudflare-denial.html` con branding Nexo (logo + tokens.css colors) y mensaje "Acceso restringido. Si crees que deberías tener acceso a Nexo, contacta con Erik Eguskiza – e.eguskiza@ecsmobility.com". Servida por Caddy en ruta pública `/access-denied` (bloque adicional en `Caddyfile.prod`, sin gating Access ni auth Nexo, no logueada en audit_log). Cloudflare Access App configurado con "Redirect URL on identity denied" = `https://nexo.app/access-denied`. (Custom Block Page Templates del dashboard CF requieren plan Pay-as-you-go — no usado; ver ADR-001 Revision Notes 2026-04-25)
+- [ ] **CLOUD-08**: `tests/infra/deploy_smoke.sh` ampliado de 8 a 11 checks. Nuevos: `[DEPLOY-09]` POST `/api/login` con creds dummy responde 401 (no 500), `[DEPLOY-10]` GET `/api/health` con MES caído responde 200 con `{"ok": false, ...}`, `[DEPLOY-11]` `cloudflared` container running + `tunnel info` exit 0
+- [ ] **CLOUD-09**: `tests/infra/cloudflare_smoke.sh` nuevo, ejecutable desde fuera de la LAN (4G tethering). 6 checks: `[CF-01]` DNS público resuelve `nexo.app`, `[CF-02]` cert real (no `tls internal`, issuer Google Trust Services o equivalente), `[CF-03]` request con JWT inválido rechazado por Access, `[CF-04]` GET sin headers redirige a Access login, `[CF-05]` headers de seguridad presentes en respuesta, `[CF-06]` `tunnel info nexo-prod` reporta `connectorStatus: HEALTHY`
+- [ ] **CLOUD-10**: Makefile con targets `cf-up` (arranca solo el container cloudflared), `cf-down` (lo para sin tocar el resto), `cf-status` (estado + healthcheck), `cf-logs` (logs en tiempo real), `cf-smoke-external` (ejecuta `cloudflare_smoke.sh`)
+- [ ] **CLOUD-11**: `docs/CLOUDFLARE_DEPLOY.md` runbook completo paso a paso (creación cuenta CF → compra dominio → Tunnel → Access policy → denial page → SSH al servidor → token → arranque → smoke); `docs/decisions/ADR-001-cloudflare-tunnel.md` con formato Nygard estándar (Context/Decision/Alternatives/Consequences); `CLAUDE.md` actualizado en sección "Despliegue" + sección "Qué NO hacer" (override decisión "no internet"); `CHANGELOG.md` con entry de la phase
+- [ ] **CLOUD-12**: Fallback LAN preservado y verificado: `tests/infra/deploy_smoke.sh` 11/11 OK con `cloudflared` corriendo Y con `cloudflared` parado (independencia confirmada); `https://nexo.ecsmobility.local` accesible desde la oficina con hosts-file + root CA tras la activación CF, sin cambios para usuarios LAN
+
 ## v2 Requirements (Mark-IV+)
 
 Diferidas explícitamente. No se planifican en Mark-III.
@@ -258,12 +275,24 @@ Exclusiones definitivas en el alcance Mark-III — no confundir con v2.
 | UIREDO-06 | Phase 8 | In progress (08-02/08-03/08-04 — 2026-04-22) |
 | UIREDO-07 | Phase 8 | Pending |
 | UIREDO-08 | Phase 8 | Pending |
+| CLOUD-01 | Phase 9 | Pending |
+| CLOUD-02 | Phase 9 | Pending |
+| CLOUD-03 | Phase 9 | Pending |
+| CLOUD-04 | Phase 9 | Pending |
+| CLOUD-05 | Phase 9 | Pending |
+| CLOUD-06 | Phase 9 | Pending |
+| CLOUD-07 | Phase 9 | Pending |
+| CLOUD-08 | Phase 9 | Pending |
+| CLOUD-09 | Phase 9 | Pending |
+| CLOUD-10 | Phase 9 | Pending |
+| CLOUD-11 | Phase 9 | Pending |
+| CLOUD-12 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 74 total (66 Mark-III inicial + 8 UIREDO añadidos 2026-04-20)
-- Mapped to phases: 74
+- v1 requirements: 86 total (66 Mark-III inicial + 8 UIREDO añadidos 2026-04-20 + 12 CLOUD añadidos 2026-04-25)
+- Mapped to phases: 86
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-18*
-*Last updated: 2026-04-18 after closing open questions (added NAMING-16 MCP profile, NAMING-17 brand assets)*
+*Last updated: 2026-04-25 — added CLOUD-01..CLOUD-12 (Phase 9: Cloudflare Tunnel + Public Access)*

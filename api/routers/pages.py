@@ -29,23 +29,15 @@ def _common_extra(page: str) -> dict:
 
 @router.get("/")
 def index(request: Request):
-    return render("luk4.html", request, _common_extra("dashboard"))
+    extra = _common_extra("dashboard")
+    extra["now_madrid"] = datetime.now(_MADRID_TZ)
+    return render("luk4.html", request, extra)
 
 
 @router.get("/bienvenida")
 def bienvenida_page(request: Request):
-    """Landing post-login (UIREDO-02 / D-23).
-
-    No lleva permiso específico — cualquier usuario autenticado ve esta
-    pantalla. El AuthMiddleware global ya redirige a `/login` si no hay
-    sesión válida, por eso no añadimos `require_permission(...)`.
-
-    Inyecta `now_madrid` para que el template pueda renderizar día y
-    fecha en castellano server-side sin tocar locales del container.
-    """
-    extra = _common_extra("bienvenida")
-    extra["now_madrid"] = datetime.now(_MADRID_TZ)
-    return render("bienvenida.html", request, extra)
+    """Compat: la antigua landing vive ahora integrada en el dashboard."""
+    return RedirectResponse("/", status_code=302)
 
 
 @router.get(

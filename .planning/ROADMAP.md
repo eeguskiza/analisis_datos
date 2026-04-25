@@ -15,13 +15,14 @@ de phases GSD: Phase N = Sprint (N-1) del plan.
 ## Phases
 
 - [x] **Phase 1: Naming + Higiene + CI** — Sprint 0: rebrand Nexo, limpieza, CI mínimo, exception handler sin traceback, audit de historial ✓ 2026-04-18
-- [ ] **Phase 2: Identidad (auth + RBAC + audit)** — Sprint 1: login, roles propietario/directivo/usuario + departamentos, middleware de auth y audit append-only
+- [x] **Phase 2: Identidad (auth + RBAC + audit)** — Sprint 1: login, roles propietario/directivo/usuario + departamentos, middleware de auth y audit append-only ✓ 2026-04-19
 - [x] **Phase 3: Capa de datos** — Sprint 2: repositorios, `.sql` versionados, schema_guard, separación `engine_mes` / `engine_app` / `engine_nexo` ✓ 2026-04-19
 - [x] **Phase 4: Consultas pesadas** — Sprint 3: preflight + postflight + aprobación asíncrona + umbrales editables ✓ 2026-04-20
 - [x] **Phase 5: UI por roles** — Sprint 4: sidebar y páginas condicionadas al rol, split de `ajustes.html` ✓ 2026-04-20
 - [x] **Phase 6: Despliegue LAN HTTPS** — Sprint 5: `docker-compose.prod.yml`, Caddy con `tls internal`, ufw, deploy.sh + backup_nightly.sh + runbook `docs/DEPLOY_LAN.md` (validacion empirica en Ubuntu fisico deferred hasta asignacion IT) ✓ 2026-04-21
-- [ ] **Phase 7: DevEx hardening** — Sprint 6: pre-commit, CI ampliado con cobertura, `docs/ARCHITECTURE.md`, `docs/RUNBOOK.md`, `docs/RELEASE.md`
+- [x] **Phase 7: DevEx hardening** — Sprint 6: pre-commit, CI ampliado con cobertura, `docs/ARCHITECTURE.md`, `docs/RUNBOOK.md`, `docs/RELEASE.md` ✓ 2026-04-22
 - [ ] **Phase 8: Rediseño UI (modo claro moderno)** — Sprint 7: rediseño visual completo manteniendo Centro de Mando; sidebar collapsible/drawer; animaciones; tema claro; ventana a ventana con propuestas; secciones nuevas si aplican
+- [ ] **Phase 9: Cloudflare Tunnel + Public Access** — Sprint 8: dominio `nexo.app`, túnel saliente `cloudflared`, Cloudflare Access con email allowlist OTP, headers de seguridad en Caddy, smoke externo desde 4G, fallback LAN preservado, ADR-001 override "no internet"
 
 ## Phase Details
 
@@ -179,10 +180,31 @@ Plans:
 - [ ] 08-10-PLAN.md — pa11y-ci CI extension (WCAG2AA on 10 URLs via smoke job) (UIREDO-08)
 - [ ] 08-11-PLAN.md — Release v1.0.0 tag local + CHANGELOG bump (UIREDO-01..UIREDO-08, Mark-III closure)
 
+### Phase 9: Cloudflare Tunnel + Public Access
+**Goal**: Nexo accesible desde cualquier dispositivo (móvil + portátil) con un link en el navegador, sin VPN ni instalación, gateado por Cloudflare Access con email allowlist mantenida por Erik Eguskiza. Servidor sigue sin puertos abiertos a internet (túnel saliente `cloudflared`). Auth de Nexo (argon2id + lockout + audit) intacta como segunda capa. Acceso LAN directo (`https://nexo.ecsmobility.local`) preservado como fallback durante incidentes Cloudflare.
+**Depends on**: Phase 6 (Caddy + compose prod existente). No depende de Phase 8 (ortogonal).
+**Requirements**: CLOUD-01, CLOUD-02, CLOUD-03, CLOUD-04, CLOUD-05, CLOUD-06, CLOUD-07, CLOUD-08, CLOUD-09, CLOUD-10, CLOUD-11, CLOUD-12
+**Success Criteria** (what must be TRUE):
+  1. Usuario en allowlist abre `https://nexo.app` desde móvil con 4G, recibe OTP por email, mete código, ve login Nexo, mete user/pass argon2id, entra
+  2. Usuario fuera de allowlist es rechazado por Cloudflare con página custom de denial mostrando "contacta con Erik – e.eguskiza@ecsmobility.com"; nunca llega al login Nexo
+  3. Servidor Ubuntu sin puertos 443/80 abiertos a internet (`ufw status` confirma); Cloudflare accede solo vía túnel saliente
+  4. Headers de seguridad presentes en respuestas (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy); Mozilla Observatory ≥ B+
+  5. LAN fallback intacto: usuario en oficina con hosts-file + root CA accede `https://nexo.ecsmobility.local` sin pasar por Cloudflare; sigue funcionando con `cloudflared` parado
+  6. `tests/infra/cloudflare_smoke.sh` desde 4G externo devuelve 6/6 OK; `tests/infra/deploy_smoke.sh` desde LAN devuelve 11/11 OK
+  7. `docs/CLOUDFLARE_DEPLOY.md` permite a admin de respaldo reinstalar el túnel desde cero en <30 min con acceso al panel CF
+  8. ADR-001 publicado, CLAUDE.md actualizado (override "no internet"), CHANGELOG entry, REQUIREMENTS.md CLOUD-* marcados done
+  9. `cloudflared` reporta `Status: HEALTHY` durante 24h continuas tras la activación
+**Plans**: 3 plans estimados
+
+Plans:
+- [ ] 09-01-PLAN.md — Caddy hardening + smoke mejorado: 5 headers de seguridad en `Caddyfile.prod` + `deploy_smoke.sh` 8→11 checks (login + MES caído + cloudflared) + tests parsing Caddyfile (CLOUD-03, CLOUD-08)
+- [ ] 09-02-PLAN.md — Cloudflared service + bootstrap + docs: servicio Docker + `.env.example` + `cloudflare-bootstrap.sh` + Makefile cf-* targets + `cloudflare_smoke.sh` 6 checks + `cloudflare-denial.html` + `docs/CLOUDFLARE_DEPLOY.md` + ADR-001 + CLAUDE.md update + CHANGELOG (CLOUD-04, CLOUD-05, CLOUD-09, CLOUD-10, CLOUD-11)
+- [ ] 09-03-PLAN.md — Activación en producción (runbook-driven): operador compra dominio + crea cuenta CF + crea Tunnel + crea Access App + sube denial + SSH al servidor + pega token + `make cf-up` + smoke desde 4G + verifica fallback LAN + añade emails iniciales (CLOUD-01, CLOUD-02, CLOUD-06, CLOUD-07, CLOUD-12)
+
 ## Progress
 
 **Execution Order:**
-Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9. Phase 9 puede planificarse y ejecutarse en paralelo a Phase 8 si conviene (es ortogonal al rediseño UI).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -191,6 +213,7 @@ Phases ejecutan en orden estricto: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Capa de datos | 3/3 | Complete | 2026-04-19 |
 | 4. Consultas pesadas | 4/4 | Complete | 2026-04-20 |
 | 5. UI por roles | 5/5 | Complete | 2026-04-20 |
-| 6. Despliegue LAN HTTPS | 0/? | Not started | - |
-| 7. DevEx hardening | 0/? | Not started | - |
+| 6. Despliegue LAN HTTPS | 3/3 | Complete | 2026-04-21 |
+| 7. DevEx hardening | 4/4 | Complete | 2026-04-22 |
 | 8. Rediseño UI (modo claro moderno) | 5/14 | In progress | - |
+| 9. Cloudflare Tunnel + Public Access | 0/3 | Not started | - |

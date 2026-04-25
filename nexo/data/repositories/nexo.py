@@ -23,7 +23,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session
 
 from nexo.data.dto.nexo import AuditLogRow, DepartmentRow, RoleRow, UserRow
@@ -67,6 +67,19 @@ class UserRepo:
             )
         ).scalar_one_or_none()
 
+    def get_by_login_orm(self, login: str) -> Optional[NexoUser]:
+        """Devuelve usuario activo por username o email normalizados."""
+        login_norm = login.strip().lower()
+        return self._db.execute(
+            select(NexoUser).where(
+                or_(
+                    NexoUser.email == login_norm,
+                    NexoUser.username == login_norm,
+                ),
+                NexoUser.active.is_(True),
+            )
+        ).scalar_one_or_none()
+
     def get_by_email(self, email: str) -> UserRow | None:
         """Devuelve DTO ``UserRow``. Uso desde routers / panel de audit."""
         orm = self.get_by_email_orm(email)
@@ -75,6 +88,9 @@ class UserRepo:
         return UserRow.model_validate(
             {
                 "id": orm.id,
+                "username": orm.username,
+                "name": orm.name,
+                "surname": orm.surname,
                 "email": orm.email,
                 "nombre": orm.nombre,
                 "role": orm.role,
@@ -94,6 +110,9 @@ class UserRepo:
             UserRow.model_validate(
                 {
                     "id": u.id,
+                    "username": u.username,
+                    "name": u.name,
+                    "surname": u.surname,
                     "email": u.email,
                     "nombre": u.nombre,
                     "role": u.role,

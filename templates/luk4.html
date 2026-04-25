@@ -2,13 +2,25 @@
 {% block title %}Centro de Mando — ECS Mobility{% endblock %}
 {% block page_title %}{% endblock %}
 
+{% block topbar_left %}
+{% set display_name = user_display_name(current_user, first_name_only=True) %}
+<div class="hidden md:flex items-baseline gap-1.5 min-w-0">
+  <span class="text-sm font-medium text-muted">
+    {{ now_madrid | hora_saludo if now_madrid else "Hola" }},
+  </span>
+  <span class="max-w-[160px] truncate text-base font-semibold text-heading">
+    {{ display_name }}
+  </span>
+</div>
+{% endblock %}
+
 {% block topbar_center %}
-<div class="flex items-center gap-3">
+<div x-data="bienvenidaPage()" class="flex items-center gap-3">
 
   {# Pab tabs #}
   <div class="flex items-center gap-1" role="tablist" aria-label="Selector de pabellón">
     <template x-for="p in [{k:'p5',l:'P5'},{k:'p4',l:'P4'},{k:'p3',l:'P3'},{k:'p2',l:'P2'}]" :key="p.k">
-      <button @click="$store.luk4.pabellon = p.k"
+      <button @click="$store.luk4.pabellon = p.k; if (p.k !== 'p5') { $store.luk4.kpis = { pph: null, buenas: null, malas: null }; $store.luk4.turnoActual = ''; }"
               role="tab"
               :aria-selected="($store.luk4.pabellon === p.k).toString()"
               class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-fast"
@@ -19,58 +31,33 @@
     </template>
   </div>
 
-  {# Timestamp + turno #}
-  <div x-show="$store.luk4.timestamp"
-       class="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono tabular-nums"
+  <div class="hidden lg:block w-px h-5" style="background:rgba(0,0,0,0.12);"></div>
+
+  {# KPIs compactos del pabellon activo #}
+  <div class="hidden lg:flex items-center gap-3 text-[11px] tabular-nums">
+    <div class="flex items-baseline gap-1">
+      <span class="font-semibold text-heading" x-text="$store.luk4.kpis.pph ?? '—'"></span>
+      <span class="text-[10px] text-muted">pz/h</span>
+    </div>
+    <div class="flex items-baseline gap-1 rounded-lg px-2 py-1"
+         style="background:linear-gradient(135deg, rgba(34,197,94,0.14), rgba(16,185,129,0.06)); color:#15803d;">
+      <span class="font-semibold" x-text="$store.luk4.kpis.buenas ?? '—'"></span>
+      <span class="text-[10px] opacity-75">OK</span>
+    </div>
+    <div class="flex items-baseline gap-1 rounded-lg px-2 py-1"
+         style="background:linear-gradient(135deg, rgba(239,68,68,0.14), rgba(244,63,94,0.06)); color:#dc2626;">
+      <span class="font-semibold" x-text="$store.luk4.kpis.malas ?? '—'"></span>
+      <span class="text-[10px] opacity-75">NOK</span>
+    </div>
+  </div>
+
+  {# Reloj + turno #}
+  <div class="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono tabular-nums"
        style="background:rgba(0,0,0,0.05); color:#64748b;">
-    <span x-text="$store.luk4.timestamp"></span>
+    <span x-text="clock"></span>
     <span x-show="$store.luk4.turnoActual" class="font-semibold" style="color:#6366f1;"
           x-text="'· ' + $store.luk4.turnoActual"></span>
   </div>
-
-  {# Divider #}
-  <div class="hidden sm:block w-px h-5" style="background:rgba(0,0,0,0.12);"></div>
-
-  {# Legend — only for pabs with telemetry (p5) #}
-  <div x-show="$store.luk4.pabellon === 'p5'"
-       class="hidden sm:flex items-center gap-3 text-[11px]" style="color:#94a3b8;">
-    <span class="flex items-center gap-1">
-      <span class="w-2 h-2 rounded-full shrink-0" style="background:#22c55e;"></span>Prod
-    </span>
-    <span class="flex items-center gap-1">
-      <span class="w-2 h-2 rounded-full shrink-0" style="background:#f59e0b;"></span>Incid
-    </span>
-    <span class="flex items-center gap-1">
-      <span class="w-2 h-2 rounded-full shrink-0" style="background:#94a3b8;"></span>Parada
-    </span>
-  </div>
-
-  {# Pencil (edit zones) #}
-  <button @click="window.dispatchEvent(new CustomEvent('luk4-edit-open'))"
-          title="Editar zonas"
-          x-show="!$store.luk4.editMode"
-          class="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-          style="color:#94a3b8;"
-          onmouseover="this.style.color='#6366f1';this.style.background='rgba(99,102,241,0.08)'"
-          onmouseout="this.style.color='#94a3b8';this.style.background='transparent'">
-    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
-    </svg>
-  </button>
-
-  {# Refresh + spinner — only p5 #}
-  <button x-show="$store.luk4.pabellon === 'p5' && !$store.luk4.editMode"
-          @click="window.dispatchEvent(new CustomEvent('luk4-refresh'))"
-          title="Recargar datos"
-          class="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-          style="color:#94a3b8;"
-          onmouseover="this.style.color='#6366f1';this.style.background='rgba(99,102,241,0.08)'"
-          onmouseout="this.style.color='#94a3b8';this.style.background='transparent'">
-    <svg class="w-3.5 h-3.5" :class="$store.luk4.loading ? 'animate-spin' : ''"
-         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-    </svg>
-  </button>
 
 </div>
 {% endblock %}
@@ -80,9 +67,17 @@
 <script>document.querySelector('main')?.classList.add('centro-mando-main')</script>
 <script>
 document.addEventListener('alpine:init', () => {
-  Alpine.store('luk4', { pabellon: 'p5', timestamp: '', turnoActual: '', loading: false, editMode: false });
+  Alpine.store('luk4', {
+    pabellon: 'p5',
+    timestamp: '',
+    turnoActual: '',
+    loading: false,
+    editMode: false,
+    kpis: { pph: null, buenas: null, malas: null },
+  });
 });
 </script>
+{% set display_name = user_display_name(current_user, first_name_only=True) %}
 <div x-data x-cloak class="flex flex-col" style="height:calc(100vh - 3.5rem)">
 
   <!-- ══════════════ PABELLON 5 ══════════════════════════════════════ -->
@@ -139,6 +134,8 @@ function pabPage(cfg) {
     // Detalle por turno (panel modal)
     turnoBreakdown: [], alarmasTurno: [], alarmasTurnoSummary: {}, _detailInterval: null,
     expandedTurno: null,
+    selectedShift: 'day',
+    dashboardDate: new Date().toISOString().slice(0, 10),
     // Hotspots (modo normal) — se cargan del servidor en init()
     hotspots: [],
     imgNatW: 0, imgNatH: 0, imgW: 0, imgH: 0,
@@ -164,6 +161,8 @@ function pabPage(cfg) {
     // ── Zonas: styling (color basado en estado global LUK4) ────────
     get selHs() { return this.hotspots.find(h => h.id === this.selectedZone) || null; },
     openZone(id) {
+      if (this._detailInterval) { clearInterval(this._detailInterval); this._detailInterval = null; }
+      if (this._chart) { this._chart.destroy(); this._chart = null; }
       this.selectedZone = id;
       if (!this.hasTelemetry) return;
       if (this.zoneHasData(this.selHs || {})) {
@@ -187,7 +186,265 @@ function pabPage(cfg) {
         this.turnoBreakdown = d.turnos_breakdown || [];
         this.alarmasTurno = d.alarmas_turno || [];
         this.alarmasTurnoSummary = d.alarmas_summary || {};
+        if (this.selectedShift !== 'day' && !this.turnoBreakdown.some(t => t.turno === this.selectedShift)) {
+          this.selectedShift = 'day';
+        }
       } catch {}
+    },
+    // ── MachineDashboard helpers ──────────────────────────────────
+    machineInitials() {
+      const label = (this.selHs?.label || 'M').replace(/\s+/g, '');
+      return label.slice(0, 3).toUpperCase();
+    },
+    statusLabel(status) {
+      return ({ producing: 'Produccion', incidence: 'Incidencia', stopped: 'Parada', offline: 'Sin datos' })[status] || 'Parada';
+    },
+    statusBadgeClass(status) {
+      if (status === 'producing') return 'bg-green-100 text-green-700';
+      if (status === 'incidence') return 'bg-red-100 text-red-700';
+      return 'bg-slate-200 text-slate-700';
+    },
+    statusTextClass(status) {
+      if (status === 'producing') return 'text-green-700';
+      if (status === 'incidence') return 'text-red-700';
+      return 'text-slate-700';
+    },
+    connectionState() {
+      if (!this.telemetria.estado_ts && !this.timestamp) {
+        return { label: 'Offline', class: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' };
+      }
+      if (this.loading) {
+        return { label: 'Actualizando', class: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500 animate-pulse' };
+      }
+      return { label: 'Online', class: 'bg-green-50 text-green-700', dot: 'bg-green-500' };
+    },
+    fmtNum(value, decimals = 0) {
+      if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) return '—';
+      return Number(value).toLocaleString('es-ES', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+    },
+    fmtPct(value, decimals = 0) {
+      if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) return '—';
+      return Number(value).toLocaleString('es-ES', { maximumFractionDigits: decimals, minimumFractionDigits: decimals }) + '%';
+    },
+    formatMinutes(mins) {
+      const n = Number(mins || 0);
+      if (n <= 0) return '0 min';
+      if (n < 60) return Math.round(n) + ' min';
+      return Math.floor(n / 60) + 'h ' + Math.round(n % 60) + 'm';
+    },
+    pctClass(value) {
+      const n = Number(value || 0);
+      if (n >= 75) return 'text-green-700';
+      if (n >= 50) return 'text-amber-700';
+      return 'text-red-700';
+    },
+    lastEventLabel() {
+      const status = this.zoneStatus(this.selHs || {});
+      if (status === 'producing') return 'Produccion estable detectada';
+      if (status === 'incidence') return 'Incidencia sin mensaje clasificado';
+      return 'Maquina parada o sin produccion';
+    },
+    objectiveGapText() {
+      return 'Objetivo no disponible';
+    },
+    currentStateDuration() {
+      const current = this.currentShift();
+      if (!current || !current.total_records) return '—';
+      const status = this.zoneStatus(this.selHs || {});
+      const field = status === 'producing' ? 'producing' : status === 'incidence' ? 'incidence' : 'off';
+      return this.recordCountToTime(current[field] || 0);
+    },
+    recordCountToTime(records) {
+      const mins = Number(records || 0) * (3600 / 443) / 60;
+      return this.formatMinutes(mins);
+    },
+    normalizedShifts() {
+      const byName = Object.fromEntries((this.turnoBreakdown || []).map(t => [t.turno, t]));
+      return ['T1', 'T2', 'T3'].map(name => byName[name] || {
+        turno: name, start: name === 'T1' ? '06:00' : name === 'T2' ? '14:00' : '22:00',
+        end: name === 'T1' ? '14:00' : name === 'T2' ? '22:00' : '06:00',
+        is_current: false, is_future: true, elapsed_pct: 0, total_records: 0,
+        producing: 0, incidence: 0, off: 0, other: 0, availability_pct: 0,
+        pz_buenas: 0, pz_malas: 0, pz_totales: 0, segments: [],
+      });
+    },
+    currentShift() {
+      const shifts = this.normalizedShifts();
+      if (this.selectedShift !== 'day') return shifts.find(t => t.turno === this.selectedShift) || shifts.find(t => t.is_current) || shifts[0];
+      return shifts.find(t => t.is_current) || shifts.find(t => !t.is_future) || shifts[0];
+    },
+    selectedShiftRecords() {
+      const shifts = this.normalizedShifts().filter(t => this.selectedShift === 'day' ? !t.is_future : t.turno === this.selectedShift);
+      return shifts.reduce((acc, t) => {
+        acc.total_records += Number(t.total_records || 0);
+        acc.producing += Number(t.producing || 0);
+        acc.incidence += Number(t.incidence || 0);
+        acc.off += Number(t.off || 0);
+        acc.other += Number(t.other || 0);
+        acc.pz_buenas += Number(t.pz_buenas || 0);
+        acc.pz_malas += Number(t.pz_malas || 0);
+        acc.pz_totales += Number(t.pz_totales || 0);
+        return acc;
+      }, { total_records: 0, producing: 0, incidence: 0, off: 0, other: 0, pz_buenas: 0, pz_malas: 0, pz_totales: 0 });
+    },
+    availabilityFor(records) {
+      return records.total_records > 0 ? 100 * records.producing / records.total_records : null;
+    },
+    shiftQuality(tb) {
+      const total = Number(tb.pz_buenas || 0) + Number(tb.pz_malas || 0);
+      return total > 0 ? 100 * Number(tb.pz_buenas || 0) / total : null;
+    },
+    qualityFor(records) {
+      const total = records.pz_buenas + records.pz_malas;
+      return total > 0 ? 100 * records.pz_buenas / total : null;
+    },
+    oeeEstimate(records) {
+      const availability = this.availabilityFor(records);
+      const quality = this.qualityFor(records);
+      if (availability === null || quality === null) return null;
+      return availability * quality / 100;
+    },
+    kpiContextLabel() {
+      return this.selectedShift === 'day' ? 'T1 + T2 + T3' : this.selectedShift;
+    },
+    kpiCards() {
+      const r = this.selectedShiftRecords();
+      const availability = this.availabilityFor(r);
+      const quality = this.qualityFor(r);
+      const oee = this.oeeEstimate(r);
+      const incidMins = Number(r.incidence || 0) * (3600 / 443) / 60;
+      return [
+        { key: 'total', label: 'Produccion', value: this.fmtNum(r.pz_totales || (Number(this.telemetria.piezas_buenas_hoy || 0) + Number(this.telemetria.piezas_malas_hoy || 0))), context: 'Total seleccionado', class: 'border-slate-200 bg-white', dot: 'bg-slate-400' },
+        { key: 'good', label: 'Buenas', value: this.fmtNum(r.pz_buenas || this.telemetria.piezas_buenas_hoy), context: 'OK acumulado', class: 'border-green-100 bg-green-50/45', dot: 'bg-green-500' },
+        { key: 'bad', label: 'Malas', value: this.fmtNum(r.pz_malas || this.telemetria.piezas_malas_hoy), context: 'NOK acumulado', class: 'border-red-100 bg-red-50/45', dot: Number(r.pz_malas || this.telemetria.piezas_malas_hoy || 0) > 0 ? 'bg-red-500' : 'bg-green-500' },
+        { key: 'quality', label: 'Calidad', value: this.fmtPct(quality), context: quality === null ? 'No calculable sin piezas' : 'Buenas / total', class: 'border-slate-200 bg-white', dot: quality === null ? 'bg-slate-300' : quality >= 98 ? 'bg-green-500' : 'bg-amber-500' },
+        { key: 'availability', label: 'Disponibilidad', value: this.fmtPct(availability), context: 'Tiempo produciendo', class: 'border-slate-200 bg-white', dot: availability === null ? 'bg-slate-300' : availability >= 75 ? 'bg-green-500' : 'bg-amber-500' },
+        { key: 'performance', label: 'Rendimiento', value: 'Estimado', context: 'Falta ritmo objetivo', class: 'border-amber-100 bg-amber-50/45', dot: 'bg-amber-500' },
+        { key: 'oee', label: 'OEE', value: this.fmtPct(oee), context: oee === null ? 'Parcial' : 'Disp. x calidad', class: 'border-indigo-100 bg-indigo-50/45', dot: oee === null ? 'bg-slate-300' : oee >= 65 ? 'bg-green-500' : 'bg-amber-500' },
+        { key: 'loss', label: 'Incidencia', value: this.formatMinutes(incidMins), context: 'Tiempo perdido estimado', class: 'border-red-100 bg-red-50/35', dot: incidMins > 0 ? 'bg-red-500' : 'bg-green-500' },
+      ];
+    },
+    segmentClass(state) {
+      const s = Number(state);
+      if (s === 1) return 'bg-green-500';
+      if (s === 3) return 'bg-red-500';
+      if (s === 0) return 'bg-slate-300';
+      return 'bg-amber-400';
+    },
+    segmentLabel(state) {
+      const s = Number(state);
+      if (s === 1) return 'Produccion';
+      if (s === 3) return 'Incidencia';
+      if (s === 0) return 'Sin datos / apagada';
+      return 'Otro estado';
+    },
+    segmentBlocks(tb) {
+      const elapsed = Math.min(100, Math.max(0, Number(tb?.elapsed_pct || 0)));
+      let cursor = 0;
+      return (tb?.segments || []).map(seg => {
+        const rawPct = Math.max(0, Number(seg.pct || 0));
+        const left = cursor * elapsed / 100;
+        const width = rawPct * elapsed / 100;
+        cursor += rawPct;
+        return { ...seg, left, width, pct: rawPct };
+      }).filter(seg => seg.width > 0.1);
+    },
+    timelineHourMarks(tb) {
+      const [startHourRaw, startMinRaw] = String(tb?.start || '00:00').split(':').map(Number);
+      const startHour = Number.isFinite(startHourRaw) ? startHourRaw : 0;
+      const startMin = Number.isFinite(startMinRaw) ? startMinRaw : 0;
+      return [0, 2, 4, 6, 8].map(offset => {
+        const totalMins = startHour * 60 + startMin + offset * 60;
+        const h = Math.floor(totalMins / 60) % 24;
+        const m = totalMins % 60;
+        return { pct: offset / 8 * 100, label: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}` };
+      });
+    },
+    segmentTitle(tb, seg) {
+      const mins = 480 * Number(seg.width || seg.pct || 0) / 100;
+      return `${tb.turno} · ${this.segmentLabel(seg.state)} · ${this.formatMinutes(mins)}`;
+    },
+    alarmMarkers(tb) {
+      if (!tb?.is_current || !this.alarmasTurno.length) return [];
+      return this.alarmasTurno.slice(0, 8).map((a, i) => ({ ...a, marker_pct: Math.min(96, Math.max(4, (tb.elapsed_pct || 0) - i * 2)) }));
+    },
+    shiftNarrative(tb) {
+      if (!tb.total_records) return 'Sin datos registrados';
+      if (tb.availability_pct >= 75) return 'Turno estable';
+      if (tb.incidence > tb.producing) return 'Dominan incidencias/paradas';
+      return 'Disponibilidad media';
+    },
+    shiftCause(tb) {
+      if (tb.is_future) return 'Turno no iniciado';
+      if (!tb.total_records) return 'Sin datos registrados';
+      if (tb.incidence > 0) return 'Perdida principal: incidencia';
+      if (tb.off > 0) return 'Perdida principal: sin datos/parada';
+      return 'Sin causa de perdida dominante';
+    },
+    shiftAvgRate(tb) {
+      const elapsedHours = Math.max(0.1, 8 * Number(tb?.elapsed_pct || 0) / 100);
+      const pieces = Number(tb?.pz_totales || 0);
+      if (!pieces || !tb?.total_records) return '—';
+      return this.fmtNum(pieces / elapsedHours, 0) + ' pz/h';
+    },
+    bestWorstSummary() {
+      const done = this.normalizedShifts().filter(t => !t.is_future && t.total_records);
+      if (!done.length) return 'Sin datos';
+      const best = [...done].sort((a, b) => b.availability_pct - a.availability_pct)[0];
+      const worst = [...done].sort((a, b) => a.availability_pct - b.availability_pct)[0];
+      return `Mejor ${best.turno} · peor ${worst.turno}`;
+    },
+    dayConclusion() {
+      const done = this.normalizedShifts().filter(t => !t.is_future && t.total_records);
+      if (!done.length) return 'todavia no hay suficientes datos para comparar turnos.';
+      const worst = [...done].sort((a, b) => a.availability_pct - b.availability_pct)[0];
+      if ((this.alarmasTurnoSummary.estimated_stop_minutes || 0) > 0 && worst.is_current) {
+        return `el ${worst.turno} concentra la mayor perdida de disponibilidad, con ${this.formatMinutes(this.alarmasTurnoSummary.estimated_stop_minutes)} estimados de incidencia.`;
+      }
+      return `el ${worst.turno} es el turno mas debil por disponibilidad (${this.fmtPct(worst.availability_pct)}). Revisar estados de incidencia, parada o falta de datos.`;
+    },
+    processRows() {
+      const total = Math.max(1, Number(this.telemetria.pph_total || 0));
+      const rows = [
+        { key: 'total', label: 'Total', kind: 'Linea', pph: this.telemetria.pph_total, cycle: this.telemetria.ciclo_total, bar: 'bg-slate-700' },
+        { key: 'torno', label: 'Torno', kind: 'Mecanizado', pph: this.telemetria.pph_torno, cycle: this.telemetria.ciclo_torno, bar: 'bg-amber-500' },
+        { key: 'temple', label: 'Temple', kind: 'Tratamiento', pph: this.telemetria.pph_temple, cycle: this.telemetria.ciclo_temple, bar: 'bg-red-500' },
+        { key: 'revenido', label: 'Revenido', kind: 'Salida', pph: this.telemetria.pph_revenido, cycle: this.telemetria.ciclo_revenido, bar: 'bg-violet-500' },
+      ];
+      return rows.map(r => ({ ...r, width: Math.max(4, Math.min(100, Number(r.pph || 0) / total * 100)) }));
+    },
+    bottleneckProcess() {
+      const candidates = this.processRows().filter(r => r.key !== 'total' && Number(r.pph || 0) > 0);
+      if (!candidates.length) return { label: 'No disponible', pph: null };
+      return [...candidates].sort((a, b) => Number(a.pph || 0) - Number(b.pph || 0))[0];
+    },
+    bottleneckNarrative() {
+      const b = this.bottleneckProcess();
+      if (!b.pph) return 'No hay suficientes datos por fase para detectar el proceso limitante.';
+      const total = Number(this.telemetria.pph_total || 0);
+      const gap = total > 0 ? Math.round(total - Number(b.pph || 0)) : 0;
+      return `${b.label} aparece como posible proceso limitante ahora mismo (${this.fmtNum(b.pph)} pz/h). Diferencia frente a la linea: ${this.fmtNum(gap)} pz/h.`;
+    },
+    lossCards() {
+      const r = this.selectedShiftRecords();
+      const real = r.pz_totales || Number(this.telemetria.piezas_buenas_hoy || 0) + Number(this.telemetria.piezas_malas_hoy || 0);
+      const pph = Number(this.telemetria.pph_total || 0);
+      const plannedHours = this.selectedShift === 'day' ? 24 : 8;
+      const theoretical = pph > 0 ? Math.round(pph * plannedHours) : null;
+      const gap = theoretical !== null ? real - theoretical : null;
+      const lostByIncidence = pph > 0 ? Math.round(pph * Number(this.alarmasTurnoSummary.estimated_stop_minutes || 0) / 60) : null;
+      const nok = r.pz_malas || Number(this.telemetria.piezas_malas_hoy || 0);
+      return [
+        { label: 'Teorica estimada', value: theoretical === null ? '—' : this.fmtNum(theoretical), context: pph > 0 ? `${this.fmtNum(pph)} pz/h x ${plannedHours}h` : 'Sin ritmo actual' },
+        { label: 'Gap piezas', value: gap === null ? '—' : this.fmtNum(gap), context: 'Real - estimada' },
+        { label: 'Impacto incidencia', value: lostByIncidence === null ? '—' : this.fmtNum(lostByIncidence), context: 'Piezas estimadas' },
+        { label: 'Impacto calidad', value: this.fmtNum(nok), context: 'Piezas NOK' },
+      ];
+    },
+    lossNarrative() {
+      const mins = Number(this.alarmasTurnoSummary.estimated_stop_minutes || 0);
+      if (mins > 0) return `Principal impacto visible: ${this.formatMinutes(mins)} de incidencia estimada en el turno actual.`;
+      return 'No hay perdida por incidencia registrada en el turno actual. El rendimiento requiere objetivo de ritmo para cerrarse con precision.';
     },
     renderChart() {
       if (!this.timeline.length) return;
@@ -419,6 +676,12 @@ function pabPage(cfg) {
         this.timeline=d.timeline||[]; this.topAlarmas=d.top_alarmas||[]; this.turnoActual=newTurno;
         Alpine.store('luk4').timestamp = this.timestamp;
         Alpine.store('luk4').turnoActual = this.turnoActual;
+        Alpine.store('luk4').kpis = {
+          pph: this.telemetria.pph_total ?? null,
+          buenas: this.telemetria.piezas_buenas_hoy ?? null,
+          malas: this.telemetria.piezas_malas_hoy ?? null,
+        };
+        if (this.selectedZone) this.$nextTick(() => requestAnimationFrame(() => this.renderChart()));
       } catch{}
       this.loading = false;
       if (Alpine.store('luk4').pabellon === this.pab) Alpine.store('luk4').loading = false;

@@ -24,6 +24,7 @@ la UI es pura Jinja2/Alpine.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -68,6 +69,9 @@ def _serialize_user(u: NexoUser) -> dict:
     )
     return {
         "id": u.id,
+        "username": u.username,
+        "name": u.name,
+        "surname": u.surname,
         "email": u.email,
         # Plan 08-03 / UIREDO-02: nombre opcional; template muestra
         # "(sin nombre)" si es None. El openEdit() del Alpine reinyecta
@@ -92,6 +96,24 @@ def _normalize_nombre(nombre: str | None) -> str | None:
         return None
     stripped = nombre.strip()
     return stripped if stripped else None
+
+
+def _normalize_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped if stripped else None
+
+
+def _normalize_username(username: str | None) -> str:
+    value = (username or "").strip().lower()
+    if not value:
+        return ""
+    return re.sub(r"\s+", ".", value)
+
+
+def _display_name(name: str | None, surname: str | None) -> str | None:
+    return _normalize_text(" ".join(p for p in [name, surname] if p))
 
 
 def _render_list(
@@ -135,6 +157,9 @@ async def listar(
 async def crear(
     request: Request,
     db: DbNexo,
+    username: str = Form(...),
+    name: str = Form(...),
+    surname: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
     password_repetir: str = Form(...),
@@ -142,10 +167,21 @@ async def crear(
     nombre: str | None = Form(None),
     departments: list[str] = Form(default=[]),
 ):
+    username_norm = _normalize_username(username)
+    name_norm = _normalize_text(name)
+    surname_norm = _normalize_text(surname)
     email_norm = email.strip().lower()
-    nombre_norm = _normalize_nombre(nombre)
+    nombre_norm = _display_name(name_norm, surname_norm) or _normalize_nombre(nombre)
 
     # Validaciones
+    if not username_norm:
+        return _render_list(request, db, error="Username obligatorio.", open_create=True)
+    if not name_norm:
+        return _render_list(request, db, error="Nombre obligatorio.", open_create=True)
+    if not surname_norm:
+        return _render_list(request, db, error="Apellidos obligatorios.", open_create=True)
+    if not email_norm or "@" not in email_norm:
+        return _render_list(request, db, error="Correo no valido.", open_create=True)
     if role not in VALID_ROLES:
         return _render_list(
             request, db, error=f"Rol no valido: {role}", open_create=True
@@ -166,6 +202,16 @@ async def crear(
             return _render_list(
                 request, db, error=f"Departamento invalido: {code}", open_create=True
             )
+
+    if db.execute(
+        select(NexoUser).where(NexoUser.username == username_norm)
+    ).scalar_one_or_none():
+        return _render_list(
+            request,
+            db,
+            error=f"Ya existe un usuario con username {username_norm}.",
+            open_create=True,
+        )
 
     # Unicidad de email
     if db.execute(
@@ -190,6 +236,9 @@ async def crear(
         )
 
     new_user = NexoUser(
+        username=username_norm,
+        name=name_norm,
+        surname=surname_norm,
         email=email_norm,
         nombre=nombre_norm,
         password_hash=hash_password(password),
@@ -218,6 +267,10 @@ async def editar(
     user_id: int,
     request: Request,
     db: DbNexo,
+    username: str = Form(...),
+    name: str = Form(...),
+    surname: str = Form(...),
+    email: str = Form(...),
     role: str = Form(...),
     nombre: str | None = Form(None),
     departments: list[str] = Form(default=[]),
@@ -227,11 +280,24 @@ async def editar(
     if user is None:
         raise HTTPException(404, "Usuario no encontrado")
 
+    username_norm = _normalize_username(username)
+    name_norm = _normalize_text(name)
+    surname_norm = _normalize_text(surname)
+    email_norm = email.strip().lower()
+
     # Safeguard: el propietario no puede cambiarse a si mismo de rol ni
     # desactivarse (evita locking out del unico admin).
     current_user = request.state.user
     is_self = current_user.id == user.id
 
+    if not username_norm:
+        return _render_list(request, db, error="Username obligatorio.", edit_id=user_id)
+    if not name_norm:
+        return _render_list(request, db, error="Nombre obligatorio.", edit_id=user_id)
+    if not surname_norm:
+        return _render_list(request, db, error="Apellidos obligatorios.", edit_id=user_id)
+    if not email_norm or "@" not in email_norm:
+        return _render_list(request, db, error="Correo no valido.", edit_id=user_id)
     if role not in VALID_ROLES:
         return _render_list(
             request, db, error=f"Rol no valido: {role}", edit_id=user_id
@@ -264,13 +330,43 @@ async def editar(
             .all()
         )
 
+    username_dup = db.execute(
+        select(NexoUser).where(
+            NexoUser.username == username_norm,
+            NexoUser.id != user.id,
+        )
+    ).scalar_one_or_none()
+    if username_dup:
+        return _render_list(
+            request,
+            db,
+            error=f"Ya existe un usuario con username {username_norm}.",
+            edit_id=user_id,
+        )
+
+    email_dup = db.execute(
+        select(NexoUser).where(
+            NexoUser.email == email_norm,
+            NexoUser.id != user.id,
+        )
+    ).scalar_one_or_none()
+    if email_dup:
+        return _render_list(
+            request,
+            db,
+            error=f"Ya existe un usuario con correo {email_norm}.",
+            edit_id=user_id,
+        )
+
     role_changed = user.role != role
     deactivated_now = user.active and not new_active
 
+    user.username = username_norm
+    user.name = name_norm
+    user.surname = surname_norm
+    user.email = email_norm
     user.role = role
-    # Plan 08-03: normaliza empty/whitespace a NULL (fallback a email
-    # local-part en topbar/bienvenida).
-    user.nombre = _normalize_nombre(nombre)
+    user.nombre = _display_name(name_norm, surname_norm) or _normalize_nombre(nombre)
     user.departments = list(new_depts)
     user.active = new_active
     db.commit()

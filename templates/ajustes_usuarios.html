@@ -34,8 +34,10 @@
     <table class="w-full text-sm">
       <thead class="bg-surface-100 text-gray-600 text-xs uppercase tracking-wide">
         <tr>
+          <th class="text-left px-4 py-2 font-medium">Username</th>
           <th class="text-left px-4 py-2 font-medium">Nombre</th>
-          <th class="text-left px-4 py-2 font-medium">Email</th>
+          <th class="text-left px-4 py-2 font-medium">Apellidos</th>
+          <th class="text-left px-4 py-2 font-medium">Correo</th>
           <th class="text-left px-4 py-2 font-medium">Rol</th>
           <th class="text-left px-4 py-2 font-medium">Departamentos</th>
           <th class="text-left px-4 py-2 font-medium">Estado</th>
@@ -47,10 +49,24 @@
         {% for u in users %}
         <tr class="border-t border-surface-200 hover:bg-surface-50">
           <td class="px-4 py-3">
-            {% if u.nombre %}
-              <span class="text-gray-800">{{ u.nombre }}</span>
+            {% if u.username %}
+              <span class="font-mono text-gray-800">{{ u.username }}</span>
+            {% else %}
+              <span class="text-gray-400 text-xs italic">(sin username)</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if u.name %}
+              <span class="text-gray-800">{{ u.name }}</span>
             {% else %}
               <span class="text-gray-400 text-xs italic">(sin nombre)</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if u.surname %}
+              <span class="text-gray-800">{{ u.surname }}</span>
+            {% else %}
+              <span class="text-gray-400 text-xs italic">(sin apellidos)</span>
             {% endif %}
           </td>
           <td class="px-4 py-3">
@@ -135,34 +151,57 @@
       </div>
 
       <form :action="formAction" method="post" class="space-y-4">
-        {# Plan 08-03 / UIREDO-02 / D-24+D-26 — campo opcional con marcador `(opcional)`.
-           Se renderiza ANTES del email para que el orden natural de lectura
-           coincida con el topbar/bienvenida (Nombre -> Email -> credenciales). #}
         <div>
-          <label class="block text-sm font-semibold text-body mb-1" for="user-nombre">
-            Nombre <span class="text-muted font-normal">(opcional)</span>
+          <label class="block text-sm font-semibold text-body mb-1" for="user-username">
+            Username
           </label>
           <input type="text"
-                 id="user-nombre"
-                 name="nombre"
-                 x-model="form.nombre"
-                 maxlength="120"
-                 autocomplete="name"
+                 id="user-username"
+                 name="username"
+                 x-model="form.username"
+                 maxlength="80"
+                 required
+                 autocomplete="username"
                  class="block w-full px-3 py-2 rounded-lg border border-surface-300
                         focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm">
-          <p class="mt-1 text-xs text-gray-500">
-            Se muestra en la barra superior y en la pantalla de bienvenida.
-            Si se deja vacio, se usa la parte local del email.
-          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-semibold text-body mb-1" for="user-name">
+              Nombre
+            </label>
+            <input type="text"
+                   id="user-name"
+                   name="name"
+                   x-model="form.name"
+                   maxlength="80"
+                   required
+                   autocomplete="given-name"
+                   class="block w-full px-3 py-2 rounded-lg border border-surface-300
+                          focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-body mb-1" for="user-surname">
+              Apellidos
+            </label>
+            <input type="text"
+                   id="user-surname"
+                   name="surname"
+                   x-model="form.surname"
+                   maxlength="120"
+                   required
+                   autocomplete="family-name"
+                   class="block w-full px-3 py-2 rounded-lg border border-surface-300
+                          focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm">
+          </div>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Correo</label>
           <input type="email" name="email" x-model="form.email" required
-                 :readonly="mode === 'edit'"
                  class="block w-full px-3 py-2 rounded-lg border border-surface-300
-                        focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm"
-                 :class="mode === 'edit' ? 'bg-surface-50 text-gray-500' : ''">
+                        focus:ring-2 focus:ring-brand-400 focus:border-brand-500 outline-none text-sm">
         </div>
 
         <template x-if="mode === 'create'">
@@ -273,6 +312,9 @@ function usuariosPanel() {
     formAction: '',
     form: {
       id: null,
+      username: '',
+      name: '',
+      surname: '',
       email: '',
       nombre: '',
       password: '',
@@ -294,7 +336,8 @@ function usuariosPanel() {
       this.mode = 'create';
       this.formAction = '/ajustes/usuarios/crear';
       this.form = {
-        id: null, email: '', nombre: '', password: '', password_repetir: '',
+        id: null, username: '', name: '', surname: '', email: '', nombre: '',
+        password: '', password_repetir: '',
         role: 'usuario', departments: [], active: true,
       };
       this.showForm = true;
@@ -304,6 +347,9 @@ function usuariosPanel() {
       this.formAction = `/ajustes/usuarios/${user.id}/editar`;
       this.form = {
         id: user.id,
+        username: user.username || '',
+        name: user.name || '',
+        surname: user.surname || '',
         email: user.email,
         // Plan 08-03: user.nombre puede ser null (columna nullable);
         // en ese caso el input queda vacio y el backend persiste NULL.

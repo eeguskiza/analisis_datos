@@ -1,0 +1,410 @@
+<!-- ── MachineDashboard ──────────────────────────────────────── -->
+<div x-show="selectedZone"
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-4"
+     @click.self="closeZone()"
+     @keydown.escape.window="closeZone()">
+  <div class="absolute inset-0 bg-slate-950/55" @click="closeZone()"></div>
+
+  <section x-show="selectedZone"
+           x-ref="machineDashboard"
+           x-transition:enter="transition ease-out duration-150"
+           x-transition:enter-start="opacity-0 scale-95"
+           x-transition:enter-end="opacity-100 scale-100"
+           x-transition:leave="transition ease-in duration-100"
+           x-transition:leave-start="opacity-100 scale-100"
+           x-transition:leave-end="opacity-0 scale-95"
+           class="relative w-full max-w-[98vw] h-[92vh] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl">
+
+    <!-- Header maquina -->
+    <header class="shrink-0 border-b border-slate-200 bg-white">
+      <div class="h-1"
+           :class="zoneStatus(selHs || {}) === 'producing' ? 'bg-green-500' : zoneStatus(selHs || {}) === 'incidence' ? 'bg-red-500' : 'bg-slate-400'"></div>
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-5">
+        <div class="min-w-0 flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg border bg-slate-900 text-sm font-black text-white" x-text="machineInitials()"></div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 class="truncate text-xl font-semibold tracking-normal text-slate-950" x-text="selHs?.label || 'Maquina'"></h2>
+              <span class="rounded-md px-2.5 py-1 text-xs font-bold uppercase"
+                    :class="statusBadgeClass(zoneStatus(selHs || {}))"
+                    x-text="statusLabel(zoneStatus(selHs || {}))"></span>
+            </div>
+            <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+              <span class="font-mono font-semibold text-slate-700" x-text="(selHs?.source || 'none').toUpperCase()"></span>
+              <span>Turno <b class="text-slate-700" x-text="turnoActual || '—'"></b></span>
+              <span>Ultimo dato <b class="font-mono text-slate-700" x-text="telemetria.estado_ts || timestamp || '—'"></b></span>
+              <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold"
+                    :class="connectionState().class">
+                <span class="h-1.5 w-1.5 rounded-full" :class="connectionState().dot"></span>
+                <span x-text="connectionState().label"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
+          <select class="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
+                  :value="selectedZone"
+                  @change="openZone($event.target.value)">
+            <template x-for="hs in hotspots" :key="hs.id">
+              <option :value="hs.id" x-text="hs.label"></option>
+            </template>
+          </select>
+          <input type="date" x-model="dashboardDate"
+                 class="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700">
+          <select x-model="selectedShift"
+                  class="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700">
+            <option value="day">Dia completo</option>
+            <option value="T1">T1</option>
+            <option value="T2">T2</option>
+            <option value="T3">T3</option>
+          </select>
+          <button @click="refresh(); fetchTurnoDetail()"
+                  title="Refrescar"
+                  class="h-9 w-9 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
+            <svg class="mx-auto h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+          <button @click="$refs.machineDashboard?.requestFullscreen?.()"
+                  title="Pantalla completa"
+                  class="h-9 w-9 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
+            <svg class="mx-auto h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4h4m8 0h4v4M4 16v4h4m12-4v4h-4"/></svg>
+          </button>
+          <button @click="closeZone()"
+                  title="Cerrar"
+                  class="h-9 w-9 rounded-lg bg-slate-900 text-white hover:bg-slate-700">
+            <svg class="mx-auto h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <template x-if="!zoneHasData(selHs || {})">
+      <div class="flex h-[calc(92vh-78px)] items-center justify-center">
+        <div class="max-w-sm text-center">
+          <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"/></svg>
+          </div>
+          <p class="text-sm font-semibold text-slate-700">Sin telemetria conectada</p>
+          <p class="mt-1 text-xs text-slate-500">La zona <span class="font-mono" x-text="selHs?.label"></span> existe en el mapa, pero su fuente no entrega datos para este panel.</p>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="zoneHasData(selHs || {})">
+      <main class="h-[calc(92vh-78px)] overflow-y-auto p-4 lg:p-5">
+        <div class="grid gap-4 xl:grid-cols-[360px_1fr_340px]">
+
+          <!-- CurrentStatusPanel -->
+          <section class="rounded-xl border bg-white p-4 shadow-sm"
+                   :class="zoneStatus(selHs || {}) === 'incidence' ? 'border-red-200' : zoneStatus(selHs || {}) === 'producing' ? 'border-green-200' : 'border-slate-200'">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Estado vivo</div>
+                <div class="mt-2 text-3xl font-black uppercase leading-none"
+                     :class="statusTextClass(zoneStatus(selHs || {}))"
+                     x-text="statusLabel(zoneStatus(selHs || {}))"></div>
+              </div>
+              <div class="rounded-lg px-2 py-1 text-right"
+                   :class="zoneStatus(selHs || {}) === 'incidence' ? 'bg-red-50 text-red-700' : zoneStatus(selHs || {}) === 'producing' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-600'">
+                <div class="text-[9px] font-bold uppercase">Duracion</div>
+                <div class="font-mono text-sm font-black" x-text="currentStateDuration()"></div>
+              </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <div class="text-[10px] font-bold uppercase text-slate-500">Ritmo actual</div>
+                <div class="mt-1 flex items-baseline gap-1">
+                  <span class="text-4xl font-black tabular-nums text-slate-950" x-text="fmtNum(telemetria.pph_total)"></span>
+                  <span class="text-xs text-slate-500">pz/h</span>
+                </div>
+                <div class="text-[11px] text-slate-500" x-text="objectiveGapText()"></div>
+              </div>
+              <div>
+                <div class="text-[10px] font-bold uppercase text-slate-500">Ciclo actual</div>
+                <div class="mt-1 flex items-baseline gap-1">
+                  <span class="text-4xl font-black tabular-nums text-slate-950" x-text="fmtNum(telemetria.ciclo_total, 1)"></span>
+                  <span class="text-xs text-slate-500">s</span>
+                </div>
+                <div class="text-[11px] text-slate-500">Objetivo no disponible</div>
+              </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-2">
+              <div class="rounded-lg bg-indigo-50 px-3 py-2">
+                <div class="text-[9px] font-bold uppercase text-indigo-700">Auto</div>
+                <div class="font-mono text-xl font-black text-indigo-700" x-text="fmtPct(telemetria.pct_auto)"></div>
+                <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-indigo-100">
+                  <div class="h-full rounded-full bg-indigo-600" :style="'width:' + Math.max(0, Math.min(100, Number(telemetria.pct_auto || 0))) + '%'"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- KPIGrid -->
+          <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">KPIs del turno</div>
+                <div class="text-xs text-slate-500" x-text="selectedShift === 'day' ? 'Vista dia completo' : 'Vista ' + selectedShift"></div>
+              </div>
+              <span class="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600" x-text="kpiContextLabel()"></span>
+            </div>
+            <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <template x-for="card in kpiCards()" :key="card.key">
+                <div class="rounded-lg border p-3" :class="card.class">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-[10px] font-bold uppercase text-slate-500" x-text="card.label"></div>
+                    <span class="h-2 w-2 rounded-full" :class="card.dot"></span>
+                  </div>
+                  <div class="mt-2 text-2xl font-black tabular-nums text-slate-950" x-text="card.value"></div>
+                  <div class="mt-1 text-[11px] text-slate-500" x-text="card.context"></div>
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <!-- AlarmPanel compacto -->
+          <aside class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Incidencias y alarmas</div>
+                <div class="text-xs text-slate-500">Turno <span x-text="turnoActual || '—'"></span></div>
+              </div>
+              <span class="rounded-md px-2 py-1 text-xs font-black"
+                    :class="alarmasTurno.length ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"
+                    x-text="alarmasTurno.length ? alarmasTurno.length : 'Limpio'"></span>
+            </div>
+
+            <template x-if="alarma">
+              <div class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+                <div class="text-[10px] font-bold uppercase text-red-600">Activa ahora</div>
+                <div class="mt-1 text-sm font-semibold leading-snug text-red-900" x-text="alarma.mensaje"></div>
+                <div class="mt-2 text-[11px] text-red-700">
+                  <span x-text="alarma.componente"></span> · codigo <span class="font-mono" x-text="alarma.codigo"></span>
+                </div>
+              </div>
+            </template>
+
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <div class="rounded-lg bg-slate-50 p-3">
+                <div class="text-[9px] font-bold uppercase text-slate-500">Tiempo perdido</div>
+                <div class="mt-1 font-mono text-xl font-black text-slate-900" x-text="formatMinutes(alarmasTurnoSummary.estimated_stop_minutes || 0)"></div>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-3">
+                <div class="text-[9px] font-bold uppercase text-slate-500">Codigos</div>
+                <div class="mt-1 font-mono text-xl font-black text-slate-900" x-text="alarmasTurnoSummary.distinct_codes || 0"></div>
+              </div>
+            </div>
+
+            <div class="mt-3 max-h-40 space-y-2 overflow-y-auto pr-1" x-show="alarmasTurno.length">
+              <template x-for="a in alarmasTurno" :key="a.codigo">
+                <div class="rounded-lg border border-slate-200 px-3 py-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="truncate text-xs font-bold text-slate-800" x-text="a.componente"></span>
+                    <span class="text-[10px] font-bold text-red-600" x-text="'x' + a.count"></span>
+                  </div>
+                  <div class="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-600" x-text="a.mensaje"></div>
+                  <div class="mt-1 flex justify-between text-[10px] text-slate-400">
+                    <span>desde <b x-text="a.first_seen || '—'"></b></span>
+                    <span x-text="'~' + formatMinutes(a.estimated_minutes || 0)"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div x-show="!alarmasTurno.length && !alarma" class="mt-3 rounded-lg bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Turno limpio</div>
+          </aside>
+        </div>
+
+        <!-- ShiftTimeline protagonista -->
+        <section class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Linea temporal T1 / T2 / T3</div>
+              <div class="text-xs text-slate-500">Barra temporal real de 8 horas por turno, con estados posicionados sobre el horario.</div>
+            </div>
+            <div class="flex items-center gap-3 text-[10px] font-semibold text-slate-500">
+              <span class="flex items-center gap-1"><span class="h-2 w-2 rounded bg-green-500"></span>Produccion</span>
+              <span class="flex items-center gap-1"><span class="h-2 w-2 rounded bg-red-500"></span>Incidencia</span>
+              <span class="flex items-center gap-1"><span class="h-2 w-2 rounded bg-amber-400"></span>Otros</span>
+              <span class="flex items-center gap-1"><span class="h-2 w-2 rounded bg-slate-300"></span>Sin datos</span>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <template x-for="tb in normalizedShifts()" :key="tb.turno">
+              <div class="grid gap-3 rounded-lg border p-3 lg:grid-cols-[140px_1fr]"
+                   :class="tb.is_current ? 'border-indigo-200 bg-indigo-50/35' : tb.is_future ? 'border-dashed border-slate-200 bg-slate-50/60 opacity-70' : 'border-slate-200 bg-white'">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="rounded-md px-2 py-1 text-xs font-black"
+                          :class="tb.is_current ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'"
+                          x-text="tb.turno"></span>
+                    <span x-show="tb.is_current" class="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                  </div>
+                  <div class="mt-2 font-mono text-xs text-slate-500" x-text="tb.start + ' - ' + tb.end"></div>
+                  <div class="mt-1 text-[11px] text-slate-500" x-text="tb.is_future ? 'No iniciado' : shiftNarrative(tb)"></div>
+                </div>
+
+                <div class="min-w-0">
+                  <div class="relative h-9 overflow-hidden rounded-lg bg-slate-100">
+                    <template x-for="mark in timelineHourMarks(tb)" :key="tb.turno + '-' + mark.label">
+                      <div class="absolute inset-y-0 border-l border-white/70" :style="'left:' + mark.pct + '%'">
+                        <span class="absolute top-0 ml-1 hidden text-[9px] font-mono text-slate-400 sm:block" x-text="mark.label"></span>
+                      </div>
+                    </template>
+                    <div class="absolute inset-y-0 left-0 bg-slate-200/40"
+                         :style="'width:' + Math.min(100, Math.max(0, tb.elapsed_pct || 0)) + '%'"></div>
+                    <template x-for="(seg, si) in segmentBlocks(tb)" :key="si">
+                        <button type="button"
+                                class="absolute inset-y-0 border-r border-white/35"
+                                :title="segmentTitle(tb, seg)"
+                                :style="'left:' + seg.left + '%; width:' + seg.width + '%'"
+                                :class="segmentClass(seg.state)">
+                        </button>
+                    </template>
+                    <div x-show="tb.is_current"
+                         class="absolute inset-y-0 w-px bg-slate-950/70"
+                         :style="'left:' + Math.min(100, Math.max(0, tb.elapsed_pct || 0)) + '%'"></div>
+                    <template x-for="a in alarmMarkers(tb)" :key="a.codigo">
+                      <span class="absolute top-1 h-2 w-2 -translate-x-1/2 rounded-full bg-red-700 ring-2 ring-white"
+                            :title="a.mensaje"
+                            :style="'left:' + a.marker_pct + '%'"></span>
+                    </template>
+                  </div>
+                  <div class="mt-1 flex justify-between font-mono text-[10px] text-slate-400">
+                    <span x-text="tb.start"></span>
+                    <span x-text="tb.end"></span>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <div class="mt-4 grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+          <!-- ShiftComparison -->
+          <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Comparativa de turnos</div>
+                <div class="text-xs text-slate-500">Que turno va mejor y por que.</div>
+              </div>
+              <span class="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600" x-text="bestWorstSummary()"></span>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-3">
+              <template x-for="tb in normalizedShifts()" :key="'cmp-' + tb.turno">
+                <div class="rounded-lg border border-slate-200 p-3" :class="tb.is_current ? 'bg-indigo-50/40' : 'bg-white'">
+                  <div class="flex items-center justify-between">
+                    <span class="font-black text-slate-900" x-text="tb.turno"></span>
+                    <span class="text-xs font-bold" :class="pctClass(tb.availability_pct)" x-text="tb.total_records ? fmtPct(tb.availability_pct) : '—'"></span>
+                  </div>
+                  <div class="mt-3 space-y-2 text-xs">
+                    <div class="flex justify-between"><span class="text-slate-500">Produccion</span><b x-text="fmtNum(tb.pz_totales)"></b></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Calidad</span><b x-text="fmtPct(shiftQuality(tb))"></b></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Ritmo medio</span><b x-text="shiftAvgRate(tb)"></b></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Tiempo prod.</span><b x-text="recordCountToTime(tb.producing)"></b></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Tiempo incid.</span><b class="text-red-700" x-text="recordCountToTime(tb.incidence)"></b></div>
+                  </div>
+                  <div class="mt-3 rounded-md bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600" x-text="shiftCause(tb)"></div>
+                </div>
+              </template>
+            </div>
+
+            <div class="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-950">
+              <b>Conclusion del dia:</b>
+              <span x-text="dayConclusion()"></span>
+            </div>
+          </section>
+
+          <!-- TrendChart -->
+          <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Ritmo y ciclo en el tiempo</div>
+                <div class="text-xs text-slate-500">pz/h por proceso, sombreado por turno.</div>
+              </div>
+              <span class="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600" x-text="timeline.length + ' puntos'"></span>
+            </div>
+            <div x-show="timeline.length" class="h-64">
+              <canvas x-ref="chartCanvas" class="h-full w-full"></canvas>
+            </div>
+            <div x-show="!timeline.length" class="rounded-lg bg-slate-50 py-10 text-center text-sm text-slate-500">No hay serie de ritmo para el periodo.</div>
+          </section>
+        </div>
+
+        <div class="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr_340px]">
+          <!-- ProcessCapacity -->
+          <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Capacidad por proceso</div>
+                <div class="text-xs text-slate-500">Comparativa de fases y cuello de botella.</div>
+              </div>
+              <span class="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700" x-text="'Limitante: ' + bottleneckProcess().label"></span>
+            </div>
+            <div class="space-y-3">
+              <template x-for="p in processRows()" :key="p.key">
+                <div class="grid grid-cols-[100px_1fr_64px_64px] items-center gap-3">
+                  <div>
+                    <div class="text-sm font-bold text-slate-900" x-text="p.label"></div>
+                    <div class="text-[10px] uppercase text-slate-500" x-text="p.kind"></div>
+                  </div>
+                  <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+                    <div class="h-full rounded-full" :class="p.bar" :style="'width:' + p.width + '%'"></div>
+                  </div>
+                  <div class="text-right font-mono text-sm font-black" x-text="fmtNum(p.pph)"></div>
+                  <div class="text-right font-mono text-xs text-slate-500" x-text="fmtNum(p.cycle, 1) + 's'"></div>
+                </div>
+              </template>
+            </div>
+            <div class="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600" x-text="bottleneckNarrative()"></div>
+          </section>
+
+          <!-- LossAnalysis -->
+          <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3">
+              <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Analisis de perdidas</div>
+              <div class="text-xs text-slate-500">Traduccion de datos tecnicos a impacto productivo.</div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <template x-for="loss in lossCards()" :key="loss.label">
+                <div class="rounded-lg bg-slate-50 p-3">
+                  <div class="text-[9px] font-bold uppercase text-slate-500" x-text="loss.label"></div>
+                  <div class="mt-1 font-mono text-2xl font-black text-slate-950" x-text="loss.value"></div>
+                  <div class="mt-1 text-[11px] text-slate-500" x-text="loss.context"></div>
+                </div>
+              </template>
+            </div>
+            <div class="mt-3 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-900" x-text="lossNarrative()"></div>
+          </section>
+
+          <!-- Empty/future multi-machine readiness -->
+          <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Ficha reutilizable</div>
+            <div class="mt-2 rounded-lg border border-slate-200 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <div class="font-bold text-slate-900" x-text="selHs?.label || 'Maquina'"></div>
+                  <div class="text-[11px] text-slate-500" x-text="statusLabel(zoneStatus(selHs || {})) + ' · ' + (telemetria.estado_ts || timestamp || '—')"></div>
+                </div>
+                <span class="rounded-md px-2 py-1 text-[10px] font-bold" :class="statusBadgeClass(zoneStatus(selHs || {}))" x-text="fmtNum(telemetria.pph_total) + ' pz/h'"></span>
+              </div>
+            <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                <template x-for="(seg, si) in segmentBlocks(currentShift() || {})" :key="'mini-' + si">
+                  <span class="inline-block h-full align-top" :class="segmentClass(seg.state)" :style="'width:' + seg.width + '%'"></span>
+                </template>
+              </div>
+            </div>
+            <div class="mt-3 text-xs leading-relaxed text-slate-500">Este bloque usa los mismos helpers de estado, KPI y timeline para una futura vista multi-maquina tipo grid.</div>
+          </section>
+        </div>
+      </main>
+    </template>
+  </section>
+</div>

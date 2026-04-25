@@ -1,13 +1,13 @@
-"""Regression for Phase 8 / Plan 08-04: /bienvenida landing.
+"""Regression for Phase 8 / Plan 08-04: dashboard welcome header.
 
 Locks:
-1. Post-login redirect targets /bienvenida (not /).
+1. Post-login redirect targets /.
 2. must_change_password branch still redirects to /cambiar-password.
-3. GET /bienvenida renders for any authenticated user (propietario + usuario).
-4. GET /bienvenida without cookie redirects to /login (AuthMiddleware global).
+3. GET / renders the welcome header for any authenticated user.
+4. GET /bienvenida redirects to / for authenticated users.
 5. hora_saludo filter returns the correct Spanish band per hour (boundary
    cases 06/11/12/20/21/05).
-6. The template renders the reloj Alpine component + greeting + primary CTA.
+6. The dashboard renders the reloj Alpine component + compact greeting overlay.
 
 Patrón reutilizado de ``tests/routers/test_html_get_guarded.py`` y
 ``tests/auth/test_rbac_smoke.py`` — integration tests que requieren
@@ -243,16 +243,14 @@ def _login(c: TestClient, email: str) -> tuple[int, str, str]:
 
 
 @_integration
-def test_post_login_redirects_to_bienvenida(client: TestClient):
-    """Login OK de un propietario normal redirige a /bienvenida (Plan 08-04)."""
+def test_post_login_redirects_to_dashboard(client: TestClient):
+    """Login OK de un propietario normal redirige al dashboard."""
     email = f"propietario{TEST_DOMAIN}"
     _create_user(email, role="propietario", dept_codes=[])
 
     status, location, cookie = _login(client, email)
     assert status in (302, 303), f"login: {status}"
-    assert location == "/bienvenida", (
-        f"Esperado /bienvenida, recibido {location!r}"
-    )
+    assert location == "/", f"Esperado /, recibido {location!r}"
     assert cookie, "debe setear cookie nexo_session"
 
 
@@ -276,25 +274,25 @@ def test_post_login_must_change_password_still_redirects_to_change(
     )
 
 
-# ── /bienvenida route render ────────────────────────────────────────────────
+# ── Dashboard welcome header ────────────────────────────────────────────────
 
 
 @_integration
-def test_bienvenida_route_renders_for_propietario(client: TestClient):
-    """Propietario autenticado ve la landing con todos los componentes."""
+def test_dashboard_renders_welcome_for_propietario(client: TestClient):
+    """Propietario autenticado ve el dashboard con saludo integrado en el mapa."""
     email = f"owner{TEST_DOMAIN}"
     _create_user(email, role="propietario", dept_codes=[])
     _, _, cookie = _login(client, email)
     assert cookie
 
     r = client.get(
-        "/bienvenida",
+        "/",
         cookies={"nexo_session": cookie},
         headers={"Accept": "text/html"},
     )
     assert r.status_code == 200, r.text[:500]
     body = r.text
-    assert "Ir a Centro de Mando" in body
+    assert "Centro de Mando" in body
     assert 'x-data="bienvenidaPage()"' in body
     # El saludo server-rendered (cualquiera de las 3 bandas).
     assert any(
@@ -305,27 +303,27 @@ def test_bienvenida_route_renders_for_propietario(client: TestClient):
 
 
 @_integration
-def test_bienvenida_route_renders_for_usuario(client: TestClient):
-    """Un usuario `rrhh` normal también accede a /bienvenida (no permiso)."""
+def test_dashboard_renders_welcome_for_usuario(client: TestClient):
+    """Un usuario `rrhh` normal también accede al dashboard."""
     email = f"rrhh{TEST_DOMAIN}"
     _create_user(email, role="usuario", dept_codes=["rrhh"])
     _, _, cookie = _login(client, email)
     assert cookie
 
     r = client.get(
-        "/bienvenida",
+        "/",
         cookies={"nexo_session": cookie},
         headers={"Accept": "text/html"},
     )
     assert r.status_code == 200, r.text[:500]
-    assert "Ir a Centro de Mando" in r.text
+    assert "Centro de Mando" in r.text
 
 
 @_integration
-def test_bienvenida_route_requires_auth(client: TestClient):
+def test_dashboard_requires_auth(client: TestClient):
     """Sin cookie → AuthMiddleware redirige HTML a /login."""
     r = client.get(
-        "/bienvenida",
+        "/",
         headers={"Accept": "text/html"},
     )
     assert r.status_code in (302, 303)
@@ -333,8 +331,8 @@ def test_bienvenida_route_requires_auth(client: TestClient):
 
 
 @_integration
-def test_bienvenida_template_shows_day_and_date_in_spanish(client: TestClient):
-    """El día de la semana y el mes se renderizan en castellano."""
+def test_bienvenida_route_redirects_to_dashboard(client: TestClient):
+    """La antigua ruta /bienvenida queda como compat hacia /."""
     email = f"date{TEST_DOMAIN}"
     _create_user(email, role="propietario", dept_codes=[])
     _, _, cookie = _login(client, email)
@@ -345,18 +343,5 @@ def test_bienvenida_template_shows_day_and_date_in_spanish(client: TestClient):
         cookies={"nexo_session": cookie},
         headers={"Accept": "text/html"},
     )
-    assert r.status_code == 200
-    body = r.text
-    # Al menos uno de los 7 días + uno de los 12 meses debe aparecer.
-    dias = [
-        "Lunes", "Martes", "Miércoles", "Jueves",
-        "Viernes", "Sábado", "Domingo",
-    ]
-    meses = [
-        "enero", "febrero", "marzo", "abril", "mayo", "junio",
-        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-    ]
-    assert any(d in body for d in dias), "debe incluir un día de la semana"
-    assert any(m in body for m in meses), "debe incluir un mes"
-    # Formato literal: "Es {dia}, {n} de {mes} de {YYYY}"
-    assert "Es " in body and " de " in body
+    assert r.status_code in (302, 303)
+    assert r.headers["location"] == "/"

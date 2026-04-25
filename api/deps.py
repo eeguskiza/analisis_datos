@@ -48,8 +48,10 @@ def user_display_name(user: Any | None, *, first_name_only: bool = False) -> str
     """Devuelve un nombre legible para UI a partir del usuario autenticado.
 
     Prioridad:
-    1. ``user.nombre`` si existe y no está vacío.
-    2. Fallback al local-part del email, limpiando separadores comunes
+    1. ``user.name`` + ``user.surname`` si existen.
+    2. ``user.nombre`` legacy si existe y no está vacío.
+    3. ``user.username`` si existe.
+    4. Fallback al local-part del email, limpiando separadores comunes
        (``.``, ``_``, ``-``) para que ``e.eguskiza@...`` no se vea literal.
 
     ``first_name_only=True`` devuelve el primer token visible. Se usa en la
@@ -58,9 +60,19 @@ def user_display_name(user: Any | None, *, first_name_only: bool = False) -> str
     if user is None:
         return ""
 
+    name = (getattr(user, "name", None) or "").strip()
+    surname = (getattr(user, "surname", None) or "").strip()
+    full_name = " ".join(p for p in [name, surname] if p).strip()
+    if full_name:
+        return full_name.split()[0] if first_name_only else full_name
+
     nombre = (getattr(user, "nombre", None) or "").strip()
     if nombre:
         return nombre.split()[0] if first_name_only else nombre
+
+    username = (getattr(user, "username", None) or "").strip()
+    if username:
+        return username.split()[0] if first_name_only else username
 
     email = (getattr(user, "email", None) or "").strip()
     if not email:

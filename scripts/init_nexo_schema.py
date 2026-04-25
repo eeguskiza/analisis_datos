@@ -175,6 +175,18 @@ def create_tables() -> None:
     NexoBase.metadata.create_all(engine_nexo)
 
 
+def apply_user_identity_migration() -> None:
+    """Aplica columnas de identidad de usuario sobre instalaciones existentes."""
+    sql_dir = Path(__file__).resolve().parents[1] / "nexo" / "data" / "sql" / "nexo"
+    for sql_path in [
+        sql_dir / "migration_add_users_nombre.sql",
+        sql_dir / "migration_add_users_identity.sql",
+    ]:
+        _log(f"Aplicando migracion idempotente {sql_path.name}")
+        with engine_nexo.begin() as conn:
+            conn.exec_driver_sql(sql_path.read_text(encoding="utf-8"))
+
+
 def seed_roles() -> None:
     _log(f"Seed de {len(ROLES_SEED)} roles")
     with engine_nexo.begin() as conn:
@@ -270,6 +282,7 @@ def main() -> int:
          f"{settings.pg_host}:{settings.pg_port}/{settings.pg_db}")
     create_schema()
     create_tables()
+    apply_user_identity_migration()
     seed_roles()
     seed_departments()
     seed_permissions()

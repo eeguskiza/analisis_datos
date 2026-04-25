@@ -1,4 +1,4 @@
-.PHONY: up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-owner nexo-verify nexo-smoke nexo-setup test-data prod-up prod-down prod-logs prod-status prod-health deploy backup test test-docker lint format migrate
+.PHONY: init up down build rebuild restart logs status dev db-shell clean help ip nexo-init nexo-schema nexo-owner nexo-verify nexo-smoke nexo-setup test-data prod-up prod-down prod-logs prod-status prod-health deploy backup test test-docker lint format migrate
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
@@ -52,7 +52,12 @@ db-shell: ## Abre una shell psql en el Postgres de Nexo
 
 # ── Nexo: schema + bootstrap (Phase 2 / Plan 02-01) ─────────────────────────
 
-nexo-init: ## Crea schema nexo + 11 tablas + seeds (idempotente, requiere 'make up')
+init: ## Arranque unico: build + schema + logs en vivo; Ctrl+C para parar
+	bash scripts/nexo-init.sh
+
+nexo-init: init ## Alias compatible de init
+
+nexo-schema: ## Crea schema nexo + 11 tablas + seeds (idempotente, requiere 'make up')
 	docker compose exec web python scripts/init_nexo_schema.py
 
 nexo-init-dev: ## Version 'make dev': corre init_nexo_schema.py desde el host contra localhost:5433
@@ -77,7 +82,7 @@ nexo-verify: ## Lista las tablas del schema nexo y los usuarios
 nexo-smoke: ## Smoke test de argon2id (hash + verify)
 	@docker compose exec web python -c "from nexo.services.auth import hash_password, verify_password; h = hash_password('test12345678'); print('hash:', h[:40], '...'); print('ok :', verify_password(h, 'test12345678')); print('bad:', verify_password(h, 'equivocado'))"
 
-nexo-setup: nexo-init nexo-verify ## Init completo (schema + verify). Owner se crea despues con 'make nexo-owner'
+nexo-setup: nexo-schema nexo-verify ## Init completo (schema + verify). Owner se crea despues con 'make nexo-owner'
 
 test-data: ## Arranca compose db y corre pytest tests/data/
 	docker compose up -d db
@@ -189,7 +194,7 @@ format: ## Auto-fix ruff + auto-format ruff (scoped api/ + nexo/)
 	ruff check --fix api/ nexo/
 	ruff format api/ nexo/
 
-migrate: ## Aplica schema nexo (alias idempotente de nexo-init)
+migrate: ## Aplica schema nexo (alias idempotente de nexo-schema)
 	docker compose exec web python scripts/init_nexo_schema.py
 
 # ── Ayuda ─────────────────────────────────────────────────────────────────────

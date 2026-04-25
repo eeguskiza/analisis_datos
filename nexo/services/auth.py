@@ -189,6 +189,13 @@ def get_user_by_email(db: Session, email: str) -> Optional[NexoUser]:
     return UserRepo(db).get_by_email_orm(email)
 
 
+def get_user_by_login(db: Session, login: str) -> Optional[NexoUser]:
+    """Busca usuario activo por ``username`` o ``email``."""
+    from nexo.data.repositories.nexo import UserRepo
+
+    return UserRepo(db).get_by_login_orm(login)
+
+
 # ── RBAC (Plan 02-03) ─────────────────────────────────────────────────────
 
 # Fuente de verdad de los permisos en codigo. La tabla ``nexo.permissions``

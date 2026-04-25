@@ -9,13 +9,10 @@ Comportamiento canónico (D-06 / D-07 del ``03-CONTEXT.md``):
 - Si falta alguna y ``NEXO_AUTO_MIGRATE=true`` → ejecuta
   ``NexoBase.metadata.create_all()`` y loguea ``WARNING`` ("sólo dev").
 
-Plan 08-03 (UIREDO-02) — Columnas crí­ticas: además de tablas, la
-lifespan verifica que columnas concretas existan. ``users.nombre`` es la
-primera entrada (necesaria para ``/ajustes/usuarios`` + ``base.html``
-topbar + landing ``/bienvenida``). Si falta y ``NEXO_AUTO_MIGRATE=true``,
-se aplica ``migration_add_users_nombre.sql`` (idempotente). Si falta y
-``NEXO_AUTO_MIGRATE`` no esta activo, ``RuntimeError`` con mensaje en
-espanol indicando el SQL concreto a ejecutar.
+Plan 08-03 (UIREDO-02) — Columnas críticas: además de tablas, la
+lifespan verifica que columnas concretas existan. ``users.nombre`` fue
+la primera entrada. La reestructura de usuarios añade ``username``,
+``name`` y ``surname`` manteniendo ``email`` y ``password_hash``.
 
 ``verify`` acepta ``critical_tables`` y ``required_columns`` como kwargs
 (defaults ``CRITICAL_TABLES`` / ``REQUIRED_COLUMNS``) para que los tests
@@ -62,6 +59,9 @@ CRITICAL_TABLES: tuple[str, ...] = (
 # concreto del SQL a aplicar manualmente.
 REQUIRED_COLUMNS: tuple[tuple[str, str], ...] = (
     ("users", "nombre"),  # Plan 08-03 / UIREDO-02
+    ("users", "username"),
+    ("users", "name"),
+    ("users", "surname"),
 )
 
 
@@ -72,6 +72,9 @@ REQUIRED_COLUMNS: tuple[tuple[str, str], ...] = (
 _SQL_DIR = Path(__file__).resolve().parent / "sql" / "nexo"
 _COLUMN_MIGRATIONS: dict[tuple[str, str], Path] = {
     ("users", "nombre"): _SQL_DIR / "migration_add_users_nombre.sql",
+    ("users", "username"): _SQL_DIR / "migration_add_users_identity.sql",
+    ("users", "name"): _SQL_DIR / "migration_add_users_identity.sql",
+    ("users", "surname"): _SQL_DIR / "migration_add_users_identity.sql",
 }
 
 

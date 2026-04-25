@@ -27,6 +27,7 @@ from nexo.services.auth import (
     clear_attempts,
     create_session,
     get_user_by_email,
+    get_user_by_login,
     hash_password,
     record_failed_attempt,
     revoke_all_sessions,
@@ -111,11 +112,11 @@ async def login_post(
     db: Session = Depends(get_nexo_db),
 ):
     ip = _client_ip(request)
-    email_norm = email.strip().lower()
+    login_norm = email.strip().lower()
 
     # 1) Lockout
-    if check_lockout(db, email_norm, ip):
-        logger.warning("login bloqueado por lockout: %s desde %s", email_norm, ip)
+    if check_lockout(db, login_norm, ip):
+        logger.warning("login bloqueado por lockout: %s desde %s", login_norm, ip)
         return _render_login(
             request,
             error="Cuenta temporalmente bloqueada. Reintenta en 15 minutos.",
@@ -123,17 +124,17 @@ async def login_post(
         )
 
     # 2) Lookup + verify. Error generico para no filtrar si el usuario existe.
-    user = get_user_by_email(db, email_norm)
+    user = get_user_by_login(db, login_norm)
     if user is None:
-        record_failed_attempt(db, email_norm, ip)
+        record_failed_attempt(db, login_norm, ip)
         return _render_login(request, error="Credenciales invalidas", status_code=401)
 
     if not verify_password(user.password_hash, password):
-        record_failed_attempt(db, email_norm, ip)
+        record_failed_attempt(db, login_norm, ip)
         return _render_login(request, error="Credenciales invalidas", status_code=401)
 
     # 3) Login valido
-    clear_attempts(db, email_norm, ip)
+    clear_attempts(db, login_norm, ip)
     user.last_login = datetime.now(timezone.utc)
     db.commit()
 
@@ -141,10 +142,9 @@ async def login_post(
 
     # must_change_password → cortocircuita a /cambiar-password. El middleware
     # lo volveria a hacer en la proxima request, pero asi ahorramos un hop.
-    # Plan 08-04: login OK redirige a /bienvenida (landing con saludo + reloj).
-    # El must_change_password branch queda intacto — el cambio forzado sigue
-    # siendo prioritario sobre la landing.
-    target = "/cambiar-password" if user.must_change_password else "/bienvenida"
+    # Login OK va directo al dashboard. El cambio forzado sigue siendo
+    # prioritario sobre cualquier destino normal.
+    target = "/cambiar-password" if user.must_change_password else "/"
     response: Response = RedirectResponse(target, status_code=303)
     response.set_cookie(
         key=settings.session_cookie_name,
@@ -155,7 +155,7 @@ async def login_post(
         max_age=settings.session_ttl_hours * 3600,
         path="/",
     )
-    logger.info("login OK: %s desde %s → %s", email_norm, ip, target)
+    logger.info("login OK: %s desde %s → %s", login_norm, ip, target)
     return response
 
 

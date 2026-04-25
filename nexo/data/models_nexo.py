@@ -80,11 +80,16 @@ class NexoUser(NexoBase):
     __table_args__ = {"schema": NEXO_SCHEMA}
 
     id = Column(Integer, primary_key=True)
+    username = Column(String(80), nullable=True, unique=True, index=True)
+    name = Column(String(80), nullable=True)
+    surname = Column(String(120), nullable=True)
     email = Column(String(200), nullable=False, unique=True, index=True)
     # Plan 08-03 / UIREDO-02: nombre mostrado en topbar + bienvenida.
     # Nullable para backfill progresivo; backfill via
     # ``nexo/data/sql/nexo/migration_add_users_nombre.sql`` rellena con la
     # parte local del email capitalizada (``e.eguskiza`` -> ``E.eguskiza``).
+    # Desde la reestructura de usuarios, se conserva como alias legacy
+    # calculado desde name + surname para compatibilidad con templates/tests.
     nombre = Column(String(120), nullable=True)
     password_hash = Column(String(200), nullable=False)
     role = Column(String(20), nullable=False)  # propietario | directivo | usuario

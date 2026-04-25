@@ -34,6 +34,12 @@ services:
       # llegando al web por la red interna de compose en el puerto 8000.
       - "${NEXO_WEB_HOST_PORT:-8001}:8000"
     volumes:
+      - ./api:/app/api
+      - ./nexo:/app/nexo
+      - ./OEE:/app/OEE
+      - ./scripts:/app/scripts
+      - ./templates:/app/templates
+      - ./static:/app/static
       - ./data:/app/data
       - ./informes:/app/informes
       # tests/data/reference/ guarda PDFs baseline del gate de regresion
@@ -49,6 +55,7 @@ services:
       - .env
     environment:
       - TZ=Europe/Madrid
+      - PYTHONDONTWRITEBYTECODE=1
       - NEXO_DATA_DIR=/app/data
       - NEXO_INFORMES_DIR=/app/informes
       - NEXO_DATABASE_URL=postgresql://${NEXO_PG_USER:-${OEE_PG_USER:-oee}}:${NEXO_PG_PASSWORD:-${OEE_PG_PASSWORD:-oee}}@db:5432/${NEXO_PG_DB:-${OEE_PG_DB:-oee_planta}}

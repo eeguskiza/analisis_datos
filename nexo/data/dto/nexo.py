@@ -16,6 +16,9 @@ from pydantic import BaseModel, ConfigDict
 class UserRow(BaseModel):
     model_config = ConfigDict(frozen=True, from_attributes=True)
     id: int
+    username: Optional[str] = None
+    name: Optional[str] = None
+    surname: Optional[str] = None
     email: str
     # Plan 08-03 / UIREDO-02: nombre mostrado en topbar + bienvenida.
     # Nullable; fallback a email.split('@')[0]|capitalize en plantillas.

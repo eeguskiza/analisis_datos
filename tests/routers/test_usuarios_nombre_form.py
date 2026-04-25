@@ -1,12 +1,11 @@
-"""Regression for Phase 8 / Plan 08-03: /ajustes/usuarios accepts nombre.
+"""Regression: /ajustes/usuarios manages local Nexo users.
 
 Locks:
-1. The HTML form renders the nombre input with the UI-SPEC literal label.
-2. POST /ajustes/usuarios/crear with nombre=Ada persists correctly.
-3. POST sin nombre (empty form value) stores NULL.
-4. POST /{id}/editar round-trips nombre (update from None -> "Bob", then
-   back to None via whitespace).
-5. Phase 5 `usuarios:manage` permission still guards the endpoint — a
+1. The HTML form renders username/name/surname/email/password fields.
+2. POST /ajustes/usuarios/crear persists username, name, surname, correo
+   and derived legacy nombre.
+3. POST /{id}/editar round-trips the identity fields.
+4. Phase 5 `usuarios:manage` permission still guards the endpoint — a
    non-propietario POST gets 403 (no silent write).
 
 Integration — requiere Postgres arriba. Mismo patron que
@@ -110,6 +109,9 @@ def _create_user(
     db = SessionLocalNexo()
     try:
         u = NexoUser(
+            username=email.split("@", 1)[0],
+            name=nombre.split(" ", 1)[0] if nombre else "Test",
+            surname=nombre.split(" ", 1)[1] if nombre and " " in nombre else "User",
             email=email,
             nombre=nombre,
             password_hash=hash_password(TEST_PASSWORD),
@@ -157,8 +159,7 @@ def _fetch_user(email: str) -> NexoUser | None:
 
 
 def test_form_renders_nombre_field(client: TestClient) -> None:
-    """La lista /ajustes/usuarios incluye el input `name="nombre"` con la
-    etiqueta literal de UI-SPEC §Label pattern (D-24/D-26)."""
+    """La lista /ajustes/usuarios incluye los campos de identidad."""
     email = f"owner-form{TEST_DOMAIN}"
     _create_user(email, role="propietario")
     cookie = _login(client, email)
@@ -166,15 +167,15 @@ def test_form_renders_nombre_field(client: TestClient) -> None:
     r = client.get("/ajustes/usuarios", cookies={"nexo_session": cookie})
     assert r.status_code == 200
     body = r.text
-    assert 'name="nombre"' in body, "El form debe tener el input con name=nombre"
-    # UI-SPEC §Label pattern (D-24 + D-26) — etiqueta literal:
-    assert 'Nombre <span class="text-muted font-normal">(opcional)</span>' in body, (
-        "La etiqueta del campo nombre debe seguir la plantilla D-24/D-26 literal"
-    )
+    assert 'name="username"' in body
+    assert 'name="name"' in body
+    assert 'name="surname"' in body
+    assert 'name="email"' in body
+    assert 'name="password"' in body
 
 
-def test_post_crear_with_nombre_persists(client: TestClient) -> None:
-    """POST /ajustes/usuarios/crear con nombre=Ada persiste la columna."""
+def test_post_crear_with_identity_persists(client: TestClient) -> None:
+    """POST /ajustes/usuarios/crear persiste la identidad completa."""
     email = f"owner-create{TEST_DOMAIN}"
     _create_user(email, role="propietario")
     cookie = _login(client, email)
@@ -184,22 +185,27 @@ def test_post_crear_with_nombre_persists(client: TestClient) -> None:
         "/ajustes/usuarios/crear",
         cookies={"nexo_session": cookie},
         data={
+            "username": "ada",
+            "name": "Ada",
+            "surname": "Lovelace",
             "email": new_email,
             "password": "AdaPasswordValid123",
             "password_repetir": "AdaPasswordValid123",
             "role": "usuario",
-            "nombre": "Ada Lovelace",
             "departments": ["ingenieria"],
         },
     )
     assert r.status_code in (200, 302, 303), f"body={r.text[:300]}"
     row = _fetch_user(new_email)
     assert row is not None
+    assert row.username == "ada"
+    assert row.name == "Ada"
+    assert row.surname == "Lovelace"
     assert row.nombre == "Ada Lovelace"
 
 
-def test_post_crear_empty_nombre_stores_null(client: TestClient) -> None:
-    """POST con nombre='' o whitespace → persiste NULL (fallback al email)."""
+def test_post_crear_requires_name_and_surname(client: TestClient) -> None:
+    """Nombre y apellidos son obligatorios en el alta del propietario."""
     email = f"owner-empty{TEST_DOMAIN}"
     _create_user(email, role="propietario")
     cookie = _login(client, email)
@@ -209,60 +215,51 @@ def test_post_crear_empty_nombre_stores_null(client: TestClient) -> None:
         "/ajustes/usuarios/crear",
         cookies={"nexo_session": cookie},
         data={
+            "username": "no-name",
+            "name": "   ",
+            "surname": "",
             "email": new_email,
             "password": "NoNamePasswordValid12",
             "password_repetir": "NoNamePasswordValid12",
             "role": "usuario",
-            "nombre": "   ",  # whitespace-only
         },
     )
-    assert r.status_code in (200, 302, 303)
+    assert r.status_code == 200
+    assert "Nombre obligatorio" in r.text
     row = _fetch_user(new_email)
-    assert row is not None
-    assert row.nombre is None, "whitespace-only nombre debe persistirse como NULL"
+    assert row is None
 
 
-def test_post_editar_round_trip_nombre(client: TestClient) -> None:
-    """POST /{id}/editar actualiza nombre (None -> "Bob"; "Bob" -> None)."""
+def test_post_editar_round_trip_identity(client: TestClient) -> None:
+    """POST /{id}/editar actualiza username, nombre, apellidos y correo."""
     owner_email = f"owner-edit{TEST_DOMAIN}"
     _create_user(owner_email, role="propietario")
     cookie = _login(client, owner_email)
 
-    # Target: usuario con nombre=None inicialmente.
     target_email = f"target{TEST_DOMAIN}"
     target = _create_user(target_email, role="usuario", dept_codes=["rrhh"], nombre=None)
+    new_email = f"target-new{TEST_DOMAIN}"
 
-    # --- Set nombre = "Bob" ---
     r = client.post(
         f"/ajustes/usuarios/{target.id}/editar",
         cookies={"nexo_session": cookie},
         data={
+            "username": "bob",
+            "name": "Bob",
+            "surname": "Builder",
+            "email": new_email,
             "role": "usuario",
-            "nombre": "Bob",
             "departments": ["rrhh"],
             "active": "on",
         },
     )
     assert r.status_code in (200, 302, 303), f"body={r.text[:300]}"
-    row = _fetch_user(target_email)
+    row = _fetch_user(new_email)
     assert row is not None
-    assert row.nombre == "Bob"
-
-    # --- Clear nombre via whitespace -> None ---
-    r = client.post(
-        f"/ajustes/usuarios/{target.id}/editar",
-        cookies={"nexo_session": cookie},
-        data={
-            "role": "usuario",
-            "nombre": "   ",
-            "departments": ["rrhh"],
-            "active": "on",
-        },
-    )
-    assert r.status_code in (200, 302, 303)
-    row = _fetch_user(target_email)
-    assert row is not None
-    assert row.nombre is None
+    assert row.username == "bob"
+    assert row.name == "Bob"
+    assert row.surname == "Builder"
+    assert row.nombre == "Bob Builder"
 
 
 def test_non_propietario_cannot_post_crear(client: TestClient) -> None:
@@ -280,11 +277,13 @@ def test_non_propietario_cannot_post_crear(client: TestClient) -> None:
         "/ajustes/usuarios/crear",
         cookies={"nexo_session": cookie},
         data={
+            "username": "evil",
+            "name": "Evil",
+            "surname": "Hacker",
             "email": f"evil{TEST_DOMAIN}",
             "password": "EvilPasswordValid12",
             "password_repetir": "EvilPasswordValid12",
             "role": "usuario",
-            "nombre": "Evil Hacker",
         },
     )
     # Phase 5 FlashMiddleware: HTML 403 se convierte en 303+cookie al /;
